@@ -46,7 +46,7 @@ namespace ELoginType
 		else
 		{
 			verifyf(false, TEXT("LoginType: %s is not supported"), *LoginTypeString);
-			return AccountPortal; // Needs to be here....
+			return RefreshToken; // Needs to be here....
 		}
 	}
 }

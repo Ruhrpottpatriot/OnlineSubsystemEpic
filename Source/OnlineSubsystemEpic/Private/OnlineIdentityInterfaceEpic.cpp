@@ -128,18 +128,59 @@ bool FOnlineIdentityInterfaceEpic::Login(int32 LocalUserNum, const FOnlineAccoun
 			credentials.ApiVersion = EOS_AUTH_CREDENTIALS_API_LATEST;
 
 			ELoginType::Type loginType = ELoginType::FromString(AccountCredentials.Type);
-			if (loginType == ELoginType::Developer)
+			char const* idPtr = TCHAR_TO_ANSI(*AccountCredentials.Id);
+			char const* tokenPtr = TCHAR_TO_ANSI(*AccountCredentials.Token);
+
+			switch (loginType)
 			{
-				UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Logging In with Host: %s"), *AccountCredentials.Id);
-				credentials.Id = TCHAR_TO_ANSI(*FString::Printf(TEXT("127.0.0.1:%d"), this->subsystemEpic->devToolPort));
+			case ELoginType::Password:
+			{
+				UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Logging In as User Id: %s"), idPtr);
+				credentials.Id = idPtr;
+				credentials.Token = tokenPtr;
+				credentials.Type = EOS_ELoginCredentialType::EOS_LCT_Password;
+				break;
+			}
+			case ELoginType::ExchangeCode:
+			{
+				UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Logging In with Exchange Code"));
+				credentials.Token = idPtr;
+				credentials.Type = EOS_ELoginCredentialType::EOS_LCT_ExchangeCode;
+				break;
+			}
+			case ELoginType::PersistentAuth:
+			{
+				UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Logging In with Persistent Auth"));
+				credentials.Type = EOS_ELoginCredentialType::EOS_LCT_PersistentAuth;
+				break;
+			}
+			case ELoginType::DeviceCode:
+			{
+				UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Logging In with Device Code"));
+				credentials.Type = EOS_ELoginCredentialType::EOS_LCT_DeviceCode;
+				break;
+			}
+			case ELoginType::Developer:
+			{
+				FString hostStr = FString::Printf(TEXT("127.0.0.1:%d"), this->subsystemEpic->devToolPort);
+
+				UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Logging In with Host: %s"), *hostStr);
+				credentials.Id = TCHAR_TO_ANSI(*hostStr);
 				credentials.Token = TCHAR_TO_ANSI(*AccountCredentials.Id);
 				credentials.Type = EOS_ELoginCredentialType::EOS_LCT_Developer;
+				break;
 			}
-			else
+			case ELoginType::AccountPortal:
 			{
-				// ToDo: Implement other auth methods besides DevAuth!
+				UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Logging In with Account Portal"));
+				credentials.Type = EOS_ELoginCredentialType::EOS_LCT_AccountPortal;
+				break;
+			}
+			default:
+			{
 				UE_LOG_ONLINE_IDENTITY(Fatal, TEXT("Login of type %s not supported"), *AccountCredentials.Type);
 				return false;
+			}
 			}
 
 			EOS_Auth_LoginOptions loginOpts;
