@@ -1,7 +1,7 @@
 # EpicOnlineServices
-Source/ThirdParty/EOSSDK/Bin/
-Source/ThirdParty/EOSSDK/Include/
-Source/ThirdParty/EOSSDK/Lib/
+Source/ThirdParty/OnlineSubsystemEpicLibrary/Bin/
+Source/ThirdParty/OnlineSubsystemEpicLibrary/Include/
+Source/ThirdParty/OnlineSubsystemEpicLibrary/Lib/
 
 # Visual Studio 2015 user specific files
 .vs/
