@@ -141,42 +141,47 @@ bool FOnlineSubsystemEpic::Init()
 	}
 	bool hasInvalidParams = false;
 
+	// Get the Developer tool port.
+	// If this isn't set, we default to 9999
+	if (!GConfig->GetInt(
+		TEXT("OnlineSubsystemEpic"),
+		TEXT("DevToolPort"),
+		this->devToolPort,
+		GEngineIni))
+	{
+		UE_LOG_ONLINE(Verbose, TEXT("DevToolPort not set in ini, defaulting to 9999"));
+		this->devToolPort = 9999;
+	}
+
 	// Read project name and version from config files
 	FString productId;
-	GConfig->GetString(
+	if (!GConfig->GetString(
 		TEXT("OnlineSubsystemEpic"),
 		TEXT("ProductId"),
 		productId,
-		GEngineIni
-	);
-
-	if (productId.IsEmpty())
+		GEngineIni))
 	{
 		UE_LOG_ONLINE(Warning, TEXT("Product Id is empty, add your product id from Epic Games DevPortal to the config files."));
 		hasInvalidParams = true;
 	}
 
 	FString sandboxId;
-	GConfig->GetString(
+	if (!GConfig->GetString(
 		TEXT("OnlineSubsystemEpic"),
 		TEXT("SandboxId"),
 		sandboxId,
-		GEngineIni
-	);
-	if (sandboxId.IsEmpty())
+		GEngineIni))
 	{
 		UE_LOG_ONLINE(Warning, TEXT("Sandbox Id is empty, add your sandbox id from Epic Games DevPortal to the config files."));
 		hasInvalidParams = true;
 	}
 
 	FString deploymentId;
-	GConfig->GetString(
+	if (!GConfig->GetString(
 		TEXT("OnlineSubsystemEpic"),
 		TEXT("DeploymentId"),
 		deploymentId,
-		GEngineIni
-	);
-	if (deploymentId.IsEmpty())
+		GEngineIni))
 	{
 		UE_LOG_ONLINE(Warning, TEXT("Deployment Id is empty, add your deployment id from Epic Games DevPortal to the config files."));
 		hasInvalidParams = true;
@@ -206,7 +211,6 @@ bool FOnlineSubsystemEpic::Init()
 	{
 		return false;
 	}
-
 
 
 	// Create platform instance
