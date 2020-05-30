@@ -36,7 +36,7 @@ ClientCredentialsSecret = <ClientCredentialsSecret>
 
 ## Usage
 This plugin is used like any other OnlineSubsystem Plugin already existing. This means, that most of the time you won't need to directly interface with the system directly, but can let the engine classes handle the calls.
-If you need to directly access the OnlineSubsystem you should get the static pointer to it via `IOnlineSubsystem::Get()` and go on from there.
+If you need to directly access the OnlineSubsystem you should get it via the static helper methods in `Online.h`. These helper methods make sure the correct subsystem instance is retrieved (multiple can exist in the editor, and things like logins are tied to a specific instance). Outside of C++ there exists multiple asynchronous blueprint nodes in the _OnlineSubsystemUtils_ plugin. In most cases there is no need to access the online subsystem via `IOnlineSubsystem::Get()`.
 
 ## Limitations
 Currently only the `IOnlineIdentity` interface is implemented and inside said interface only _Developer_ login is working. MFA and PinGrantCode are also not supported currently.

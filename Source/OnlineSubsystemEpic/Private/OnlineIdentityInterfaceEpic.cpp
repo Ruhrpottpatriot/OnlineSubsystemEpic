@@ -2,8 +2,8 @@
 #include "OnlineSubsystemEpic.h"
 #include "OnlineError.h"
 #include "Utilities.h"
-#include <eos_types.h>
-#include <eos_auth.h>
+#include "eos_sdk.h"
+#include "eos_auth.h"
 
 //-------------------------------
 // FUserOnlineAccountEpic
@@ -251,6 +251,7 @@ void FOnlineIdentityInterfaceEpic::LoginCompleteCallbackFunc(const EOS_Auth_Logi
 	}
 	else
 	{
+		localIdx = INDEX_NONE;
 		//ToDo: Implement PinGrantCode and MFA
 		char const* resultStr = EOS_EResult_ToString(Data->ResultCode);
 		errorString = FString::Printf(TEXT("[EOS SDK] Login Failed - Error Code: %s"), resultStr);
