@@ -92,16 +92,16 @@ void FOnlineSubsystemEpicModule::StartupModule()
 	FString LibraryPath;
 #if PLATFORM_WINDOWS
 #if PLATFORM_32BITS
-	LibraryPath = FPaths::Combine(*BaseDir, TEXT("Source/ThirdParty/OnlineSubsystemEpicLibrary/x86/EOSSDK-Win32-Shipping.dll"));
+	LibraryPath = FPaths::Combine(*BaseDir, TEXT("Source/ThirdParty/OnlineSubsystemEpicLibrary/Bin/EOSSDK-Win32-Shipping.dll"));
 #else
-	LibraryPath = FPaths::Combine(*BaseDir, TEXT("Source/ThirdParty/OnlineSubsystemEpicLibrary/x64/EOSSDK-Win64-Shipping.dll"));
+	LibraryPath = FPaths::Combine(*BaseDir, TEXT("Source/ThirdParty/OnlineSubsystemEpicLibrary/Bin/EOSSDK-Win64-Shipping.dll"));
 #endif
 #elif PLATFORM_MAC
-	LibraryPath = FPaths::Combine(*BaseDir, TEXT("Source/ThirdParty/OnlineSubsystemEpicLibrary/Mac/libEOSSDK-Mac-Shipping.dylib"));
+	LibraryPath = FPaths::Combine(*BaseDir, TEXT("Source/ThirdParty/OnlineSubsystemEpicLibrary/Bin/libEOSSDK-Mac-Shipping.dylib"));
 #endif // PLATFORM_WINDOWS
 
 	EpicOnlineServiceSDKLibraryHandle = !LibraryPath.IsEmpty() ? FPlatformProcess::GetDllHandle(*LibraryPath) : nullptr;
-	checkf(EpicOnlineServiceSDKLibraryHandle, TEXT("Failed to load Epic online service library"));
+	checkf(EpicOnlineServiceSDKLibraryHandle, TEXT("Failed to load Epic online service library, please make sure SDK binaries are installed at the correct location"));
 
 	OnlineFactory = new FOnlineFactoryEpic();
 
@@ -139,7 +139,7 @@ void FOnlineSubsystemEpicModule::StartupModule()
 
 	// Initialize the SDK and only proceed if the init was successful
 	EOS_EResult initResult = EOS_Initialize(&initOpts);
-	checkf(initResult == EOS_EResult::EOS_Success, TEXT("Failed to initialize the EpicOnlineService SDK. Error: %s"), *ANSI_TO_TCHAR(EOS_EResult_ToString(initResult)));
+	checkf(initResult == EOS_EResult::EOS_Success, TEXT("Failed to initialize the EpicOnlineService SDK. Error: %s"), ANSI_TO_TCHAR(EOS_EResult_ToString(initResult)));
 
 	// Register logging
 	UE_LOG_ONLINE(Display, TEXT("[EOS SDK] Initialized. Setting Logging Callback ..."));

@@ -227,7 +227,13 @@ bool FOnlineSubsystemEpic::Init()
 	PlatformOptions.OverrideCountryCode = nullptr;
 	PlatformOptions.OverrideLocaleCode = nullptr;
 	PlatformOptions.DeploymentId = TCHAR_TO_ANSI(*deploymentId);
+#if UE_EDITOR
+	// The platform overlay causes rendering artifacts in the editor,
+	// this flag ensures it is not loaded in the editor or PIE
+	PlatformOptions.Flags = EOS_PF_LOADING_IN_EDITOR;
+#else
 	PlatformOptions.Flags = 0;
+#endif
 	PlatformOptions.CacheDirectory = FUtils::GetTempDirectory();
 
 	this->PlatformHandle = EOS_Platform_Create(&PlatformOptions);

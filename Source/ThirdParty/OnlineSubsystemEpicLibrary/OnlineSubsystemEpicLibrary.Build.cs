@@ -11,36 +11,33 @@ public class OnlineSubsystemEpicLibrary : ModuleRules
                 
         // Add header files to include path
         PublicIncludePaths.Add(Path.Combine(ModuleDirectory, "Include"));
+        string BaseDirectory = Path.GetFullPath(Path.Combine(ModuleDirectory, "..", "..", "ThirdParty", "OnlineSubsystemEpicLibrary"));
+
+        PublicIncludePaths.Add(Path.Combine(BaseDirectory, "Include"));
 
         // Handle libraries
-        if(Target.Platform == UnrealTargetPlatform.Win32)
-        {
+        if (Target.Platform == UnrealTargetPlatform.Win64) {
             // Add the import library
-            PublicAdditionalLibraries.Add(Path.Combine(ModuleDirectory, "Lib", "EOSSDK-Win32-Shipping.lib"));
+            PublicAdditionalLibraries.Add(Path.Combine(BaseDirectory, "Lib", "EOSSDK-Win64-Shipping.lib"));
 
-            // Delay-load the DLL, so we can load it from the right place first
-            PublicDelayLoadDLLs.Add("EOSSDK-Win32-Shipping.dll");
-
-            // Ensure that the DLL is staged along with the executable
-            var s = "$(PluginDir)/Binaries/ThirdParty/OnlineSubsystemEpicLibrary/Bin/EOSSDK-Win32-Shipping.dll";
-            RuntimeDependencies.Add(s);
-        }
-        else if (Target.Platform == UnrealTargetPlatform.Win64)
-        {
-            PublicAdditionalLibraries.Add(Path.Combine(ModuleDirectory, "Lib", "EOSSDK-Win64-Shipping.lib"));
+            // Dlls
+            RuntimeDependencies.Add(Path.Combine(BaseDirectory, "Bin", "EOSSDK-Win64-Shipping.dll"));
             PublicDelayLoadDLLs.Add("EOSSDK-Win64-Shipping.dll");
-            RuntimeDependencies.Add("$(PluginDir)/Binaries/ThirdParty/OnlineSubsystemEpicLibrary/Bin/EOSSDK-Win64-Shipping.dll");
-        }
-        else if (Target.Platform == UnrealTargetPlatform.Linux)
-        {
-            PublicDelayLoadDLLs.Add(Path.Combine(ModuleDirectory, "Bin", "libEOSSDK-Linux-Shipping.so"));
-            RuntimeDependencies.Add("$(PluginDir)/Source/ThirdParty/OnlineSubsystemEpicLibrary/Bin/libEOSSDK-Linux-Shipping.so");
+        } else if (Target.Platform == UnrealTargetPlatform.Win32) {
+            // Add the import library
+            PublicAdditionalLibraries.Add(Path.Combine(BaseDirectory, "Lib", "EOSSDK-Win32-Shipping.lib"));
 
-        }
-        else if (Target.Platform == UnrealTargetPlatform.Mac)
-        {
-            PublicDelayLoadDLLs.Add(Path.Combine(ModuleDirectory, "Bin", "libEOSSDK-Mac-Shipping.dylib"));
-            RuntimeDependencies.Add("$(PluginDir)/Source/ThirdParty/OnlineSubsystemEpicLibrary/Bin/libEOSSDK-Mac-Shipping.dylib");
+            // Dlls
+            RuntimeDependencies.Add(Path.Combine(BaseDirectory, "Bin", "EOSSDK-Win32-Shipping.dll"));
+            PublicDelayLoadDLLs.Add("EOSSDK-Win32-Shipping.dll");
+        } else if (Target.Platform == UnrealTargetPlatform.Linux) {
+            // Add the import library
+            PublicAdditionalLibraries.Add(Path.Combine(BaseDirectory, "Bin", "libEOSSDK-Linux-Shipping.so"));
+            RuntimeDependencies.Add(Path.Combine(BaseDirectory, "Bin", "libEOSSDK-Linux-Shipping.so"));
+        } else if (Target.Platform == UnrealTargetPlatform.Mac) {
+            // Add the import library
+            PublicAdditionalLibraries.Add(Path.Combine(BaseDirectory, "Bin", "libEOSSDK-Mac-Shipping.dylib"));
+            RuntimeDependencies.Add(Path.Combine(BaseDirectory, "Bin", "libEOSSDK-Mac-Shipping.dylib"));
         }
     }
 }
