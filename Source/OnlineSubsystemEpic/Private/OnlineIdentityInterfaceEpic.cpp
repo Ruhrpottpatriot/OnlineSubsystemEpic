@@ -92,12 +92,7 @@ bool FOnlineIdentityInterfaceEpic::Login(int32 LocalUserNum, const FOnlineAccoun
 	}
 	else
 	{
-		// Get the auth and connect handle
-		EOS_HPlatform platform = this->subsystemEpic->PlatformHandle;
-		check(platform);
-
-		EOS_HAuth authHandle = EOS_Platform_GetAuthInterface(platform);
-		check(authHandle);
+		EOS_HAuth authHandle = this->GetEOSAuthHandle();
 
 		// Check if the local user is already logged in
 		EOS_EpicAccountId eosId = EOS_Auth_GetLoggedInAccountByIndex(authHandle, LocalUserNum);
@@ -253,7 +248,7 @@ void FOnlineIdentityInterfaceEpic::LoginCompleteCallbackFunc(const EOS_Auth_Logi
 	{
 		localIdx = INDEX_NONE;
 		//ToDo: Implement PinGrantCode and MFA
-		char const* resultStr = EOS_EResult_ToString(Data->ResultCode);
+		auto resultStr = ANSI_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode));
 		errorString = FString::Printf(TEXT("[EOS SDK] Login Failed - Error Code: %s"), resultStr);
 	}
 
@@ -275,8 +270,25 @@ FOnlineIdentityInterfaceEpic::FOnlineIdentityInterfaceEpic(FOnlineSubsystemEpic*
 
 bool FOnlineIdentityInterfaceEpic::AutoLogin(int32 LocalUserNum)
 {
-	UE_LOG_ONLINE_IDENTITY(Fatal, TEXT("FOnlineIdentityInterfaceEpic::AutoLogin not implemented yet."));
-	return false;
+	if (LocalUserNum != 0) {
+		UE_LOG_ONLINE_IDENTITY(Fatal, TEXT("FOnlineIdentityInterfaceEpic::AutoLogin not implemented for more than 1 local user."));
+		return false;
+	}
+
+	EOS_Auth_Credentials Credentials;
+	Credentials.ApiVersion = EOS_AUTH_CREDENTIALS_API_LATEST;
+	Credentials.Type = EOS_ELoginCredentialType::EOS_LCT_PersistentAuth;
+	Credentials.Id = NULL;
+	Credentials.Token = NULL;
+
+	EOS_Auth_LoginOptions LoginOptions;
+	memset(&LoginOptions, 0, sizeof(LoginOptions));
+	LoginOptions.ApiVersion = EOS_AUTH_LOGIN_API_LATEST;
+	LoginOptions.Credentials = &Credentials;
+
+	EOS_HAuth AuthHandle = GetEOSAuthHandle();
+	EOS_Auth_Login(AuthHandle, &LoginOptions, this, &FOnlineIdentityInterfaceEpic::LoginCompleteCallbackFunc);
+	return true;
 }
 
 TSharedPtr<const FUniqueNetId> FOnlineIdentityInterfaceEpic::CreateUniquePlayerId(const FString& Str)
@@ -457,6 +469,17 @@ void FOnlineIdentityInterfaceEpic::LogoutCompleteCallbackFunc(const EOS_Auth_Log
 	thisPtr->userAccounts.Remove(id);
 
 	thisPtr->TriggerOnLogoutCompleteDelegates(idIdx, true);
+}
+
+EOS_AuthHandle* FOnlineIdentityInterfaceEpic::GetEOSAuthHandle()
+{
+	EOS_HPlatform platform = this->subsystemEpic->PlatformHandle;
+	check(platform);
+
+	EOS_HAuth authHandle = EOS_Platform_GetAuthInterface(platform);
+	check(authHandle);
+
+	return authHandle;
 }
 
 void FOnlineIdentityInterfaceEpic::RevokeAuthToken(const FUniqueNetId& LocalUserId, const FOnRevokeAuthTokenCompleteDelegate& Delegate)

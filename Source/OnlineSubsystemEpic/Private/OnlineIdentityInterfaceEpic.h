@@ -88,4 +88,6 @@ private:
 
 	static void LoginCompleteCallbackFunc(const EOS_Auth_LoginCallbackInfo* Data);
 	static void LogoutCompleteCallbackFunc(const EOS_Auth_LogoutCallbackInfo* Data);
+
+	EOS_AuthHandle* GetEOSAuthHandle();
 };
