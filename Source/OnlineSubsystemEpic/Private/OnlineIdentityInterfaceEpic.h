@@ -35,21 +35,15 @@ public:
 	virtual bool GetAuthAttribute(const FString& AttrName, FString& OutAttrValue) const override;
 	virtual bool SetAuthAttribute(const FString& AttrName, const FString& AttrValue);
 
-	FUserOnlineAccountEpic(const FString& InUserId = TEXT(""))
-		: UserIdPtr(new FUniqueNetIdEpic(InUserId))
-	{
-	}
 
-	FUserOnlineAccountEpic(const FUniqueNetIdEpic& InUserId)
-		: UserIdPtr(&InUserId)
-	{
-	}
+	/** User Id represented as a FUniqueNetId */
+	TSharedRef<FUniqueNetIdEpic> UserIdPtr;
 
 	virtual ~FUserOnlineAccountEpic() = default;
 
 };
 
-class FOnlineIdentityInterfaceEpic 
+class FOnlineIdentityInterfaceEpic
 	: public IOnlineIdentity
 {
 public:
@@ -81,10 +75,7 @@ private:
 	FOnlineSubsystemEpic* subsystemEpic;
 
 	/** Ids mapped to locally registered users */
-	//TMap<int32, TSharedPtr<const FUniqueNetId>> userIds;
-
-	/** Ids mapped to locally registered users */
-	TMap<FUniqueNetIdEpic, TSharedRef<FUserOnlineAccountEpic>> userAccounts;
+	TMap<FString, TSharedRef<FUserOnlineAccountEpic>> userAccounts;
 
 	static void LoginCompleteCallbackFunc(const EOS_Auth_LoginCallbackInfo* Data);
 	static void LogoutCompleteCallbackFunc(const EOS_Auth_LogoutCallbackInfo* Data);

@@ -19,6 +19,9 @@ public class OnlineSubsystemEpic : ModuleRules
         PrivateDependencyModuleNames.AddRange(
             new string[] {
                 "Core",
+                "NetCore",
+                "CoreUObject",
+                "Engine",
                 "OnlineSubsystemEpicLibrary",
                 "OnlineSubsystem",
                 "Json",
