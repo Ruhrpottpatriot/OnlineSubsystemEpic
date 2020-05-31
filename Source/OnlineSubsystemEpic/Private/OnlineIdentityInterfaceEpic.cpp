@@ -92,7 +92,7 @@ bool FOnlineIdentityInterfaceEpic::Login(int32 LocalUserNum, const FOnlineAccoun
 	}
 	else
 	{
-		EOS_HAuth authHandle = GetEOSAuthHandle();
+		EOS_HAuth authHandle = this->GetEOSAuthHandle();
 
 		// Check if the local user is already logged in
 		EOS_EpicAccountId eosId = EOS_Auth_GetLoggedInAccountByIndex(authHandle, LocalUserNum);

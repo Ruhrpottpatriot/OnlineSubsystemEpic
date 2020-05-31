@@ -4,7 +4,7 @@
 #include "OnlineSubsystemTypes.h"
 #include "Interfaces/OnlineIdentityInterface.h"
 #include "OnlineSubsystemEpicTypes.h"
-#include <eos_auth_types.h>
+#include "eos_auth_types.h"
 
 class FOnlineSubsystemEpic;
 
