@@ -8,7 +8,7 @@
 
 class FOnlineSubsystemEpic;
 
-class FOnlineIdentityInterfaceEpic 
+class FOnlineIdentityInterfaceEpic
 	: public IOnlineIdentity
 {
 public:
@@ -40,10 +40,7 @@ private:
 	FOnlineSubsystemEpic* subsystemEpic;
 
 	/** Ids mapped to locally registered users */
-	//TMap<int32, TSharedPtr<const FUniqueNetId>> userIds;
-
-	/** Ids mapped to locally registered users */
-	TMap<FUniqueNetIdEpic, TSharedRef<FUserOnlineAccountEpic>> userAccounts;
+	TMap<TSharedRef<const FUniqueNetIdEpic>, TSharedRef<FUserOnlineAccountEpic>> userAccounts;
 
 	static void LoginCompleteCallbackFunc(const EOS_Auth_LoginCallbackInfo* Data);
 	static void LogoutCompleteCallbackFunc(const EOS_Auth_LogoutCallbackInfo* Data);
