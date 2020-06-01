@@ -62,8 +62,19 @@ EOS_EpicAccountId FIdentityUtilities::EpicAccountIDFromString(const FString Acco
 		return nullptr;
 	}
 
-	const char* car = TCHAR_TO_ANSI(*AccountString);
+	const char* car = TCHAR_TO_UTF8(*AccountString);
 	return EOS_EpicAccountId_FromString(car);
+}
+
+EOS_ProductUserId FIdentityUtilities::ProductUserIDFromString(FString const AccountString)
+{
+	if (AccountString.IsEmpty())
+	{
+		return nullptr;
+	}
+
+	const char* car = TCHAR_TO_UTF8(*AccountString);
+	return EOS_ProductUserId_FromString(car);
 }
 
 const char* FUtils::GetTempDirectory()

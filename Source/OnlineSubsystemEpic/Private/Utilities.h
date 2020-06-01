@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "UObject/CoreOnline.h"
 #include <eos_sdk.h>
 
 
@@ -32,7 +33,8 @@ public:
 	/**
 	* Utility to build epic account id from string
 	*/
-	static EOS_EpicAccountId EpicAccountIDFromString(const FString AccountString);
+	static EOS_EpicAccountId EpicAccountIDFromString(FString const AccountString);
+	static EOS_ProductUserId ProductUserIDFromString(FString const AccountString);
 };
 
 class FUtils

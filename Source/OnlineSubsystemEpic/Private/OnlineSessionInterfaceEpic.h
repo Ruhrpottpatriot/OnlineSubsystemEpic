@@ -28,20 +28,22 @@ private:
 	static void OnEOSUpdateSessionComplete(const EOS_Sessions_UpdateSessionCallbackInfo* Data);
 	static void OnEOSEndSessionComplete(const EOS_Sessions_EndSessionCallbackInfo* Data);
 	static void OnEOSDestroySessionComplete(const EOS_Sessions_DestroySessionCallbackInfo* Data);
+	static void OnEOSFindSessionComplete(const EOS_SessionSearch_FindCallbackInfo* Data);
 
 
 	/** Creates a pointer to an EOS session update struct from the passed session settings */
-	void CreateSessionModificationHandle(FOnlineSessionSettings const& NewSessionSettings, EOS_HSessionModification ModificationHandle, FString& Error);
+	void CreateSessionModificationHandle(FOnlineSessionSettings const& NewSessionSettings, EOS_HSessionModification& ModificationHandle, FString& Error);
 
 
 	/** Reference to the main Null subsystem */
 	FOnlineSubsystemEpic* Subsystem;
 
+	EOS_HSessions sessionsHandle;
 
 	/** Hidden on purpose */
-	FOnlineSessionEpic() 
+	FOnlineSessionEpic()
 		: Subsystem(nullptr)
-		, CurrentSessionSearch(nullptr)
+		, sessionsHandle(nullptr)
 	{
 	}
 
@@ -56,10 +58,8 @@ private:
 	 * Returns true if the session owner is also the host.
 	 */
 	bool IsHost(const FNamedOnlineSession& Session) const;
-		
+
 	void OnRegisterLocalPlayerComplete(const FUniqueNetId& PlayerId, EOnJoinSessionCompleteResult::Type Result);
-
-
 
 	void UpdateSessionOptions();
 
@@ -68,14 +68,10 @@ PACKAGE_SCOPE:
 	/** Critical sections for thread safe operation of session lists */
 	mutable FCriticalSection SessionLock;
 
-	/** Current session settings */
+	/** Array of sessions currently available on the local machine. Might not be in sync with remote */
 	TArray<FNamedOnlineSession> Sessions;
 
-	/** Current search object */
-	TSharedPtr<FOnlineSessionSearch> CurrentSessionSearch;
-
-	/** Current search start time. */
-	double SessionSearchStartInSeconds;
+	TMap<double, TSharedRef<FOnlineSessionSearch>> CurrentSessionSearches;
 
 	FOnlineSessionEpic(FOnlineSubsystemEpic* InSubsystem);
 
@@ -111,16 +107,12 @@ PACKAGE_SCOPE:
 
 public:
 
-	virtual ~FOnlineSessionEpic() {}
+	virtual ~FOnlineSessionEpic() = default;
 
 	virtual TSharedPtr<const FUniqueNetId> CreateSessionIdFromString(const FString& SessionIdStr) override;
-
 	FNamedOnlineSession* GetNamedSession(FName SessionName) override;
-
 	virtual void RemoveNamedSession(FName SessionName) override;
-
 	virtual EOnlineSessionState::Type GetSessionState(FName SessionName) const override;
-
 	virtual bool HasPresenceSession() override;
 
 	// IOnlineSession

@@ -248,7 +248,7 @@ void FOnlineIdentityInterfaceEpic::LoginCompleteCallbackFunc(const EOS_Auth_Logi
 	{
 		localIdx = INDEX_NONE;
 		//ToDo: Implement PinGrantCode and MFA
-		auto resultStr = ANSI_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode));
+		auto resultStr = UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode));
 		errorString = FString::Printf(TEXT("[EOS SDK] Login Failed - Error Code: %s"), resultStr);
 	}
 

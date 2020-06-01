@@ -14,7 +14,7 @@ void EOS_CALL EOSSDKLoggingCallback(const EOS_LogMessage* InMsg)
 {
 	if (InMsg->Level != EOS_ELogLevel::EOS_LOG_Off)
 	{
-		FString logMsg = FString::Printf(TEXT("[EOS SDK] %s: %s"), ANSI_TO_TCHAR(InMsg->Category), ANSI_TO_TCHAR(InMsg->Message));
+		FString logMsg = FString::Printf(TEXT("[EOS SDK] %s: %s"), UTF8_TO_TCHAR(InMsg->Category), UTF8_TO_TCHAR(InMsg->Message));
 
 		if (InMsg->Level == EOS_ELogLevel::EOS_LOG_Fatal)
 		{
@@ -132,14 +132,14 @@ void FOnlineSubsystemEpicModule::StartupModule()
 	initOpts.AllocateMemoryFunction = nullptr;
 	initOpts.ReallocateMemoryFunction = nullptr;
 	initOpts.ReleaseMemoryFunction = nullptr;
-	initOpts.ProductName = TCHAR_TO_ANSI(*projectName);
-	initOpts.ProductVersion = TCHAR_TO_ANSI(*projectVersion);
+	initOpts.ProductName = TCHAR_TO_UTF8(*projectName);
+	initOpts.ProductVersion = TCHAR_TO_UTF8(*projectVersion);
 	initOpts.Reserved = nullptr;
 	initOpts.SystemInitializeOptions = nullptr;
 
 	// Initialize the SDK and only proceed if the init was successful
 	EOS_EResult initResult = EOS_Initialize(&initOpts);
-	checkf(initResult == EOS_EResult::EOS_Success, TEXT("Failed to initialize the EpicOnlineService SDK. Error: %s"), ANSI_TO_TCHAR(EOS_EResult_ToString(initResult)));
+	checkf(initResult == EOS_EResult::EOS_Success, TEXT("Failed to initialize the EpicOnlineService SDK. Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(initResult)));
 
 	// Register logging
 	UE_LOG_ONLINE(Display, TEXT("[EOS SDK] Initialized. Setting Logging Callback ..."));

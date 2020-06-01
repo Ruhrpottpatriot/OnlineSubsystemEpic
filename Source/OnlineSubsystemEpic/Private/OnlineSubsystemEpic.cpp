@@ -217,16 +217,16 @@ bool FOnlineSubsystemEpic::Init()
 	EOS_Platform_Options PlatformOptions = {};
 	PlatformOptions.ApiVersion = EOS_PLATFORM_OPTIONS_API_LATEST;
 	PlatformOptions.Reserved = nullptr;
-	PlatformOptions.ProductId = TCHAR_TO_ANSI(*productId);
-	PlatformOptions.SandboxId = TCHAR_TO_ANSI(*sandboxId);
-	PlatformOptions.ClientCredentials.ClientId = TCHAR_TO_ANSI(*clientId);
-	PlatformOptions.ClientCredentials.ClientSecret = TCHAR_TO_ANSI(*clientSecret);
+	PlatformOptions.ProductId = TCHAR_TO_UTF8(*productId);
+	PlatformOptions.SandboxId = TCHAR_TO_UTF8(*sandboxId);
+	PlatformOptions.ClientCredentials.ClientId = TCHAR_TO_UTF8(*clientId);
+	PlatformOptions.ClientCredentials.ClientSecret = TCHAR_TO_UTF8(*clientSecret);
 	PlatformOptions.bIsServer = EOS_FALSE;
 	static std::string EncryptionKey(64, '1');
 	PlatformOptions.EncryptionKey = EncryptionKey.c_str();
 	PlatformOptions.OverrideCountryCode = nullptr;
 	PlatformOptions.OverrideLocaleCode = nullptr;
-	PlatformOptions.DeploymentId = TCHAR_TO_ANSI(*deploymentId);
+	PlatformOptions.DeploymentId = TCHAR_TO_UTF8(*deploymentId);
 #if UE_EDITOR
 	// The platform overlay causes rendering artifacts in the editor,
 	// this flag ensures it is not loaded in the editor or PIE
