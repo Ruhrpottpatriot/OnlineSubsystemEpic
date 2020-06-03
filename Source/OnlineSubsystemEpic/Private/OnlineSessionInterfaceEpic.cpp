@@ -1206,31 +1206,211 @@ void FOnlineSessionEpic::OnEOSFindSessionComplete(const EOS_SessionSearch_FindCa
 
 bool FOnlineSessionEpic::FindSessionById(const FUniqueNetId& SearchingUserId, const FUniqueNetId& SessionId, const FUniqueNetId& FriendId, const FOnSingleSessionResultCompleteDelegate& CompletionDelegate)
 {
+	// Currently there is no way to get a named session (and therefore the joinability)
+	// of the current session searches or by using EOS_SessionSearch_SetSessionId.
+	// A way to make this work could be to assume that searched sessions are `GameSession`s only (bad)
+	// Or to only use the locally registered named sessions (also bad)
+	UE_LOG_ONLINE_SESSION(Warning, TEXT("FindSessionById not supported (yet)."));
 	return false;
+
+	//FString error;
+	//uint32 result = ONLINE_FAIL;
+	//FOnlineSessionSearchResult searchResult;
+
+	//IOnlineIdentityPtr identityPtr = this->Subsystem->GetIdentityInterface();
+	//check(identityPtr);
+
+	//// FPlatformUserId is a typedefed int32, which we use as local index
+	//FPlatformUserId localID = identityPtr->GetPlatformUserIdFromUniqueNetId(SearchingUserId);
+
+	//if (FriendId.IsValid())
+	//{
+	//	error = TEXT("[EOS SDK] Searching for friend id is not supported.");
+	//}
+	//else
+	//{
+	//	result = ONLINE_IO_PENDING;
+	//	for (auto session : this->CurrentSessionSearches)
+	//	{
+	//		if (session.Value->SearchState != EOnlineAsyncTaskState::Done)
+	//		{
+	//			// Only consider completed requests
+	//			continue;
+	//		}
+
+	//		TArray<FOnlineSessionSearchResult> searchResults = session.Value->SearchResults;
+	//		FOnlineSessionSearchResult* searchResultPtr = searchResults.FindByPredicate([&SessionId](FOnlineSessionSearchResult sr)
+	//			{
+	//				return FUniqueNetIdEpic(sr.GetSessionIdStr()) == SessionId;
+	//			});
+
+	//		if (searchResultPtr)
+	//		{
+	//			result = ONLINE_SUCCESS;
+	//			break;
+	//		}
+	//	}
+
+	//	if (result != ONLINE_SUCCESS)
+	//	{
+	//		result = ONLINE_FAIL;
+	//		error = FString::Printf(TEXT("No session by id found.\r\n    SessionId: %s"), *SessionId.ToString());
+	//	}
+	//}
+
+	//this->GetNamedSession(searchResult.Session.ses)
+
+	//this->IsSessionJoinable()
+
+
+	//bool 
+	//if (result != ONLINE_IO_PENDING)
+	//{
+	//	UE_CLOG_ONLINE_SESSION(!error.IsEmpty(), Warning, TEXT("%s"), *error);
+	//	CompletionDelegate.ExecuteIfBound(localID, false, FOnlineSessionSearchResult());
+	//}
+
+
+	//CompletionDelegate.ExecuteIfBound(localID, false, FOnlineSessionSearchResult());
+	//return result == ONLINE_IO_PENDING || result == ONLINE_SUCCESS;
 }
 
 bool FOnlineSessionEpic::CancelFindSessions()
 {
+	UE_LOG_ONLINE_SESSION(Warning, TEXT("CancelFindSession not supported."));
 	return false;
-
 }
 
 bool FOnlineSessionEpic::PingSearchResults(const FOnlineSessionSearchResult& SearchResult)
 {
+	UE_LOG_ONLINE_SESSION(Warning, TEXT("PingSearchResults not implemented."));
 	return false;
-
 }
 
 bool FOnlineSessionEpic::JoinSession(int32 PlayerNum, FName SessionName, const FOnlineSessionSearchResult& DesiredSession)
 {
-	return false;
+	IOnlineIdentityPtr identityPtr = this->Subsystem->GetIdentityInterface();
+	check(identityPtr);
 
+	TSharedPtr<const FUniqueNetId> netId = identityPtr->GetUniquePlayerId(PlayerNum);
+	return this->JoinSession(*netId, SessionName, DesiredSession);
 }
 
+typedef struct FJoinSessionAdditionalData
+{
+	FOnlineSessionEpic* OnlineSessionPtr;
+	FName SessionName;
+} FJoinSessionAdditionalData;
 bool FOnlineSessionEpic::JoinSession(const FUniqueNetId& PlayerId, FName SessionName, const FOnlineSessionSearchResult& DesiredSession)
 {
-	return false;
+	FString error;
+	uint32 result = ONLINE_FAIL;
 
+	FNamedOnlineSession* session = this->GetNamedSession(SessionName);
+	if (session)
+	{
+		error = FString::Printf(TEXT("Already in session.\r\n    SessionName: %s"), *SessionName.ToString());
+	}
+	else
+	{
+		// Get the session form the search results
+		FOnlineSessionSearchResult* searchResultPtr;
+		//for (int32 i = 0; i < this->CurrentSessionSearches.Num(); ++i)
+		for (auto session : this->CurrentSessionSearches)
+		{
+			//auto session = this->CurrentSessionSearches[i];
+			if (session.Value->SearchState != EOnlineAsyncTaskState::Done)
+			{
+				// Only consider completed requests
+				continue;
+			}
+
+			// Check if the desired session is in the search results
+			searchResultPtr = session.Value->SearchResults.FindByPredicate([&DesiredSession](FOnlineSessionSearchResult sr)
+				{
+					return FUniqueNetIdEpic(sr.GetSessionIdStr()) == FUniqueNetIdEpic(DesiredSession.GetSessionIdStr());
+				});
+
+			if (searchResultPtr)
+			{
+				// Remove the search result, as it is no longer needed
+				this->CurrentSessionSearches.Remove(session.Key);
+				break;
+			}
+		}
+
+		// Create a new local session
+		session = this->AddNamedSession(SessionName, searchResultPtr->Session);
+		session->HostingPlayerNum = INDEX_NONE; // HostingPlayernNum is going to be deprecated. Don't use it here
+		session->LocalOwnerId = PlayerId.AsShared();
+
+		IOnlineIdentityPtr identityPtr = this->Subsystem->GetIdentityInterface();
+		if (identityPtr.IsValid())
+		{
+			session->OwningUserName = identityPtr->GetPlayerNickname(PlayerId);
+		}
+		else
+		{
+			session->OwningUserName = FString(TEXT("EPIC User"));
+		}
+
+		session->SessionSettings.BuildUniqueId = GetBuildUniqueId();
+
+		// Register the current player as local player in the session
+		FOnRegisterLocalPlayerCompleteDelegate registerLocalPlayerCompleteDelegate = FOnRegisterLocalPlayerCompleteDelegate::CreateRaw(this, &FOnlineSessionEpic::OnRegisterLocalPlayerComplete);
+		this->RegisterLocalPlayer(PlayerId, SessionName, registerLocalPlayerCompleteDelegate);
+
+		EOS_Sessions_JoinSessionOptions joinSessionOpts = {
+			EOS_SESSIONS_JOINSESSION_API_LATEST,
+			TCHAR_TO_UTF8(*SessionName.ToString())
+		};
+
+		FJoinSessionAdditionalData* additionalData = new FJoinSessionAdditionalData();
+		additionalData->OnlineSessionPtr = this;
+		additionalData->SessionName = SessionName;
+
+		EOS_Sessions_JoinSession(this->sessionsHandle, &joinSessionOpts, additionalData, &FOnlineSessionEpic::OnEOSJoinSessionComplete);
+		result = ONLINE_IO_PENDING;
+	}
+
+	if (result != ONLINE_IO_PENDING)
+	{
+		UE_CLOG_ONLINE_SESSION(!error.IsEmpty(), Warning, TEXT("%s"), *error);
+		TriggerOnJoinSessionCompleteDelegates(SessionName, result == ONLINE_SUCCESS ? EOnJoinSessionCompleteResult::Success : EOnJoinSessionCompleteResult::UnknownError);
+	}
+
+	return result == ONLINE_SUCCESS || result == ONLINE_IO_PENDING;
+}
+void FOnlineSessionEpic::OnEOSJoinSessionComplete(const EOS_Sessions_JoinSessionCallbackInfo* Data)
+{
+	FJoinSessionAdditionalData* additionalData = (FJoinSessionAdditionalData*)Data->ClientData;
+	checkf(additionalData, TEXT("OnEOSJoinSessionComplete delegate called, but no client data available"));
+
+	FOnlineSessionEpic* thisPtr = additionalData->OnlineSessionPtr;
+	checkf(thisPtr, TEXT("OnEOSJoinSessionComplete: additional data \"this\" missing"));
+
+	FName sessionName = additionalData->SessionName;
+
+	delete(additionalData);
+
+	if (Data->ResultCode != EOS_EResult::EOS_Success)
+	{
+		thisPtr->RemoveNamedSession(sessionName);
+
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+		thisPtr->TriggerOnJoinSessionCompleteDelegates(sessionName, EOnJoinSessionCompleteResult::UnknownError);
+		return;
+	}
+
+	FNamedOnlineSession* session = thisPtr->GetNamedSession(sessionName);
+	if (!session)
+	{
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Tried joining session \"%s\", but session wasn't found."), *sessionName.ToString());
+		thisPtr->TriggerOnJoinSessionCompleteDelegates(sessionName, EOnJoinSessionCompleteResult::SessionDoesNotExist);
+		return;
+	}
+
+	thisPtr->TriggerOnJoinSessionCompleteDelegates(sessionName, EOnJoinSessionCompleteResult::Success);
 }
 
 bool FOnlineSessionEpic::FindFriendSession(int32 LocalUserNum, const FUniqueNetId& Friend)
@@ -1295,64 +1475,129 @@ FOnlineSessionSettings* FOnlineSessionEpic::GetSessionSettings(FName SessionName
 	return nullptr;
 }
 
+typedef struct FRegisterPlayersAdditionalData
+{
+	FOnlineSessionEpic* OnlineSessionPtr;
+	FName SessionName;
+	TArray<TSharedRef<const FUniqueNetId>> RegisteredPlayers;
+} FRegisterPlayersAdditionalData;
 bool FOnlineSessionEpic::RegisterPlayer(FName SessionName, const FUniqueNetId& PlayerId, bool bWasInvited)
 {
 	TArray<TSharedRef<const FUniqueNetId>> players;
 	players.Add(MakeShared<FUniqueNetIdEpic>(PlayerId));
 	return RegisterPlayers(SessionName, players);
 }
-
 bool FOnlineSessionEpic::RegisterPlayers(FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Players, bool bWasInvited /*= false*/)
 {
-	return false;
-	//bool bSuccess = false;
-	//FNamedOnlineSession* Session = GetNamedSession(SessionName);
-	//if (!Session)
-	//{
-	//	UE_LOG_ONLINE_SESSION(Warning, TEXT("No game present to join for session (%s)"), *SessionName.ToString());
-	//	TriggerOnRegisterPlayersCompleteDelegates(SessionName, Players, bSuccess);
-	//	return false;
-	//}
+	FString error;
+	uint32 result = ONLINE_FAIL;
 
-	//
-	//
-	//if (Session)
-	//{
-	//	bSuccess = true;
+	FNamedOnlineSession* Session = GetNamedSession(SessionName);
+	if (Session)
+	{
+		TArray<TSharedRef<const FUniqueNetId>> successfullyRegisteredPlayers;
+		EOS_ProductUserId* userIdArr = (EOS_ProductUserId*)malloc(Players.Num() * sizeof(EOS_ProductUserId));
+		for (int32 i = 0; i < Players.Num(); ++i)
+		{
+			const TSharedRef<const FUniqueNetId>& playerId = Players[i];
+			FUniqueNetIdMatcher PlayerMatch(*playerId);
+			if (Session->RegisteredPlayers.IndexOfByPredicate(PlayerMatch) == INDEX_NONE)
+			{
+				Session->RegisteredPlayers.Add(playerId);
+				successfullyRegisteredPlayers.Add(playerId);
 
-	//	for (int32 PlayerIdx = 0; PlayerIdx < Players.Num(); PlayerIdx++)
-	//	{
-	//		const TSharedRef<const FUniqueNetId>& PlayerId = Players[PlayerIdx];
+				// update number of open connections
+				if (Session->NumOpenPublicConnections > 0)
+				{
+					Session->NumOpenPublicConnections--;
+				}
+				else if (Session->NumOpenPrivateConnections > 0)
+				{
+					Session->NumOpenPrivateConnections--;
+				}
 
-	//		FUniqueNetIdMatcher PlayerMatch(*PlayerId);
-	//		if (Session->RegisteredPlayers.IndexOfByPredicate(PlayerMatch) == INDEX_NONE)
-	//		{
-	//			Session->RegisteredPlayers.Add(PlayerId);
-	//			RegisterVoice(*PlayerId);
+				EOS_ProductUserId userId = FIdentityUtilities::ProductUserIDFromString(playerId->ToString());
+				userIdArr[i] = userId;
+			}
+			else
+			{
+				UE_LOG_ONLINE_SESSION(Log, TEXT("Player already registered in session.\r\n    Player: %s\r\n    Session: %s"), *playerId->ToDebugString(), *SessionName.ToString());
+			}
+		}
 
-	//			// update number of open connections
-	//			if (Session->NumOpenPublicConnections > 0)
-	//			{
-	//				Session->NumOpenPublicConnections--;
-	//			}
-	//			else if (Session->NumOpenPrivateConnections > 0)
-	//			{
-	//				Session->NumOpenPrivateConnections--;
-	//			}
-	//		}
-	//		else
-	//		{
-	//			RegisterVoice(*PlayerId);
-	//			UE_LOG_ONLINE_SESSION(Log, TEXT("Player %s already registered in session %s"), *PlayerId->ToDebugString(), *SessionName.ToString());
-	//		}
-	//	}
-	//}
-	//else
-	//{
-	//}
+		EOS_Sessions_RegisterPlayersOptions registerPlayerOpts = {
+			EOS_SESSIONS_REGISTERPLAYERS_API_LATEST,
+			TCHAR_TO_UTF8(*SessionName.ToString()),
+			userIdArr,
+			Players.Num()
+		};
 
-	//TriggerOnRegisterPlayersCompleteDelegates(SessionName, Players, true);
-	//return true;
+		FRegisterPlayersAdditionalData* additionalData = new FRegisterPlayersAdditionalData();
+		additionalData->OnlineSessionPtr = this;
+		additionalData->SessionName = SessionName;
+		additionalData->RegisteredPlayers = successfullyRegisteredPlayers;
+
+		EOS_Sessions_RegisterPlayers(this->sessionsHandle, &registerPlayerOpts, additionalData, &FOnlineSessionEpic::OnEOSRegisterPlayersComplete);
+		result = ONLINE_IO_PENDING;
+	}
+	else
+	{
+		error = FString::Printf(TEXT("Session not found.\r\n    Session Name: %s"), *SessionName.ToString());
+	}
+
+	if (result != ONLINE_IO_PENDING)
+	{
+		UE_CLOG_ONLINE_SESSION(!error.IsEmpty(), Warning, TEXT("%s"), *error);
+		TriggerOnRegisterPlayersCompleteDelegates(SessionName, TArray<TSharedRef<const FUniqueNetId>>(), result == ONLINE_SUCCESS);
+	}
+
+	return result == ONLINE_SUCCESS || result == ONLINE_IO_PENDING;
+}
+void FOnlineSessionEpic::OnEOSRegisterPlayersComplete(const EOS_Sessions_RegisterPlayersCallbackInfo* Data)
+{
+	FRegisterPlayersAdditionalData* additionalData = (FRegisterPlayersAdditionalData*)Data->ClientData;
+	checkf(additionalData, TEXT("OnEOSJoinSessionComplete delegate called, but no client data available"));
+
+	FOnlineSessionEpic* thisPtr = additionalData->OnlineSessionPtr;
+	checkf(thisPtr, TEXT("OnEOSJoinSessionComplete: additional data \"this\" missing"));
+
+	FName sessionName = additionalData->SessionName;
+
+	TArray<TSharedRef<const FUniqueNetId>> const registeredPlayers = additionalData->RegisteredPlayers;
+
+	delete(additionalData);
+
+	FNamedOnlineSession* session = thisPtr->GetNamedSession(sessionName);
+	if (!session)
+	{
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("RegisterPlayers callback called, but session not found.\r\n    %s"), *sessionName.ToString());
+		thisPtr->TriggerOnRegisterPlayersCompleteDelegates(sessionName, TArray<TSharedRef<const FUniqueNetId>>(), false);
+		return;
+	}
+
+	if (Data->ResultCode != EOS_EResult::EOS_Success)
+	{
+		for (int32 i = 0; i < registeredPlayers.Num(); ++i)
+		{
+			session->RegisteredPlayers.RemoveAtSwap(i);
+
+			// update number of open connections
+			if (session->NumOpenPublicConnections < session->SessionSettings.NumPublicConnections)
+			{
+				session->NumOpenPublicConnections += 1;
+			}
+			else if (session->NumOpenPrivateConnections < session->SessionSettings.NumPrivateConnections)
+			{
+				session->NumOpenPrivateConnections += 1;
+			}
+		}
+
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+		thisPtr->TriggerOnRegisterPlayersCompleteDelegates(sessionName, TArray<TSharedRef<const FUniqueNetId>>(), false);
+		return;
+	}
+
+	thisPtr->TriggerOnRegisterPlayersCompleteDelegates(sessionName, registeredPlayers, true);
 }
 
 bool FOnlineSessionEpic::UnregisterPlayer(FName SessionName, const FUniqueNetId& PlayerId)
@@ -1361,43 +1606,119 @@ bool FOnlineSessionEpic::UnregisterPlayer(FName SessionName, const FUniqueNetId&
 	players.Add(MakeShared<FUniqueNetIdEpic>(PlayerId));
 	return UnregisterPlayers(SessionName, players);
 }
-
 bool FOnlineSessionEpic::UnregisterPlayers(FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Players)
 {
-	return false;
+	FString error;
+	uint32 result = ONLINE_FAIL;
 
-	//FNamedOnlineSession* Session = GetNamedSession(SessionName);
-	//if (!Session)
-	//{
-	//	UE_LOG_ONLINE_SESSION(Warning, TEXT("No game present to leave for session: %s"), *SessionName.ToString());
-	//	TriggerOnUnregisterPlayersCompleteDelegates(SessionName, Players, false);
-	//	return false;
-	//}
+	FNamedOnlineSession* session = GetNamedSession(SessionName);
+	if (session)
+	{
+		TArray<TSharedRef<const FUniqueNetId>> successfullyRegisteredPlayers;
+		EOS_ProductUserId* productUserIdArr = (EOS_ProductUserId*)malloc(Players.Num() * sizeof(EOS_ProductUserId));
 
-	//for (auto p : Players)
-	//{
-	//	FUniqueNetIdMatcher PlayerMatch(*p);
-	//	int32 RegistrantIndex = Session->RegisteredPlayers.IndexOfByPredicate(PlayerMatch);
-	//	if (RegistrantIndex == INDEX_NONE)
-	//	{
-	//		UE_LOG_ONLINE_SESSION(Warning, TEXT("Player %s is not part of session (%s)"), *PlayerId->ToDebugString(), *SessionName.ToString());
-	//		continue;
-	//	}
+		for (int32 i = 0; i < Players.Num(); ++i)
+		{
+			const TSharedRef<const FUniqueNetId>& playerId = Players[i];
 
-	//	Session->RegisteredPlayers.RemoveAtSwap(RegistrantIndex);
+			FUniqueNetIdMatcher PlayerMatch(*playerId);
+			if (session->RegisteredPlayers.IndexOfByPredicate(PlayerMatch) != INDEX_NONE)
+			{
+				session->RegisteredPlayers.RemoveAtSwap(i);
+				successfullyRegisteredPlayers.Add(playerId);
 
-	//	// update number of open connections
-	//	if (Session->NumOpenPublicConnections < Session->SessionSettings.NumPublicConnections)
-	//	{
-	//		Session->NumOpenPublicConnections += 1;
-	//	}
-	//	else if (Session->NumOpenPrivateConnections < Session->SessionSettings.NumPrivateConnections)
-	//	{
-	//		Session->NumOpenPrivateConnections += 1;
-	//	}
-	//}
+				// update number of open connections
+				if (session->NumOpenPublicConnections < session->SessionSettings.NumPublicConnections)
+				{
+					session->NumOpenPublicConnections += 1;
+				}
+				else if (session->NumOpenPrivateConnections < session->SessionSettings.NumPrivateConnections)
+				{
+					session->NumOpenPrivateConnections += 1;
+				}
 
-	//TriggerOnUnregisterPlayersCompleteDelegates(SessionName, Players, true);
+				EOS_ProductUserId userId = FIdentityUtilities::ProductUserIDFromString(playerId->ToString());
+				productUserIdArr[i] = userId;
+			}
+			else
+			{
+				UE_LOG_ONLINE_SESSION(Log, TEXT("Player not in session.\r\n    Player: %s\r\n    Session: %s"), *playerId->ToDebugString(), *SessionName.ToString());
+			}
+		}
+
+		EOS_Sessions_RegisterPlayersOptions registerPlayerOpts = {
+			EOS_SESSIONS_REGISTERPLAYERS_API_LATEST,
+			TCHAR_TO_UTF8(*SessionName.ToString()),
+			productUserIdArr,
+			Players.Num()
+		};
+
+		FRegisterPlayersAdditionalData* additionalData = new FRegisterPlayersAdditionalData();
+		additionalData->OnlineSessionPtr = this;
+		additionalData->SessionName = SessionName;
+		additionalData->RegisteredPlayers = successfullyRegisteredPlayers;
+
+		EOS_Sessions_RegisterPlayers(this->sessionsHandle, &registerPlayerOpts, additionalData, &FOnlineSessionEpic::OnEOSRegisterPlayersComplete);
+		result = ONLINE_IO_PENDING;
+	}
+	else
+	{
+		error = FString::Printf(TEXT("Session not found.\r\n    Session Name: %s"), *SessionName.ToString());
+	}
+
+	if (result != ONLINE_IO_PENDING)
+	{
+		UE_CLOG_ONLINE_SESSION(!error.IsEmpty(), Warning, TEXT("%s"), *error);
+		TriggerOnUnregisterPlayersCompleteDelegates(SessionName, TArray<TSharedRef<const FUniqueNetId>>(), result == ONLINE_SUCCESS);
+	}
+
+	return result == ONLINE_SUCCESS || result == ONLINE_IO_PENDING;
+}
+void FOnlineSessionEpic::OnEOSUnRegisterPlayersComplete(const EOS_Sessions_UnregisterPlayersCallbackInfo* Data)
+{
+	FRegisterPlayersAdditionalData* additionalData = (FRegisterPlayersAdditionalData*)Data->ClientData;
+	checkf(additionalData, TEXT("OnEOSJoinSessionComplete delegate called, but no client data available"));
+
+	FOnlineSessionEpic* thisPtr = additionalData->OnlineSessionPtr;
+	checkf(thisPtr, TEXT("OnEOSJoinSessionComplete: additional data \"this\" missing"));
+
+	FName sessionName = additionalData->SessionName;
+	
+	TArray<TSharedRef<const FUniqueNetId>> const players = additionalData->RegisteredPlayers;
+
+	delete(additionalData);
+
+	FNamedOnlineSession* session = thisPtr->GetNamedSession(sessionName);
+	if (!session)
+	{
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("RegisterPlayers callback called, but session not found.\r\n    %s"), *sessionName.ToString());
+		thisPtr->TriggerOnRegisterPlayersCompleteDelegates(sessionName, TArray<TSharedRef<const FUniqueNetId>>(), false);
+		return;
+	}
+
+	if (Data->ResultCode != EOS_EResult::EOS_Success)
+	{
+		for (int32 i = 0; i < players.Num(); ++i)
+		{
+			session->RegisteredPlayers.Add(players[i]);
+
+			// update number of open connections
+			if (session->NumOpenPublicConnections > 0)
+			{
+				session->NumOpenPublicConnections -= 1;
+			}
+			else if (session->NumOpenPrivateConnections > 0)
+			{
+				session->NumOpenPrivateConnections -= 1;
+			}
+		}
+
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+		thisPtr->TriggerOnUnregisterPlayersCompleteDelegates(sessionName, TArray<TSharedRef<const FUniqueNetId>>(), false);
+		return;
+	}
+
+	thisPtr->TriggerOnUnregisterPlayersCompleteDelegates(sessionName, players, true);
 }
 
 void FOnlineSessionEpic::RegisterLocalPlayer(const FUniqueNetId& PlayerId, FName SessionName, const FOnRegisterLocalPlayerCompleteDelegate& Delegate)
@@ -1410,7 +1731,7 @@ void FOnlineSessionEpic::RegisterLocalPlayer(const FUniqueNetId& PlayerId, FName
 		return;
 	}
 
-	session->RegisteredPlayers.Add(MakeShareable(&PlayerId));
+	session->RegisteredPlayers.Add(PlayerId.AsShared());
 
 	// update number of open connections
 	if (session->NumOpenPublicConnections > 0)
@@ -1423,7 +1744,6 @@ void FOnlineSessionEpic::RegisterLocalPlayer(const FUniqueNetId& PlayerId, FName
 	}
 	Delegate.ExecuteIfBound(PlayerId, EOnJoinSessionCompleteResult::Success);
 }
-
 void FOnlineSessionEpic::OnRegisterLocalPlayerComplete(const FUniqueNetId& PlayerId, EOnJoinSessionCompleteResult::Type Result)
 {
 }
@@ -1438,14 +1758,14 @@ void FOnlineSessionEpic::UnregisterLocalPlayer(const FUniqueNetId& PlayerId, FNa
 		return;
 	}
 
-	session->RegisteredPlayers.RemoveSingle(MakeShareable(&PlayerId));
+	session->RegisteredPlayers.RemoveSingle(PlayerId.AsShared());
 
 	// update number of open connections
-	if (session->NumOpenPublicConnections > 0)
+	if (session->NumOpenPublicConnections < session->SessionSettings.NumPublicConnections)
 	{
 		session->NumOpenPublicConnections += 1;
 	}
-	else if (session->NumOpenPrivateConnections > 0)
+	else if (session->NumOpenPrivateConnections < session->SessionSettings.NumPrivateConnections)
 	{
 		session->NumOpenPrivateConnections += 1;
 	}

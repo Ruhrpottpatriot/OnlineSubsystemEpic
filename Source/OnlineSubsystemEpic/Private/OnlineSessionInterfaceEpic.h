@@ -29,6 +29,9 @@ private:
 	static void OnEOSEndSessionComplete(const EOS_Sessions_EndSessionCallbackInfo* Data);
 	static void OnEOSDestroySessionComplete(const EOS_Sessions_DestroySessionCallbackInfo* Data);
 	static void OnEOSFindSessionComplete(const EOS_SessionSearch_FindCallbackInfo* Data);
+	static void OnEOSJoinSessionComplete(const EOS_Sessions_JoinSessionCallbackInfo* Data);
+	static void OnEOSRegisterPlayersComplete(const EOS_Sessions_RegisterPlayersCallbackInfo* Data);
+	static void OnEOSUnRegisterPlayersComplete(const EOS_Sessions_UnregisterPlayersCallbackInfo* Data);
 
 
 	/** Creates a pointer to an EOS session update struct from the passed session settings */
