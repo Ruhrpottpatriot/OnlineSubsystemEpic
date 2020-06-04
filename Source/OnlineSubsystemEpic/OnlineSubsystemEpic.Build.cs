@@ -22,6 +22,7 @@ public class OnlineSubsystemEpic : ModuleRules
                 "OnlineSubsystemEpicLibrary",
                 "OnlineSubsystem",
                 "Json",
+                "Sockets",
                 "Projects",
             }
         );

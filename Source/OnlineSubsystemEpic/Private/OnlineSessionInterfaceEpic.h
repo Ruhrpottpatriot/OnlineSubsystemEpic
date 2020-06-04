@@ -32,7 +32,19 @@ private:
 	static void OnEOSJoinSessionComplete(const EOS_Sessions_JoinSessionCallbackInfo* Data);
 	static void OnEOSRegisterPlayersComplete(const EOS_Sessions_RegisterPlayersCallbackInfo* Data);
 	static void OnEOSUnRegisterPlayersComplete(const EOS_Sessions_UnregisterPlayersCallbackInfo* Data);
+	static void OnEOSFindFriendSessionComplete(const EOS_SessionSearch_FindCallbackInfo* Data);
+	static void OnEOSSendSessionInviteToFriendsComplete(const EOS_Sessions_SendInviteCallbackInfo* Data);
 
+	static void OnEOSSessionInviteReceived(const EOS_Sessions_SessionInviteReceivedCallbackInfo* Data);
+	EOS_NotificationId sessionInviteRecivedCallbackHandle;
+
+
+
+	/** Convert the EOS session details into an online session */
+	FOnlineSession SessionDetailsToSessionOnlineSession(EOS_SessionDetails_Info const* SessionDetails);
+
+	/** Converts an EOS active session into a local named session */
+	FNamedOnlineSession ActiveSessionToNamedSession(EOS_ActiveSession_Info const* ActiveSession, bool IsHosting);
 
 	/** Creates a pointer to an EOS session update struct from the passed session settings */
 	void CreateSessionModificationHandle(FOnlineSessionSettings const& NewSessionSettings, EOS_HSessionModification& ModificationHandle, FString& Error);
@@ -74,13 +86,25 @@ PACKAGE_SCOPE:
 	/** Array of sessions currently available on the local machine. Might not be in sync with remote */
 	TArray<FNamedOnlineSession> Sessions;
 
+	TArray<FNamedOnlineSession> SessionInvites;
+
 	TMap<double, TSharedRef<FOnlineSessionSearch>> CurrentSessionSearches;
 
-	FOnlineSessionEpic(FOnlineSubsystemEpic* InSubsystem);
+	/**
+	 * Array of session searches.
+	 * @Key - The time in UTC the session search was created.
+	 * @Value1 - A handle to the EOS session search. If the search isn't running, the handle will be invalid
+	 * @Value2 - The local session search settings
+	 */
+	TMap<double, TTuple<TSharedPtr<EOS_HSessionSearch>, TSharedRef<FOnlineSessionSearch>>> SessionSearches;
 
 	/**
-	 * Session tick for various background tasks
+	 * Creates a new instance of the FOnlineSessionEpic class.
+	 * @ InSubsystem - The subsystem that owns the instance.
 	 */
+	FOnlineSessionEpic(FOnlineSubsystemEpic* InSubsystem);
+
+	/** Session tick for various background */
 	void Tick(float DeltaTime);
 
 	// IOnlineSession
@@ -97,11 +121,6 @@ PACKAGE_SCOPE:
 	}
 
 	/**
-	 * Parse the command line for invite/join information at launch
-	 */
-	void CheckPendingSessionInvite();
-
-	/**
 	 * Registers all local players with the current session
 	 *
 	 * @param Session the session that they are registering in
@@ -110,7 +129,7 @@ PACKAGE_SCOPE:
 
 public:
 
-	virtual ~FOnlineSessionEpic() = default;
+	virtual ~FOnlineSessionEpic();
 
 	virtual TSharedPtr<const FUniqueNetId> CreateSessionIdFromString(const FString& SessionIdStr) override;
 	FNamedOnlineSession* GetNamedSession(FName SessionName) override;
