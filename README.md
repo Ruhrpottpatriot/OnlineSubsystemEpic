@@ -2,7 +2,7 @@
 An unofficial integration of the Epic Online Systems SDK with Unreal Engine 4's OnlineSubsystem
 
 ## Installation
-1. Clone the repository into your Pojects _Plugins_ directory.
+1. Clone the repository into your Projects _Plugins_ directory.
 2. Download the EOS C++ SDK from the Developer Portal
 3. Drop the _Bin_, _Include_ and _Lib_ from inside the SDK folder into _Source\ThirdParty\OnlineSubsystemEpicLibrary_
 
