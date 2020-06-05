@@ -79,7 +79,7 @@ PACKAGE_SCOPE:
 	TSharedPtr<class FInternetAddr> HostAddr;
 
 	/** Unique Id for this session */
-	FUniqueNetIdEpic SessionId;
+	TSharedPtr<FUniqueNetId> SessionId;
 
 public:
 
@@ -108,18 +108,18 @@ public:
 
 	virtual FString ToString() const override
 	{
-		return SessionId.ToString();
+		return SessionId->ToString();
 	}
 
 	virtual FString ToDebugString() const override
 	{
 		return FString::Printf(TEXT("HostIP: %s SessionId: %s"),
 			HostAddr.IsValid() ? *HostAddr->ToString(true) : TEXT("INVALID"),
-			*SessionId.ToDebugString());
+			*SessionId->ToDebugString());
 	}
 
 	virtual const FUniqueNetId& GetSessionId() const override
 	{
-		return SessionId;
+		return *SessionId;
 	}
 };

@@ -40,6 +40,8 @@ private:
 	/**  Handle to the session invite callback. */
 	EOS_NotificationId sessionInviteRecivedCallbackHandle;
 
+	/**  Handle to the session invite callback. */
+	EOS_NotificationId sessionInviteAcceptedCallbackHandle;
 
 	// --------
 	// EOS Callbacks
@@ -56,6 +58,8 @@ private:
 	static void OnEOSFindFriendSessionComplete(const EOS_SessionSearch_FindCallbackInfo* Data);
 	static void OnEOSSendSessionInviteToFriendsComplete(const EOS_Sessions_SendInviteCallbackInfo* Data);
 	static void OnEOSSessionInviteReceived(const EOS_Sessions_SessionInviteReceivedCallbackInfo* Data);
+	static void OnEOSSessionInviteAccepted(const EOS_Sessions_SessionInviteAcceptedCallbackInfo* Data);
+
 
 	// --------
 	// Private Utility methods
@@ -70,17 +74,8 @@ private:
 	/** Creates a pointer to an EOS session update struct from the passed session settings */
 	void CreateSessionModificationHandle(FOnlineSessionSettings const& NewSessionSettings, EOS_HSessionModification& ModificationHandle, FString& Error);
 
-	/** Determines whether this particular session is joinable. */
-	bool IsSessionJoinable(const FNamedOnlineSession& Session) const;
 
-	/** Returns true if the session owner is also the host. */
-	bool IsHost(const FNamedOnlineSession& Session) const;
-
-
-	void OnRegisterLocalPlayerComplete(const FUniqueNetId& PlayerId, EOnJoinSessionCompleteResult::Type Result);
-
-
-	void UpdateSessionOptions();
+	//void UpdateSessionOptions();
 
 PACKAGE_SCOPE:
 
@@ -90,7 +85,7 @@ PACKAGE_SCOPE:
 	/** Array of sessions currently available on the local machine. Might not be in sync with remote */
 	TArray<FNamedOnlineSession> Sessions;
 
-	TMap<double, TSharedRef<FOnlineSessionSearch>> CurrentSessionSearches;
+	//TMap<double, TSharedRef<FOnlineSessionSearch>> CurrentSessionSearches;
 
 	/**
 	 * Array of session searches.
