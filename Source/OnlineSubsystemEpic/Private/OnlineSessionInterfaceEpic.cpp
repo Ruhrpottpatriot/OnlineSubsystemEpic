@@ -7,8 +7,12 @@
 #include "SocketSubsystem.h"
 #include "Utilities.h"
 
-
-
+// ---------------------------------------------
+// FOnlineSessionInfoEpic definitions
+//
+// These defintions are from OnlineSubsystemEpicTypes.h
+// and are located here to keep the types header only
+// ---------------------------------------------
 
 FOnlineSessionInfoEpic::FOnlineSessionInfoEpic()
 	: HostAddr(nullptr)
@@ -16,153 +20,68 @@ FOnlineSessionInfoEpic::FOnlineSessionInfoEpic()
 {
 }
 
-FNamedOnlineSession* FOnlineSessionEpic::GetNamedSession(FName SessionName)
+
+
+// ---------------------------------------------
+// Implementation file only structs
+// These structs carry additional informations to the callbacks
+// ---------------------------------------------
+
+/**
+ * This structure is needed, since the callback to start as session doesn't include the session's name,
+ * which is needed to call the completion delegates
+ */
+typedef struct SessionStateChangeAdditionalData
 {
-	FScopeLock ScopeLock(&SessionLock);
-	for (int32 SearchIndex = 0; SearchIndex < Sessions.Num(); SearchIndex++)
-	{
-		if (Sessions[SearchIndex].SessionName == SessionName)
-		{
-			return &Sessions[SearchIndex];
-		}
-	}
-	return nullptr;
-}
+	FOnlineSessionEpic* OnlineSessionPtr;
+	FName SessionName;
+} SessionStateChangeAdditionalData;
 
-void FOnlineSessionEpic::RemoveNamedSession(FName SessionName)
+/** 
+ * Needed, since we need a way to pass the old settings to the callback,
+ * in case the backend refuses the update 
+ */
+typedef struct FUpdateSessionAdditionalData
 {
-	FScopeLock ScopeLock(&SessionLock);
-	for (int32 SearchIndex = 0; SearchIndex < Sessions.Num(); SearchIndex++)
-	{
-		if (Sessions[SearchIndex].SessionName == SessionName)
-		{
-			Sessions.RemoveAtSwap(SearchIndex);
-			return;
-		}
-	}
-}
+	FOnlineSessionEpic* OnlineSessionPtr;
+	FOnlineSessionSettings* OldSessionSettings;
+} FUpdateSessionAdditionalData;
 
-EOnlineSessionState::Type FOnlineSessionEpic::GetSessionState(FName SessionName) const
+/** 
+ * To find the search handle in the callback, 
+ * the key needs to be passed along.
+ */
+typedef struct FFindSessionsAdditionalData {
+	FOnlineSessionEpic* OnlineSessionPtr;
+	double SearchStartTime;
+} FFindSessionsAdditionalData;
+
+typedef struct FJoinSessionAdditionalData
 {
-	FScopeLock ScopeLock(&SessionLock);
-	for (int32 SearchIndex = 0; SearchIndex < Sessions.Num(); SearchIndex++)
-	{
-		if (Sessions[SearchIndex].SessionName == SessionName)
-		{
-			return Sessions[SearchIndex].SessionState;
-		}
-	}
+	FOnlineSessionEpic* OnlineSessionPtr;
+	FName SessionName;
+} FJoinSessionAdditionalData;
 
-	return EOnlineSessionState::NoSession;
-}
-
-bool FOnlineSessionEpic::HasPresenceSession()
+typedef struct FFindFriendSessionAdditionalData
 {
-	FScopeLock ScopeLock(&SessionLock);
-	for (int32 SearchIndex = 0; SearchIndex < Sessions.Num(); SearchIndex++)
-	{
-		if (Sessions[SearchIndex].SessionSettings.bUsesPresence)
-		{
-			return true;
-		}
-	}
+	FOnlineSessionEpic* OnlineSessionPtr;
+	double SearchCreationTime;
+	FUniqueNetId const& SearchingUserId;
+} FFindFriendSessionAdditionalData;
 
-	return false;
-}
-
-bool FOnlineSessionEpic::IsSessionJoinable(const FNamedOnlineSession& Session) const
+typedef struct FRegisterPlayersAdditionalData
 {
-	Session.GetJoinability();
-
-	return false;
-}
-
-bool FOnlineSessionEpic::IsHost(const FNamedOnlineSession& Session) const
-{
-	return false;
-}
-
-FOnlineSessionEpic::FOnlineSessionEpic(FOnlineSubsystemEpic* InSubsystem)
-	: Subsystem(InSubsystem)
-{
-	// Get the sessions handle
-	EOS_HPlatform hPlatform = this->Subsystem->PlatformHandle;
-	check(hPlatform);
-	EOS_HSessions hSessions = EOS_Platform_GetSessionsInterface(hPlatform);
-	check(hSessions);
-	this->sessionsHandle = hSessions;
-
-	EOS_Sessions_AddNotifySessionInviteReceivedOptions notifySessionInviteReceivedOptions = {
-		EOS_SESSIONS_ADDNOTIFYSESSIONINVITERECEIVED_API_LATEST
-	};
-	this->sessionInviteRecivedCallbackHandle = EOS_Sessions_AddNotifySessionInviteReceived(hSessions, &notifySessionInviteReceivedOptions, this, &FOnlineSessionEpic::OnEOSSessionInviteReceived);
-}
-
-FOnlineSessionEpic::~FOnlineSessionEpic()
-{
-	EOS_Sessions_RemoveNotifySessionInviteReceived(this->sessionsHandle, this->sessionInviteRecivedCallbackHandle);
-}
-
-void FOnlineSessionEpic::OnEOSSessionInviteReceived(const EOS_Sessions_SessionInviteReceivedCallbackInfo* Data)
-{
-	FOnlineSessionEpic* thisPtr = (FOnlineSessionEpic*)Data->ClientData;
-	checkf(thisPtr, TEXT("%s called. But \"this\" is missing"), *FString(__FUNCTION__));
-
-	// User that received the invite
-	TSharedRef<FUniqueNetId const> localUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::ProductUserIDToString(Data->LocalUserId));
-
-	// User that sent the invite
-	TSharedRef<FUniqueNetId const> sourceUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::ProductUserIDToString(Data->TargetUserId));
-
-	EOS_Sessions_CopySessionHandleByInviteIdOptions copySessionHandleByInviteIdOptions = {
-		EOS_SESSIONS_COPYSESSIONHANDLEBYINVITEID_API_LATEST,
-		Data->InviteId
-	};
-
-	EOS_HSessionDetails sessionDetailsHandle;
-	EOS_EResult eosResult = EOS_Sessions_CopySessionHandleByInviteId(thisPtr->sessionsHandle, &copySessionHandleByInviteIdOptions, &sessionDetailsHandle);
-	if (eosResult == EOS_EResult::EOS_Success)
-	{
-		// Copy the session details
-		EOS_SessionDetails_CopyInfoOptions copyInfoOptions = {
-			EOS_SESSIONDETAILS_COPYINFO_API_LATEST
-		};
-		eosResult = EOS_SessionDetails_CopyInfo(sessionDetailsHandle, &copyInfoOptions, &eosSessionInfo);
-		if (eosResult == EOS_EResult::EOS_Success)
-		{
-			FOnlineSession session = thisPtr->SessionDetailsToSessionOnlineSession(eosSessionInfo);
-
-			FNamedOnlineSession namedSession = FNamedOnlineSession()
+	FOnlineSessionEpic* OnlineSessionPtr;
+	FName SessionName;
+	TArray<TSharedRef<const FUniqueNetId>> RegisteredPlayers;
+} FRegisterPlayersAdditionalData;
 
 
-
-		}
-		else
-		{
-			UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Error copying session details"));
-		}
-	}
-	else
-	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Error copying session handle by invite.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(eosResult)));
-	}
-
-	EOS_SessionDetails_Release(sessionDetailsHandle);
-}
-
-void FOnlineSessionEpic::Tick(float DeltaTime)
-{
-	// ToDo: Iterate through all session searches and cancel them if timeout has been reached
-}
-
-void FOnlineSessionEpic::RegisterLocalPlayers(class FNamedOnlineSession* Session)
-{
-}
-
-TSharedPtr<const FUniqueNetId> FOnlineSessionEpic::CreateSessionIdFromString(const FString& SessionIdStr)
-{
-	return MakeShared<FUniqueNetIdEpic>(SessionIdStr);
-}
+// ---------------------------------------------
+// Free functions/Utility functions.
+// 
+// Most free functionss hould be moved to be private class functions
+// ---------------------------------------------
 
 /**
  * Creates EOS Attribute data from UE4s variant data
@@ -234,6 +153,30 @@ EOS_SessionModification_AddAttributeOptions CreateCustomAttrHandle(FString attri
 		UE_LOG_ONLINE_SESSION(Warning, TEXT("%s"), *error);
 		return EOS_SessionModification_AddAttributeOptions();
 	}
+}
+
+/** Get a resolved connection string from a session info */
+bool GetConnectStringFromSessionInfo(TSharedPtr<FOnlineSessionInfoEpic>& SessionInfo, FString& ConnectInfo, int32 PortOverride = 0)
+{
+	bool bSuccess = false;
+	if (SessionInfo.IsValid())
+	{
+		if (SessionInfo->HostAddr.IsValid() && SessionInfo->HostAddr->IsValid())
+		{
+			if (PortOverride != 0)
+			{
+				ConnectInfo = FString::Printf(TEXT("%s:%d"), *SessionInfo->HostAddr->ToString(false), PortOverride);
+			}
+			else
+			{
+				ConnectInfo = FString::Printf(TEXT("%s"), *SessionInfo->HostAddr->ToString(true));
+			}
+
+			bSuccess = true;
+		}
+	}
+
+	return bSuccess;
 }
 
 void FOnlineSessionEpic::CreateSessionModificationHandle(FOnlineSessionSettings const& NewSessionSettings, EOS_HSessionModification& ModificationHandle, FString& Error)
@@ -509,6 +452,667 @@ handleError:
 	ModificationHandle = EOS_HSessionModification();
 }
 
+
+FNamedOnlineSession FOnlineSessionEpic::ActiveSessionToNamedSession(EOS_ActiveSession_Info const* ActiveSession, bool IsHosting)
+{
+	FString sessionName = UTF8_TO_TCHAR(ActiveSession->SessionName);
+	TSharedRef<FUniqueNetId> localUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::ProductUserIDToString(ActiveSession->LocalUserId));
+
+	FOnlineSession session = SessionDetailsToSessionOnlineSession(ActiveSession->SessionDetails);
+
+	FNamedOnlineSession namedSession(FName(*sessionName), session);
+	namedSession.LocalOwnerId = localUserId;
+	namedSession.bHosting = IsHosting;
+
+	switch (ActiveSession->State)
+	{
+	case EOS_EOnlineSessionState::EOS_OSS_NoSession:
+		namedSession.SessionState = EOnlineSessionState::NoSession;
+		break;
+	case EOS_EOnlineSessionState::EOS_OSS_Creating:
+		namedSession.SessionState = EOnlineSessionState::Creating;
+		break;
+	case EOS_EOnlineSessionState::EOS_OSS_Pending:
+		namedSession.SessionState = EOnlineSessionState::Pending;
+		break;
+	case EOS_EOnlineSessionState::EOS_OSS_Starting:
+		namedSession.SessionState = EOnlineSessionState::Starting;
+		break;
+	case EOS_EOnlineSessionState::EOS_OSS_InProgress:
+		namedSession.SessionState = EOnlineSessionState::InProgress;
+		break;
+	case EOS_EOnlineSessionState::EOS_OSS_Ending:
+		namedSession.SessionState = EOnlineSessionState::Ending;
+		break;
+	case EOS_EOnlineSessionState::EOS_OSS_Ended:
+		namedSession.SessionState = EOnlineSessionState::Ended;
+		break;
+	case EOS_EOnlineSessionState::EOS_OSS_Destroying:
+		namedSession.SessionState = EOnlineSessionState::Destroying;
+		break;
+	default:
+		checkNoEntry();
+		break;
+	}
+
+	return namedSession;
+}
+FOnlineSession FOnlineSessionEpic::SessionDetailsToSessionOnlineSession(EOS_SessionDetails_Info const* SessionDetails)
+{
+	EOS_SessionDetails_Settings const* eosSessionSettings = SessionDetails->Settings;
+
+	// Copy over the session settings
+	FOnlineSessionSettings sessionSettings;
+	sessionSettings.bAllowInvites = eosSessionSettings->bInvitesAllowed == EOS_TRUE ? true : false;
+	sessionSettings.bAllowJoinInProgress = eosSessionSettings->bAllowJoinInProgress == EOS_TRUE ? true : false;
+	sessionSettings.NumPublicConnections = eosSessionSettings->NumPublicConnections;
+
+	// Unique identifier of this build for compatibility
+	sessionSettings.BuildUniqueId = GetBuildUniqueId();
+
+	FOnlineSession session(sessionSettings);
+	session.NumOpenPublicConnections = SessionDetails->NumOpenPublicConnections;
+
+	// Setup the host session info
+	TSharedPtr<FOnlineSessionInfoEpic> sessionInfo = MakeShared<FOnlineSessionInfoEpic>();
+	sessionInfo->HostAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
+
+	FString hostAddrStr = UTF8_TO_TCHAR(SessionDetails->HostAddress);
+	FString ip, port;
+	ip.Split(":", &ip, &port);
+
+	bool isValid;
+	sessionInfo->HostAddr->SetIp(*ip, isValid);
+	sessionInfo->HostAddr->SetPort(FCString::Atoi(*port));
+
+	session.SessionInfo = sessionInfo;
+
+	return session;
+}
+
+
+
+// ---------------------------------------------
+// EOS SDK Callback functions
+// ---------------------------------------------
+
+void FOnlineSessionEpic::OnEOSSessionInviteReceived(const EOS_Sessions_SessionInviteReceivedCallbackInfo* Data)
+{
+	FOnlineSessionEpic* thisPtr = (FOnlineSessionEpic*)Data->ClientData;
+	checkf(thisPtr, TEXT("%s called. But \"this\" is missing"), *FString(__FUNCTION__));
+
+	// User that received the invite
+	TSharedRef<FUniqueNetId const> localUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::ProductUserIDToString(Data->LocalUserId));
+
+	// User that sent the invite
+	TSharedRef<FUniqueNetId const> fromUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::ProductUserIDToString(Data->TargetUserId));
+
+	EOS_Sessions_CopySessionHandleByInviteIdOptions copySessionHandleByInviteIdOptions = {
+		EOS_SESSIONS_COPYSESSIONHANDLEBYINVITEID_API_LATEST,
+		Data->InviteId
+	};
+
+	EOS_HSessionDetails sessionDetailsHandle;
+	EOS_EResult eosResult = EOS_Sessions_CopySessionHandleByInviteId(thisPtr->sessionsHandle, &copySessionHandleByInviteIdOptions, &sessionDetailsHandle);
+	if (eosResult == EOS_EResult::EOS_Success)
+	{
+		// Allocate space for the session infos
+		EOS_SessionDetails_Info* eosSessionInfo = (EOS_SessionDetails_Info*)malloc(sizeof(EOS_SessionDetails_Info));
+
+		// Copy the session details
+		EOS_SessionDetails_CopyInfoOptions copyInfoOptions = {
+			EOS_SESSIONDETAILS_COPYINFO_API_LATEST
+		};
+		eosResult = EOS_SessionDetails_CopyInfo(sessionDetailsHandle, &copyInfoOptions, &eosSessionInfo);
+		if (eosResult == EOS_EResult::EOS_Success)
+		{
+			FOnlineSession session = thisPtr->SessionDetailsToSessionOnlineSession(eosSessionInfo);
+
+			// Create a new search result.
+			// Ping is set to -1, as we have no way of retrieving it for now
+			FOnlineSessionSearchResult searchResult;
+			searchResult.PingInMs = -1;
+			searchResult.Session = session;
+
+			thisPtr->TriggerOnSessionInviteReceivedDelegates(*localUserId, *fromUserId, FString(), searchResult);
+		}
+		else
+		{
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Error copying session details"));
+		}
+
+		EOS_SessionDetails_Info_Release(eosSessionInfo);
+	}
+	else
+	{
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Error copying session handle by invite.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(eosResult)));
+	}
+
+	EOS_SessionDetails_Release(sessionDetailsHandle);
+}
+
+void FOnlineSessionEpic::OnEOSCreateSessionComplete(const EOS_Sessions_UpdateSessionCallbackInfo* Data)
+{
+	FName sessionName = FName(Data->SessionName);
+
+	/** Result code for the operation. EOS_Success is returned for a successful operation, otherwise one of the error codes is returned. See eos_common.h */
+	EOS_EResult ResultCode = Data->ResultCode;
+	/** Context that was passed into EOS_Sessions_UpdateSession */
+	FOnlineSessionEpic* thisPtr = (FOnlineSessionEpic*)Data->ClientData;
+
+	if (ResultCode != EOS_EResult::EOS_Success)
+	{
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Update Session failed. Error Code: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(ResultCode)));
+		thisPtr->RemoveNamedSession(sessionName);
+		thisPtr->TriggerOnCreateSessionCompleteDelegates(sessionName, false);
+		return;
+	}
+
+	FNamedOnlineSession* session = thisPtr->GetNamedSession(sessionName);
+	if (!session)
+	{
+		UE_LOG_ONLINE_SESSION(Fatal, TEXT("CreateSession complete callback called, but session \"%s\" not found."), *sessionName.ToString());
+		return;
+	}
+
+	// Mark the session as created, but pending to start
+	session->SessionState = EOnlineSessionState::Pending;
+	UE_LOG_ONLINE_SESSION(Display, TEXT("Created session: %s"), *sessionName.ToString());
+	thisPtr->TriggerOnCreateSessionCompleteDelegates(sessionName, true);
+}
+
+void FOnlineSessionEpic::OnEOSStartSessionComplete(const EOS_Sessions_StartSessionCallbackInfo* Data)
+{
+	// Context that was passed into EOS_Sessions_UpdateSession
+	// Copy the session ptr and session name, then free
+	SessionStateChangeAdditionalData* context = (SessionStateChangeAdditionalData*)Data->ClientData;
+	FOnlineSessionEpic* thisPtr = context->OnlineSessionPtr;
+	FName sessionName = context->SessionName;
+	delete(context);
+
+	/** Result code for the operation. EOS_Success is returned for a successful operation, otherwise one of the error codes is returned. See eos_common.h */
+	EOS_EResult result = Data->ResultCode;
+	if (result != EOS_EResult::EOS_Success)
+	{
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't start session. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
+		thisPtr->TriggerOnStartSessionCompleteDelegates(sessionName, false);
+		return;
+	}
+
+	if (FNamedOnlineSession* session = thisPtr->GetNamedSession(sessionName))
+	{
+		session->SessionState = EOnlineSessionState::InProgress;
+		thisPtr->TriggerOnStartSessionCompleteDelegates(sessionName, true);
+	}
+	else
+	{
+		UE_LOG_ONLINE_SESSION(Fatal, TEXT("Session \"%s\" changed on backend, but local session not found."), *sessionName.ToString());
+	}
+}
+
+void FOnlineSessionEpic::OnEOSUpdateSessionComplete(const EOS_Sessions_UpdateSessionCallbackInfo* Data)
+{
+	FName sessionName = FName(Data->SessionName);
+
+	/** Result code for the operation. EOS_Success is returned for a successful operation, otherwise one of the error codes is returned. See eos_common.h */
+	EOS_EResult ResultCode = Data->ResultCode;
+	/** Context that was passed into EOS_Sessions_UpdateSession */
+	FUpdateSessionAdditionalData* context = (FUpdateSessionAdditionalData*)Data->ClientData;
+	FOnlineSessionEpic* thisPtr = context->OnlineSessionPtr;
+	FOnlineSessionSettings* oldSettings = context->OldSessionSettings;
+
+	if (ResultCode != EOS_EResult::EOS_Success)
+	{
+		FNamedOnlineSession* session = thisPtr->GetNamedSession(sessionName);
+		checkf(session, TEXT("Failed updating an online session \"%s\". Session not present anymore"), *sessionName.ToString());
+
+		session->SessionSettings = *oldSettings;
+
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Failed to update session - Error Code: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(ResultCode)));
+		thisPtr->TriggerOnCreateSessionCompleteDelegates(sessionName, false);
+		return;
+	}
+
+	UE_LOG_ONLINE_SESSION(Display, TEXT("Updated session: %s"), *sessionName.ToString());
+
+	// Cleanup the additional resources.
+	delete(context);
+	delete(oldSettings);
+}
+
+void FOnlineSessionEpic::OnEOSEndSessionComplete(const EOS_Sessions_EndSessionCallbackInfo* Data)
+{
+	// Context that was passed into EOS_Sessions_UpdateSession
+	// Copy the session ptr and session name, then free
+	SessionStateChangeAdditionalData* context = (SessionStateChangeAdditionalData*)Data->ClientData;
+	FOnlineSessionEpic* thisPtr = context->OnlineSessionPtr;
+	FName sessionName = context->SessionName;
+	delete(context);
+
+	/** Result code for the operation. EOS_Success is returned for a successful operation, otherwise one of the error codes is returned. See eos_common.h */
+	EOS_EResult result = Data->ResultCode;
+	if (result != EOS_EResult::EOS_Success)
+	{
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't end session. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
+		thisPtr->TriggerOnEndSessionCompleteDelegates(sessionName, false);
+		return;
+	}
+
+	if (FNamedOnlineSession* session = thisPtr->GetNamedSession(sessionName))
+	{
+		session->SessionState = EOnlineSessionState::Ended;
+		thisPtr->TriggerOnEndSessionCompleteDelegates(sessionName, true);
+	}
+	else
+	{
+		UE_LOG_ONLINE_SESSION(Fatal, TEXT("Session \"%s\" changed on backend, but local session not found."), *sessionName.ToString());
+	}
+}
+
+void FOnlineSessionEpic::OnEOSDestroySessionComplete(const EOS_Sessions_DestroySessionCallbackInfo* Data)
+{
+	// Context that was passed into EOS_Sessions_UpdateSession
+	// Copy the session ptr and session name, then free
+	SessionStateChangeAdditionalData* context = (SessionStateChangeAdditionalData*)Data->ClientData;
+	FOnlineSessionEpic* thisPtr = context->OnlineSessionPtr;
+	FName sessionName = context->SessionName;
+	delete(context);
+
+	/** Result code for the operation. EOS_Success is returned for a successful operation, otherwise one of the error codes is returned. See eos_common.h */
+	EOS_EResult result = Data->ResultCode;
+	if (result != EOS_EResult::EOS_Success)
+	{
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't destroy session. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
+		thisPtr->TriggerOnDestroySessionCompleteDelegates(sessionName, false);
+		return;
+	}
+
+	if (FNamedOnlineSession* session = thisPtr->GetNamedSession(sessionName))
+	{
+		thisPtr->RemoveNamedSession(sessionName);
+		thisPtr->TriggerOnDestroySessionCompleteDelegates(sessionName, true);
+	}
+	else
+	{
+		UE_LOG_ONLINE_SESSION(Fatal, TEXT("Session \"%s\" changed on backend, but local session not found."), *sessionName.ToString());
+	}
+}
+
+void FOnlineSessionEpic::OnEOSFindSessionComplete(const EOS_SessionSearch_FindCallbackInfo* Data)
+{
+	// Context that was passed into EOS_Sessions_UpdateSession
+	// Copy the session ptr and start time, then free
+	FFindSessionsAdditionalData* context = (FFindSessionsAdditionalData*)Data->ClientData;
+	FOnlineSessionEpic* thisPtr = context->OnlineSessionPtr;
+	double searchStartTime = context->SearchStartTime;
+	delete(context);
+
+	TSharedRef<FOnlineSessionSearch>* searchRefPtr = thisPtr->CurrentSessionSearches.Find(searchStartTime);
+	if (!searchRefPtr)
+	{
+		UE_LOG_ONLINE_SESSION(Fatal, TEXT("Session search completed, but session not in session search list!"));
+		return;
+	}
+
+	TSharedRef<FOnlineSessionSearch> searchRef = *searchRefPtr;
+	if (Data->ResultCode != EOS_EResult::EOS_Success)
+	{
+		searchRef->SearchState = EOnlineAsyncTaskState::Failed;
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't find session. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+		thisPtr->TriggerOnFindSessionsCompleteDelegates(false);
+		return;
+	}
+
+	searchRef->SearchState = EOnlineAsyncTaskState::Done;
+	UE_LOG_ONLINE_SESSION(Display, TEXT("Finished session search with start time %f"), searchStartTime);
+	thisPtr->TriggerOnFindSessionsCompleteDelegates(true);
+}
+
+void FOnlineSessionEpic::OnEOSJoinSessionComplete(const EOS_Sessions_JoinSessionCallbackInfo* Data)
+{
+	FJoinSessionAdditionalData* additionalData = (FJoinSessionAdditionalData*)Data->ClientData;
+	checkf(additionalData, TEXT("OnEOSJoinSessionComplete delegate called, but no client data available"));
+
+	FOnlineSessionEpic* thisPtr = additionalData->OnlineSessionPtr;
+	checkf(thisPtr, TEXT("OnEOSJoinSessionComplete: additional data \"this\" missing"));
+
+	FName sessionName = additionalData->SessionName;
+
+	delete(additionalData);
+
+	if (Data->ResultCode != EOS_EResult::EOS_Success)
+	{
+		thisPtr->RemoveNamedSession(sessionName);
+
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+		thisPtr->TriggerOnJoinSessionCompleteDelegates(sessionName, EOnJoinSessionCompleteResult::UnknownError);
+		return;
+	}
+
+	FNamedOnlineSession* session = thisPtr->GetNamedSession(sessionName);
+	if (!session)
+	{
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Tried joining session \"%s\", but session wasn't found."), *sessionName.ToString());
+		thisPtr->TriggerOnJoinSessionCompleteDelegates(sessionName, EOnJoinSessionCompleteResult::SessionDoesNotExist);
+		return;
+	}
+
+	thisPtr->TriggerOnJoinSessionCompleteDelegates(sessionName, EOnJoinSessionCompleteResult::Success);
+}
+
+void FOnlineSessionEpic::OnEOSFindFriendSessionComplete(const EOS_SessionSearch_FindCallbackInfo* Data)
+{
+	FFindFriendSessionAdditionalData* additionalData = (FFindFriendSessionAdditionalData*)Data->ClientData;
+	checkf(additionalData, TEXT("%s called, but no ClientData recieved."), *FString(__FUNCTION__));
+
+	FOnlineSessionEpic* thisPtr = additionalData->OnlineSessionPtr;
+	checkf(thisPtr, TEXT("%s called, but \"this\" missing from ClientData"), *FString(__FUNCTION__));
+
+	double searchCreationTime = additionalData->SearchCreationTime;
+
+	FUniqueNetId const& searchingUserId = additionalData->SearchingUserId;
+
+	// Free the previously allocated memory
+	delete(additionalData);
+
+	FString error;
+	TArray<FOnlineSessionSearchResult> searchResults;
+
+	EOS_EResult eosResult = Data->ResultCode;
+	if (eosResult == EOS_EResult::EOS_Success)
+	{
+		// Retrieve the EOS session search handle and the local session search, into which we're going to write the results.
+		TSharedPtr<EOS_HSessionSearch> sessionSearchHandle = thisPtr->SessionSearches.Find(searchCreationTime)->Key;
+		checkf(sessionSearchHandle, TEXT("%s called, but the EOS session search handle is invalid"), *FString(__FUNCTION__));
+
+		TSharedRef<FOnlineSessionSearch> localSessionSearch = thisPtr->SessionSearches.Find(searchCreationTime)->Value;
+
+		// Get how many results we got
+		EOS_SessionSearch_GetSearchResultCountOptions searchResultCountOptions = {
+			EOS_SESSIONSEARCH_GETSEARCHRESULTCOUNT_API_LATEST
+		};
+		uint32 resultCount = EOS_SessionSearch_GetSearchResultCount(*sessionSearchHandle, &searchResultCountOptions);
+		if (resultCount > 0)
+		{
+			for (uint32 i = 0; i < resultCount; ++i)
+			{
+				EOS_SessionSearch_CopySearchResultByIndexOptions copySearchResultsByIndex = {
+					EOS_SESSIONSEARCH_COPYSEARCHRESULTBYINDEX_API_LATEST,
+					i
+				};
+				EOS_HSessionDetails sessionDetailsHandle;
+				eosResult = EOS_SessionSearch_CopySearchResultByIndex(*sessionSearchHandle, &copySearchResultsByIndex, &sessionDetailsHandle);
+				if (eosResult == EOS_EResult::EOS_Success)
+				{
+					// Allocate space for the session infos
+					EOS_SessionDetails_Info* eosSessionInfo = (EOS_SessionDetails_Info*)malloc(sizeof(EOS_SessionDetails_Info));
+
+					// Copy the session details
+					EOS_SessionDetails_CopyInfoOptions copyInfoOptions = {
+						EOS_SESSIONDETAILS_COPYINFO_API_LATEST
+					};
+					eosResult = EOS_SessionDetails_CopyInfo(sessionDetailsHandle, &copyInfoOptions, &eosSessionInfo);
+					if (eosResult == EOS_EResult::EOS_Success)
+					{
+						FOnlineSession session = thisPtr->SessionDetailsToSessionOnlineSession(eosSessionInfo);
+
+						// Create a new search result.
+						// Ping is set to -1, as we have no way of retrieving it for now
+						FOnlineSessionSearchResult searchResult;
+						searchResult.PingInMs = -1;
+						searchResult.Session = session;
+
+						// Add the session to the list of search results.
+						searchResults.Add(searchResult);
+					}
+					else
+					{
+						error = FString::Printf(TEXT("[EOS SDK] Couldn't copy session info.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+					}
+
+					// Release the prevously allocated memory for the session info;
+					EOS_SessionDetails_Info_Release(eosSessionInfo);
+				}
+				else
+				{
+					error = FString::Printf(TEXT("[EOS SDK] Couldn't get session details handle.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+				}
+			}
+
+			localSessionSearch->SearchResults = searchResults;
+		}
+		else
+		{
+			UE_LOG_ONLINE_SESSION(Display, TEXT("No friend sessions found.\r\n    LocalPlayerId: %s"), *searchingUserId.ToString());
+		}
+	}
+	else
+	{
+		error = FString::Printf(TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+	}
+
+	// Report an error if there was any
+	UE_CLOG_ONLINE_SESSION(!error.IsEmpty(), Warning, TEXT("%s"), *error);
+
+	// Get the local index of the user that started the search
+	IOnlineIdentityPtr identityPtr = thisPtr->Subsystem->GetIdentityInterface();
+	FPlatformUserId userIdx = identityPtr->GetPlatformUserIdFromUniqueNetId(searchingUserId);
+
+	// Trigger delegates
+	thisPtr->TriggerOnFindFriendSessionCompleteDelegates(userIdx, error.IsEmpty(), searchResults);
+}
+
+void FOnlineSessionEpic::OnEOSSendSessionInviteToFriendsComplete(const EOS_Sessions_SendInviteCallbackInfo* Data)
+{
+	FOnlineSessionEpic* thisPtr = (FOnlineSessionEpic*)Data->ClientData;
+	check(thisPtr);
+
+	if (Data->ResultCode != EOS_EResult::EOS_Success)
+	{
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Session invite(s) couldn't be sent to remote.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+	}
+	else
+	{
+		UE_LOG_ONLINE_SESSION(Display, TEXT("[EOS SDK] Session invite(s) sent to remote."));
+	}
+}
+
+void FOnlineSessionEpic::OnEOSRegisterPlayersComplete(const EOS_Sessions_RegisterPlayersCallbackInfo* Data)
+{
+	FRegisterPlayersAdditionalData* additionalData = (FRegisterPlayersAdditionalData*)Data->ClientData;
+	checkf(additionalData, TEXT("OnEOSJoinSessionComplete delegate called, but no client data available"));
+
+	FOnlineSessionEpic* thisPtr = additionalData->OnlineSessionPtr;
+	checkf(thisPtr, TEXT("OnEOSJoinSessionComplete: additional data \"this\" missing"));
+
+	FName sessionName = additionalData->SessionName;
+
+	TArray<TSharedRef<const FUniqueNetId>> const registeredPlayers = additionalData->RegisteredPlayers;
+
+	delete(additionalData);
+
+	FNamedOnlineSession* session = thisPtr->GetNamedSession(sessionName);
+	if (!session)
+	{
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("RegisterPlayers callback called, but session not found.\r\n    %s"), *sessionName.ToString());
+		thisPtr->TriggerOnRegisterPlayersCompleteDelegates(sessionName, TArray<TSharedRef<const FUniqueNetId>>(), false);
+		return;
+	}
+
+	if (Data->ResultCode != EOS_EResult::EOS_Success)
+	{
+		for (int32 i = 0; i < registeredPlayers.Num(); ++i)
+		{
+			session->RegisteredPlayers.RemoveAtSwap(i);
+
+			// update number of open connections
+			if (session->NumOpenPublicConnections < session->SessionSettings.NumPublicConnections)
+			{
+				session->NumOpenPublicConnections += 1;
+			}
+			else if (session->NumOpenPrivateConnections < session->SessionSettings.NumPrivateConnections)
+			{
+				session->NumOpenPrivateConnections += 1;
+			}
+		}
+
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+		thisPtr->TriggerOnRegisterPlayersCompleteDelegates(sessionName, TArray<TSharedRef<const FUniqueNetId>>(), false);
+		return;
+	}
+
+	thisPtr->TriggerOnRegisterPlayersCompleteDelegates(sessionName, registeredPlayers, true);
+}
+
+void FOnlineSessionEpic::OnEOSUnRegisterPlayersComplete(const EOS_Sessions_UnregisterPlayersCallbackInfo* Data)
+{
+	FRegisterPlayersAdditionalData* additionalData = (FRegisterPlayersAdditionalData*)Data->ClientData;
+	checkf(additionalData, TEXT("OnEOSJoinSessionComplete delegate called, but no client data available"));
+
+	FOnlineSessionEpic* thisPtr = additionalData->OnlineSessionPtr;
+	checkf(thisPtr, TEXT("OnEOSJoinSessionComplete: additional data \"this\" missing"));
+
+	FName sessionName = additionalData->SessionName;
+
+	TArray<TSharedRef<const FUniqueNetId>> const players = additionalData->RegisteredPlayers;
+
+	delete(additionalData);
+
+	FNamedOnlineSession* session = thisPtr->GetNamedSession(sessionName);
+	if (!session)
+	{
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("RegisterPlayers callback called, but session not found.\r\n    %s"), *sessionName.ToString());
+		thisPtr->TriggerOnRegisterPlayersCompleteDelegates(sessionName, TArray<TSharedRef<const FUniqueNetId>>(), false);
+		return;
+	}
+
+	if (Data->ResultCode != EOS_EResult::EOS_Success)
+	{
+		for (int32 i = 0; i < players.Num(); ++i)
+		{
+			session->RegisteredPlayers.Add(players[i]);
+
+			// update number of open connections
+			if (session->NumOpenPublicConnections > 0)
+			{
+				session->NumOpenPublicConnections -= 1;
+			}
+			else if (session->NumOpenPrivateConnections > 0)
+			{
+				session->NumOpenPrivateConnections -= 1;
+			}
+		}
+
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+		thisPtr->TriggerOnUnregisterPlayersCompleteDelegates(sessionName, TArray<TSharedRef<const FUniqueNetId>>(), false);
+		return;
+	}
+
+	thisPtr->TriggerOnUnregisterPlayersCompleteDelegates(sessionName, players, true);
+}
+
+
+// ---------------------------------------------
+// IOnlineSession implementations
+// ---------------------------------------------
+
+FNamedOnlineSession* FOnlineSessionEpic::GetNamedSession(FName SessionName)
+{
+	FScopeLock ScopeLock(&SessionLock);
+	for (int32 SearchIndex = 0; SearchIndex < Sessions.Num(); SearchIndex++)
+	{
+		if (Sessions[SearchIndex].SessionName == SessionName)
+		{
+			return &Sessions[SearchIndex];
+		}
+	}
+	return nullptr;
+}
+
+void FOnlineSessionEpic::RemoveNamedSession(FName SessionName)
+{
+	FScopeLock ScopeLock(&SessionLock);
+	for (int32 SearchIndex = 0; SearchIndex < Sessions.Num(); SearchIndex++)
+	{
+		if (Sessions[SearchIndex].SessionName == SessionName)
+		{
+			Sessions.RemoveAtSwap(SearchIndex);
+			return;
+		}
+	}
+}
+
+EOnlineSessionState::Type FOnlineSessionEpic::GetSessionState(FName SessionName) const
+{
+	FScopeLock ScopeLock(&SessionLock);
+	for (int32 SearchIndex = 0; SearchIndex < Sessions.Num(); SearchIndex++)
+	{
+		if (Sessions[SearchIndex].SessionName == SessionName)
+		{
+			return Sessions[SearchIndex].SessionState;
+		}
+	}
+
+	return EOnlineSessionState::NoSession;
+}
+
+bool FOnlineSessionEpic::HasPresenceSession()
+{
+	FScopeLock ScopeLock(&SessionLock);
+	for (int32 SearchIndex = 0; SearchIndex < Sessions.Num(); SearchIndex++)
+	{
+		if (Sessions[SearchIndex].SessionSettings.bUsesPresence)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool FOnlineSessionEpic::IsSessionJoinable(const FNamedOnlineSession& Session) const
+{
+	Session.GetJoinability();
+
+	return false;
+}
+
+bool FOnlineSessionEpic::IsHost(const FNamedOnlineSession& Session) const
+{
+	return false;
+}
+
+FOnlineSessionEpic::FOnlineSessionEpic(FOnlineSubsystemEpic* InSubsystem)
+	: Subsystem(InSubsystem)
+{
+	// Get the sessions handle
+	EOS_HPlatform hPlatform = this->Subsystem->PlatformHandle;
+	check(hPlatform);
+	EOS_HSessions hSessions = EOS_Platform_GetSessionsInterface(hPlatform);
+	check(hSessions);
+	this->sessionsHandle = hSessions;
+
+	EOS_Sessions_AddNotifySessionInviteReceivedOptions notifySessionInviteReceivedOptions = {
+		EOS_SESSIONS_ADDNOTIFYSESSIONINVITERECEIVED_API_LATEST
+	};
+	this->sessionInviteRecivedCallbackHandle = EOS_Sessions_AddNotifySessionInviteReceived(hSessions, &notifySessionInviteReceivedOptions, this, &FOnlineSessionEpic::OnEOSSessionInviteReceived);
+}
+
+FOnlineSessionEpic::~FOnlineSessionEpic()
+{
+	EOS_Sessions_RemoveNotifySessionInviteReceived(this->sessionsHandle, this->sessionInviteRecivedCallbackHandle);
+}
+
+void FOnlineSessionEpic::Tick(float DeltaTime)
+{
+	// ToDo: Iterate through all session searches and cancel them if timeout has been reached
+}
+
+TSharedPtr<const FUniqueNetId> FOnlineSessionEpic::CreateSessionIdFromString(const FString& SessionIdStr)
+{
+	return MakeShared<FUniqueNetIdEpic>(SessionIdStr);
+}
+
 bool FOnlineSessionEpic::CreateSession(int32 HostingPlayerNum, FName SessionName, const FOnlineSessionSettings& NewSessionSettings)
 {
 	IOnlineIdentityPtr identityPtr = this->Subsystem->GetIdentityInterface();
@@ -517,7 +1121,6 @@ bool FOnlineSessionEpic::CreateSession(int32 HostingPlayerNum, FName SessionName
 	TSharedPtr<const FUniqueNetId> netId = identityPtr->GetUniquePlayerId(HostingPlayerNum);
 	return this->CreateSession(*netId, SessionName, NewSessionSettings);
 }
-
 bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FName SessionName, const FOnlineSessionSettings& NewSessionSettings)
 {
 	FString err;
@@ -624,44 +1227,8 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 
 	return result == ONLINE_IO_PENDING || result == ONLINE_SUCCESS;
 }
-void FOnlineSessionEpic::OnEOSCreateSessionComplete(const EOS_Sessions_UpdateSessionCallbackInfo* Data)
-{
-	FName sessionName = FName(Data->SessionName);
 
-	/** Result code for the operation. EOS_Success is returned for a successful operation, otherwise one of the error codes is returned. See eos_common.h */
-	EOS_EResult ResultCode = Data->ResultCode;
-	/** Context that was passed into EOS_Sessions_UpdateSession */
-	FOnlineSessionEpic* thisPtr = (FOnlineSessionEpic*)Data->ClientData;
 
-	if (ResultCode != EOS_EResult::EOS_Success)
-	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("Update Session failed. Error Code: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(ResultCode)));
-		thisPtr->RemoveNamedSession(sessionName);
-		thisPtr->TriggerOnCreateSessionCompleteDelegates(sessionName, false);
-		return;
-	}
-
-	FNamedOnlineSession* session = thisPtr->GetNamedSession(sessionName);
-	if (!session)
-	{
-		UE_LOG_ONLINE_SESSION(Fatal, TEXT("CreateSession complete callback called, but session \"%s\" not found."), *sessionName.ToString());
-		return;
-	}
-
-	// Mark the session as created, but pending to start
-	session->SessionState = EOnlineSessionState::Pending;
-	UE_LOG_ONLINE_SESSION(Display, TEXT("Created session: %s"), *sessionName.ToString());
-	thisPtr->TriggerOnCreateSessionCompleteDelegates(sessionName, true);
-}
-
-/**
- * This structure is needed, since the callback to start as session doesn't include the session's name,
- * which is needed to call the completion delegates */
-typedef struct SessionStateChangeAdditionalInfo
-{
-	FOnlineSessionEpic* OnlineSessionPtr;
-	FName SessionName;
-} SessionStateChangeAdditionalInfo;
 bool FOnlineSessionEpic::StartSession(FName SessionName)
 {
 	FString error;
@@ -680,7 +1247,7 @@ bool FOnlineSessionEpic::StartSession(FName SessionName)
 
 			// Allocate struct for additional information, 
 			//as the callback doesn't expose the session that was started
-			SessionStateChangeAdditionalInfo* additionalInfo = new SessionStateChangeAdditionalInfo();
+			SessionStateChangeAdditionalData* additionalInfo = new SessionStateChangeAdditionalData();
 			additionalInfo->OnlineSessionPtr = this;
 			additionalInfo->SessionName = SessionName;
 
@@ -708,41 +1275,7 @@ bool FOnlineSessionEpic::StartSession(FName SessionName)
 
 	return resultCode == ONLINE_IO_PENDING || resultCode == ONLINE_SUCCESS;
 }
-void FOnlineSessionEpic::OnEOSStartSessionComplete(const EOS_Sessions_StartSessionCallbackInfo* Data)
-{
-	// Context that was passed into EOS_Sessions_UpdateSession
-	// Copy the session ptr and session name, then free
-	SessionStateChangeAdditionalInfo* context = (SessionStateChangeAdditionalInfo*)Data->ClientData;
-	FOnlineSessionEpic* thisPtr = context->OnlineSessionPtr;
-	FName sessionName = context->SessionName;
-	delete(context);
 
-	/** Result code for the operation. EOS_Success is returned for a successful operation, otherwise one of the error codes is returned. See eos_common.h */
-	EOS_EResult result = Data->ResultCode;
-	if (result != EOS_EResult::EOS_Success)
-	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't start session. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
-		thisPtr->TriggerOnStartSessionCompleteDelegates(sessionName, false);
-		return;
-	}
-
-	if (FNamedOnlineSession* session = thisPtr->GetNamedSession(sessionName))
-	{
-		session->SessionState = EOnlineSessionState::InProgress;
-		thisPtr->TriggerOnStartSessionCompleteDelegates(sessionName, true);
-	}
-	else
-	{
-		UE_LOG_ONLINE_SESSION(Fatal, TEXT("Session \"%s\" changed on backend, but local session not found."), *sessionName.ToString());
-	}
-}
-
-/** Needed, since we need a way to pass the old settings to the callback, in case the backend refuses the update */
-typedef struct FUpdateSessionAdditionalInfo
-{
-	FOnlineSessionEpic* OnlineSessionPtr;
-	FOnlineSessionSettings* OldSessionSettings;
-} FUpdateSessionAdditionalInfo;
 bool FOnlineSessionEpic::UpdateSession(FName SessionName, FOnlineSessionSettings& UpdatedSessionSettings, bool bShouldRefreshOnlineData)
 {
 	FString err;
@@ -752,7 +1285,7 @@ bool FOnlineSessionEpic::UpdateSession(FName SessionName, FOnlineSessionSettings
 	{
 		// Create the additional struct info here
 		FOnlineSessionSettings oldSettings = FOnlineSessionSettings(session->SessionSettings);
-		FUpdateSessionAdditionalInfo* additionalInfo = new FUpdateSessionAdditionalInfo();
+		FUpdateSessionAdditionalData* additionalInfo = new FUpdateSessionAdditionalData();
 		additionalInfo->OnlineSessionPtr = this;
 		additionalInfo->OldSessionSettings = &oldSettings;
 
@@ -817,35 +1350,6 @@ bool FOnlineSessionEpic::UpdateSession(FName SessionName, FOnlineSessionSettings
 	}
 	return result == ONLINE_IO_PENDING || result == ONLINE_SUCCESS;
 }
-void FOnlineSessionEpic::OnEOSUpdateSessionComplete(const EOS_Sessions_UpdateSessionCallbackInfo* Data)
-{
-	FName sessionName = FName(Data->SessionName);
-
-	/** Result code for the operation. EOS_Success is returned for a successful operation, otherwise one of the error codes is returned. See eos_common.h */
-	EOS_EResult ResultCode = Data->ResultCode;
-	/** Context that was passed into EOS_Sessions_UpdateSession */
-	FUpdateSessionAdditionalInfo* context = (FUpdateSessionAdditionalInfo*)Data->ClientData;
-	FOnlineSessionEpic* thisPtr = context->OnlineSessionPtr;
-	FOnlineSessionSettings* oldSettings = context->OldSessionSettings;
-
-	if (ResultCode != EOS_EResult::EOS_Success)
-	{
-		FNamedOnlineSession* session = thisPtr->GetNamedSession(sessionName);
-		checkf(session, TEXT("Failed updating an online session \"%s\". Session not present anymore"), *sessionName.ToString());
-
-		session->SessionSettings = *oldSettings;
-
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Failed to update session - Error Code: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(ResultCode)));
-		thisPtr->TriggerOnCreateSessionCompleteDelegates(sessionName, false);
-		return;
-	}
-
-	UE_LOG_ONLINE_SESSION(Display, TEXT("Updated session: %s"), *sessionName.ToString());
-
-	// Cleanup the additional resources.
-	delete(context);
-	delete(oldSettings);
-}
 
 bool FOnlineSessionEpic::EndSession(FName SessionName)
 {
@@ -864,7 +1368,7 @@ bool FOnlineSessionEpic::EndSession(FName SessionName)
 				TCHAR_TO_UTF8(*SessionName.ToString())
 			};
 
-			SessionStateChangeAdditionalInfo* additionalInfo = new SessionStateChangeAdditionalInfo();
+			SessionStateChangeAdditionalData* additionalInfo = new SessionStateChangeAdditionalData();
 			additionalInfo->OnlineSessionPtr = this;
 			additionalInfo->SessionName = SessionName;
 
@@ -894,34 +1398,6 @@ bool FOnlineSessionEpic::EndSession(FName SessionName)
 	}
 	return resultCode == ONLINE_IO_PENDING || resultCode == ONLINE_SUCCESS;
 }
-void FOnlineSessionEpic::OnEOSEndSessionComplete(const EOS_Sessions_EndSessionCallbackInfo* Data)
-{
-	// Context that was passed into EOS_Sessions_UpdateSession
-	// Copy the session ptr and session name, then free
-	SessionStateChangeAdditionalInfo* context = (SessionStateChangeAdditionalInfo*)Data->ClientData;
-	FOnlineSessionEpic* thisPtr = context->OnlineSessionPtr;
-	FName sessionName = context->SessionName;
-	delete(context);
-
-	/** Result code for the operation. EOS_Success is returned for a successful operation, otherwise one of the error codes is returned. See eos_common.h */
-	EOS_EResult result = Data->ResultCode;
-	if (result != EOS_EResult::EOS_Success)
-	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't end session. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
-		thisPtr->TriggerOnEndSessionCompleteDelegates(sessionName, false);
-		return;
-	}
-
-	if (FNamedOnlineSession* session = thisPtr->GetNamedSession(sessionName))
-	{
-		session->SessionState = EOnlineSessionState::Ended;
-		thisPtr->TriggerOnEndSessionCompleteDelegates(sessionName, true);
-	}
-	else
-	{
-		UE_LOG_ONLINE_SESSION(Fatal, TEXT("Session \"%s\" changed on backend, but local session not found."), *sessionName.ToString());
-	}
-}
 
 bool FOnlineSessionEpic::DestroySession(FName SessionName, const FOnDestroySessionCompleteDelegate& CompletionDelegate)
 {
@@ -935,7 +1411,7 @@ bool FOnlineSessionEpic::DestroySession(FName SessionName, const FOnDestroySessi
 		{
 			session->SessionState = EOnlineSessionState::Destroying;
 
-			SessionStateChangeAdditionalInfo* additionalInfo = new SessionStateChangeAdditionalInfo();
+			SessionStateChangeAdditionalData* additionalInfo = new SessionStateChangeAdditionalData();
 			additionalInfo->OnlineSessionPtr = this;
 			additionalInfo->SessionName = SessionName;
 
@@ -970,34 +1446,6 @@ bool FOnlineSessionEpic::DestroySession(FName SessionName, const FOnDestroySessi
 	}
 	return resultCode == ONLINE_IO_PENDING || resultCode == ONLINE_SUCCESS;
 }
-void FOnlineSessionEpic::OnEOSDestroySessionComplete(const EOS_Sessions_DestroySessionCallbackInfo* Data)
-{
-	// Context that was passed into EOS_Sessions_UpdateSession
-	// Copy the session ptr and session name, then free
-	SessionStateChangeAdditionalInfo* context = (SessionStateChangeAdditionalInfo*)Data->ClientData;
-	FOnlineSessionEpic* thisPtr = context->OnlineSessionPtr;
-	FName sessionName = context->SessionName;
-	delete(context);
-
-	/** Result code for the operation. EOS_Success is returned for a successful operation, otherwise one of the error codes is returned. See eos_common.h */
-	EOS_EResult result = Data->ResultCode;
-	if (result != EOS_EResult::EOS_Success)
-	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't destroy session. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
-		thisPtr->TriggerOnDestroySessionCompleteDelegates(sessionName, false);
-		return;
-	}
-
-	if (FNamedOnlineSession* session = thisPtr->GetNamedSession(sessionName))
-	{
-		thisPtr->RemoveNamedSession(sessionName);
-		thisPtr->TriggerOnDestroySessionCompleteDelegates(sessionName, true);
-	}
-	else
-	{
-		UE_LOG_ONLINE_SESSION(Fatal, TEXT("Session \"%s\" changed on backend, but local session not found."), *sessionName.ToString());
-	}
-}
 
 bool FOnlineSessionEpic::IsPlayerInSession(FName SessionName, const FUniqueNetId& UniqueId)
 {
@@ -1030,10 +1478,6 @@ bool FOnlineSessionEpic::CancelMatchmaking(const FUniqueNetId& SearchingPlayerId
 	return false;
 }
 
-typedef struct FFindSessionsAdditionalInfo {
-	FOnlineSessionEpic* OnlineSessionPtr;
-	double SearchStartTime;
-} FFindSessionsAdditionalInfo;
 /** Takes the session search handle and populates it the session query settings */
 void UpdateSessionSearchParameters(TSharedRef<FOnlineSessionSearch> const& sessionSearchPtr, EOS_HSessionSearch const eosSessionSearch, FString& error)
 {
@@ -1209,7 +1653,7 @@ bool FOnlineSessionEpic::FindSessions(const FUniqueNetId& SearchingPlayerId, con
 					double utcNow = FDateTime::UtcNow().ToUnixTimestamp();
 					this->CurrentSessionSearches.Add(utcNow, SearchSettings);
 
-					FFindSessionsAdditionalInfo* additionalInfo = new FFindSessionsAdditionalInfo();
+					FFindSessionsAdditionalData* additionalInfo = new FFindSessionsAdditionalData();
 					additionalInfo->OnlineSessionPtr = this;
 					additionalInfo->SearchStartTime = utcNow;
 
@@ -1236,35 +1680,6 @@ bool FOnlineSessionEpic::FindSessions(const FUniqueNetId& SearchingPlayerId, con
 	}
 
 	return result == ONLINE_IO_PENDING || result == ONLINE_SUCCESS;
-}
-void FOnlineSessionEpic::OnEOSFindSessionComplete(const EOS_SessionSearch_FindCallbackInfo* Data)
-{
-	// Context that was passed into EOS_Sessions_UpdateSession
-	// Copy the session ptr and start time, then free
-	FFindSessionsAdditionalInfo* context = (FFindSessionsAdditionalInfo*)Data->ClientData;
-	FOnlineSessionEpic* thisPtr = context->OnlineSessionPtr;
-	double searchStartTime = context->SearchStartTime;
-	delete(context);
-
-	TSharedRef<FOnlineSessionSearch>* searchRefPtr = thisPtr->CurrentSessionSearches.Find(searchStartTime);
-	if (!searchRefPtr)
-	{
-		UE_LOG_ONLINE_SESSION(Fatal, TEXT("Session search completed, but session not in session search list!"));
-		return;
-	}
-
-	TSharedRef<FOnlineSessionSearch> searchRef = *searchRefPtr;
-	if (Data->ResultCode != EOS_EResult::EOS_Success)
-	{
-		searchRef->SearchState = EOnlineAsyncTaskState::Failed;
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't find session. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
-		thisPtr->TriggerOnFindSessionsCompleteDelegates(false);
-		return;
-	}
-
-	searchRef->SearchState = EOnlineAsyncTaskState::Done;
-	UE_LOG_ONLINE_SESSION(Display, TEXT("Finished session search with start time %f"), searchStartTime);
-	thisPtr->TriggerOnFindSessionsCompleteDelegates(true);
 }
 
 bool FOnlineSessionEpic::FindSessionById(const FUniqueNetId& SearchingUserId, const FUniqueNetId& SessionId, const FUniqueNetId& FriendId, const FOnSingleSessionResultCompleteDelegate& CompletionDelegate)
@@ -1359,11 +1774,6 @@ bool FOnlineSessionEpic::JoinSession(int32 PlayerNum, FName SessionName, const F
 	return this->JoinSession(*netId, SessionName, DesiredSession);
 }
 
-typedef struct FJoinSessionAdditionalData
-{
-	FOnlineSessionEpic* OnlineSessionPtr;
-	FName SessionName;
-} FJoinSessionAdditionalData;
 bool FOnlineSessionEpic::JoinSession(const FUniqueNetId& PlayerId, FName SessionName, const FOnlineSessionSearchResult& DesiredSession)
 {
 	FString error;
@@ -1443,44 +1853,7 @@ bool FOnlineSessionEpic::JoinSession(const FUniqueNetId& PlayerId, FName Session
 
 	return result == ONLINE_SUCCESS || result == ONLINE_IO_PENDING;
 }
-void FOnlineSessionEpic::OnEOSJoinSessionComplete(const EOS_Sessions_JoinSessionCallbackInfo* Data)
-{
-	FJoinSessionAdditionalData* additionalData = (FJoinSessionAdditionalData*)Data->ClientData;
-	checkf(additionalData, TEXT("OnEOSJoinSessionComplete delegate called, but no client data available"));
 
-	FOnlineSessionEpic* thisPtr = additionalData->OnlineSessionPtr;
-	checkf(thisPtr, TEXT("OnEOSJoinSessionComplete: additional data \"this\" missing"));
-
-	FName sessionName = additionalData->SessionName;
-
-	delete(additionalData);
-
-	if (Data->ResultCode != EOS_EResult::EOS_Success)
-	{
-		thisPtr->RemoveNamedSession(sessionName);
-
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
-		thisPtr->TriggerOnJoinSessionCompleteDelegates(sessionName, EOnJoinSessionCompleteResult::UnknownError);
-		return;
-	}
-
-	FNamedOnlineSession* session = thisPtr->GetNamedSession(sessionName);
-	if (!session)
-	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("Tried joining session \"%s\", but session wasn't found."), *sessionName.ToString());
-		thisPtr->TriggerOnJoinSessionCompleteDelegates(sessionName, EOnJoinSessionCompleteResult::SessionDoesNotExist);
-		return;
-	}
-
-	thisPtr->TriggerOnJoinSessionCompleteDelegates(sessionName, EOnJoinSessionCompleteResult::Success);
-}
-
-typedef struct FFindFriendSessionAdditionalData
-{
-	FOnlineSessionEpic* OnlineSessionPtr;
-	double SearchCreationTime;
-	FUniqueNetId const& SearchingUserId;
-} FFindFriendSessionAdditionalData;
 bool FOnlineSessionEpic::FindFriendSession(int32 LocalUserNum, const FUniqueNetId& Friend)
 {
 	IOnlineIdentityPtr identityPtr = this->Subsystem->GetIdentityInterface();
@@ -1570,108 +1943,6 @@ bool FOnlineSessionEpic::FindFriendSession(const FUniqueNetId& LocalUserId, cons
 	UE_LOG_ONLINE_SESSION(Warning, TEXT("FindFriendSession with an array of friends is not supported. Repeatedly call the singular version instead."));
 	return false;
 }
-void FOnlineSessionEpic::OnEOSFindFriendSessionComplete(const EOS_SessionSearch_FindCallbackInfo* Data)
-{
-	FFindFriendSessionAdditionalData* additionalData = (FFindFriendSessionAdditionalData*)Data->ClientData;
-	checkf(additionalData, TEXT("%s called, but no ClientData recieved."), *FString(__FUNCTION__));
-
-	FOnlineSessionEpic* thisPtr = additionalData->OnlineSessionPtr;
-	checkf(thisPtr, TEXT("%s called, but \"this\" missing from ClientData"), *FString(__FUNCTION__));
-
-	double searchCreationTime = additionalData->SearchCreationTime;
-
-	FUniqueNetId const& searchingUserId = additionalData->SearchingUserId;
-
-	// Free the previously allocated memory
-	delete(additionalData);
-
-	FString error;
-	TArray<FOnlineSessionSearchResult> searchResults;
-
-	EOS_EResult eosResult = Data->ResultCode;
-	if (eosResult == EOS_EResult::EOS_Success)
-	{
-		// Retrieve the EOS session search handle and the local session search, into which we're going to write the results.
-		TSharedPtr<EOS_HSessionSearch> sessionSearchHandle = thisPtr->SessionSearches.Find(searchCreationTime)->Key;
-		checkf(sessionSearchHandle, TEXT("%s called, but the EOS session search handle is invalid"), *FString(__FUNCTION__));
-
-		TSharedRef<FOnlineSessionSearch> localSessionSearch = thisPtr->SessionSearches.Find(searchCreationTime)->Value;
-
-		// Get how many results we got
-		EOS_SessionSearch_GetSearchResultCountOptions searchResultCountOptions = {
-			EOS_SESSIONSEARCH_GETSEARCHRESULTCOUNT_API_LATEST
-		};
-		uint32 resultCount = EOS_SessionSearch_GetSearchResultCount(*sessionSearchHandle, &searchResultCountOptions);
-		if (resultCount > 0)
-		{
-			for (uint32 i = 0; i < resultCount; ++i)
-			{
-				EOS_SessionSearch_CopySearchResultByIndexOptions copySearchResultsByIndex = {
-					EOS_SESSIONSEARCH_COPYSEARCHRESULTBYINDEX_API_LATEST,
-					i
-				};
-				EOS_HSessionDetails sessionDetailsHandle;
-				eosResult = EOS_SessionSearch_CopySearchResultByIndex(*sessionSearchHandle, &copySearchResultsByIndex, &sessionDetailsHandle);
-				if (eosResult == EOS_EResult::EOS_Success)
-				{
-					// Allocate space for the session infos
-					EOS_SessionDetails_Info* eosSessionInfo = (EOS_SessionDetails_Info*)malloc(sizeof(EOS_SessionDetails_Info));
-
-					// Copy the session details
-					EOS_SessionDetails_CopyInfoOptions copyInfoOptions = {
-						EOS_SESSIONDETAILS_COPYINFO_API_LATEST
-					};
-					eosResult = EOS_SessionDetails_CopyInfo(sessionDetailsHandle, &copyInfoOptions, &eosSessionInfo);
-					if (eosResult == EOS_EResult::EOS_Success)
-					{
-						FOnlineSession session = thisPtr->SessionDetailsToSessionOnlineSession(eosSessionInfo);
-
-						// Create a new search result.
-						// Ping is set to -1, as we have no way of retrieving it for now
-						FOnlineSessionSearchResult searchResult;
-						searchResult.PingInMs = -1;
-						searchResult.Session = session;
-
-						// Add the session to the list of search results.
-						searchResults.Add(searchResult);
-					}
-					else
-					{
-						error = FString::Printf(TEXT("[EOS SDK] Couldn't copy session info.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
-					}
-
-					// Release the prevously allocated memory for the session info;
-					EOS_SessionDetails_Info_Release(eosSessionInfo);
-				}
-				else
-				{
-					error = FString::Printf(TEXT("[EOS SDK] Couldn't get session details handle.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
-				}
-			}
-
-			localSessionSearch->SearchResults = searchResults;
-		}
-		else
-		{
-			UE_LOG_ONLINE_SESSION(Display, TEXT("No friend sessions found.\r\n    LocalPlayerId: %s"), *searchingUserId.ToString());
-		}
-	}
-	else
-	{
-		error = FString::Printf(TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
-	}
-
-	// Report an error if there was any
-	UE_CLOG_ONLINE_SESSION(!error.IsEmpty(), Warning, TEXT("%s"), *error);
-
-	// Get the local index of the user that started the search
-	IOnlineIdentityPtr identityPtr = thisPtr->Subsystem->GetIdentityInterface();
-	FPlatformUserId userIdx = identityPtr->GetPlatformUserIdFromUniqueNetId(searchingUserId);
-
-	// Trigger delegates
-	thisPtr->TriggerOnFindFriendSessionCompleteDelegates(userIdx, error.IsEmpty(), searchResults);
-}
-
 
 bool FOnlineSessionEpic::SendSessionInviteToFriend(int32 LocalUserNum, FName SessionName, const FUniqueNetId& Friend)
 {
@@ -1735,45 +2006,6 @@ bool FOnlineSessionEpic::SendSessionInviteToFriends(const FUniqueNetId& LocalUse
 	}
 
 	return result == ONLINE_SUCCESS || result == ONLINE_IO_PENDING;
-}
-void FOnlineSessionEpic::OnEOSSendSessionInviteToFriendsComplete(const EOS_Sessions_SendInviteCallbackInfo* Data)
-{
-	FOnlineSessionEpic* thisPtr = (FOnlineSessionEpic*)Data->ClientData;
-	check(thisPtr);
-
-	if (Data->ResultCode != EOS_EResult::EOS_Success)
-	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Session invite(s) couldn't be sent to remote.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
-	}
-	else
-	{
-		UE_LOG_ONLINE_SESSION(Display, TEXT("[EOS SDK] Session invite(s) sent to remote."));
-	}
-}
-
-
-/** Get a resolved connection string from a session info */
-bool GetConnectStringFromSessionInfo(TSharedPtr<FOnlineSessionInfoEpic>& SessionInfo, FString& ConnectInfo, int32 PortOverride = 0)
-{
-	bool bSuccess = false;
-	if (SessionInfo.IsValid())
-	{
-		if (SessionInfo->HostAddr.IsValid() && SessionInfo->HostAddr->IsValid())
-		{
-			if (PortOverride != 0)
-			{
-				ConnectInfo = FString::Printf(TEXT("%s:%d"), *SessionInfo->HostAddr->ToString(false), PortOverride);
-			}
-			else
-			{
-				ConnectInfo = FString::Printf(TEXT("%s"), *SessionInfo->HostAddr->ToString(true));
-			}
-
-			bSuccess = true;
-		}
-	}
-
-	return bSuccess;
 }
 bool FOnlineSessionEpic::GetResolvedConnectString(FName SessionName, FString& ConnectInfo, FName PortType)
 {
@@ -1842,12 +2074,6 @@ FOnlineSessionSettings* FOnlineSessionEpic::GetSessionSettings(FName SessionName
 	return nullptr;
 }
 
-typedef struct FRegisterPlayersAdditionalData
-{
-	FOnlineSessionEpic* OnlineSessionPtr;
-	FName SessionName;
-	TArray<TSharedRef<const FUniqueNetId>> RegisteredPlayers;
-} FRegisterPlayersAdditionalData;
 bool FOnlineSessionEpic::RegisterPlayer(FName SessionName, const FUniqueNetId& PlayerId, bool bWasInvited)
 {
 	TArray<TSharedRef<const FUniqueNetId>> players;
@@ -1919,52 +2145,6 @@ bool FOnlineSessionEpic::RegisterPlayers(FName SessionName, const TArray< TShare
 	}
 
 	return result == ONLINE_SUCCESS || result == ONLINE_IO_PENDING;
-}
-void FOnlineSessionEpic::OnEOSRegisterPlayersComplete(const EOS_Sessions_RegisterPlayersCallbackInfo* Data)
-{
-	FRegisterPlayersAdditionalData* additionalData = (FRegisterPlayersAdditionalData*)Data->ClientData;
-	checkf(additionalData, TEXT("OnEOSJoinSessionComplete delegate called, but no client data available"));
-
-	FOnlineSessionEpic* thisPtr = additionalData->OnlineSessionPtr;
-	checkf(thisPtr, TEXT("OnEOSJoinSessionComplete: additional data \"this\" missing"));
-
-	FName sessionName = additionalData->SessionName;
-
-	TArray<TSharedRef<const FUniqueNetId>> const registeredPlayers = additionalData->RegisteredPlayers;
-
-	delete(additionalData);
-
-	FNamedOnlineSession* session = thisPtr->GetNamedSession(sessionName);
-	if (!session)
-	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("RegisterPlayers callback called, but session not found.\r\n    %s"), *sessionName.ToString());
-		thisPtr->TriggerOnRegisterPlayersCompleteDelegates(sessionName, TArray<TSharedRef<const FUniqueNetId>>(), false);
-		return;
-	}
-
-	if (Data->ResultCode != EOS_EResult::EOS_Success)
-	{
-		for (int32 i = 0; i < registeredPlayers.Num(); ++i)
-		{
-			session->RegisteredPlayers.RemoveAtSwap(i);
-
-			// update number of open connections
-			if (session->NumOpenPublicConnections < session->SessionSettings.NumPublicConnections)
-			{
-				session->NumOpenPublicConnections += 1;
-			}
-			else if (session->NumOpenPrivateConnections < session->SessionSettings.NumPrivateConnections)
-			{
-				session->NumOpenPrivateConnections += 1;
-			}
-		}
-
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
-		thisPtr->TriggerOnRegisterPlayersCompleteDelegates(sessionName, TArray<TSharedRef<const FUniqueNetId>>(), false);
-		return;
-	}
-
-	thisPtr->TriggerOnRegisterPlayersCompleteDelegates(sessionName, registeredPlayers, true);
 }
 
 
@@ -2042,52 +2222,6 @@ bool FOnlineSessionEpic::UnregisterPlayers(FName SessionName, const TArray< TSha
 
 	return result == ONLINE_SUCCESS || result == ONLINE_IO_PENDING;
 }
-void FOnlineSessionEpic::OnEOSUnRegisterPlayersComplete(const EOS_Sessions_UnregisterPlayersCallbackInfo* Data)
-{
-	FRegisterPlayersAdditionalData* additionalData = (FRegisterPlayersAdditionalData*)Data->ClientData;
-	checkf(additionalData, TEXT("OnEOSJoinSessionComplete delegate called, but no client data available"));
-
-	FOnlineSessionEpic* thisPtr = additionalData->OnlineSessionPtr;
-	checkf(thisPtr, TEXT("OnEOSJoinSessionComplete: additional data \"this\" missing"));
-
-	FName sessionName = additionalData->SessionName;
-
-	TArray<TSharedRef<const FUniqueNetId>> const players = additionalData->RegisteredPlayers;
-
-	delete(additionalData);
-
-	FNamedOnlineSession* session = thisPtr->GetNamedSession(sessionName);
-	if (!session)
-	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("RegisterPlayers callback called, but session not found.\r\n    %s"), *sessionName.ToString());
-		thisPtr->TriggerOnRegisterPlayersCompleteDelegates(sessionName, TArray<TSharedRef<const FUniqueNetId>>(), false);
-		return;
-	}
-
-	if (Data->ResultCode != EOS_EResult::EOS_Success)
-	{
-		for (int32 i = 0; i < players.Num(); ++i)
-		{
-			session->RegisteredPlayers.Add(players[i]);
-
-			// update number of open connections
-			if (session->NumOpenPublicConnections > 0)
-			{
-				session->NumOpenPublicConnections -= 1;
-			}
-			else if (session->NumOpenPrivateConnections > 0)
-			{
-				session->NumOpenPrivateConnections -= 1;
-			}
-		}
-
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
-		thisPtr->TriggerOnUnregisterPlayersCompleteDelegates(sessionName, TArray<TSharedRef<const FUniqueNetId>>(), false);
-		return;
-	}
-
-	thisPtr->TriggerOnUnregisterPlayersCompleteDelegates(sessionName, players, true);
-}
 
 
 void FOnlineSessionEpic::RegisterLocalPlayer(const FUniqueNetId& PlayerId, FName SessionName, const FOnRegisterLocalPlayerCompleteDelegate& Delegate)
@@ -2157,82 +2291,4 @@ void FOnlineSessionEpic::DumpSessionState()
 	{
 		DumpNamedSession(&Sessions[SessionIdx]);
 	}
-}
-
-
-FNamedOnlineSession FOnlineSessionEpic::ActiveSessionToNamedSession(EOS_ActiveSession_Info const* ActiveSession, bool IsHosting)
-{
-	FString sessionName = UTF8_TO_TCHAR(ActiveSession->SessionName);
-	TSharedRef<FUniqueNetId> localUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::ProductUserIDToString(ActiveSession->LocalUserId));
-
-	FOnlineSession session = SessionDetailsToSessionOnlineSession(ActiveSession->SessionDetails);
-
-	FNamedOnlineSession namedSession(FName(*sessionName), session);
-	namedSession.LocalOwnerId = localUserId;
-	namedSession.bHosting = IsHosting;
-
-	switch (ActiveSession->State)
-	{
-	case EOS_EOnlineSessionState::EOS_OSS_NoSession:
-		namedSession.SessionState = EOnlineSessionState::NoSession;
-		break;
-	case EOS_EOnlineSessionState::EOS_OSS_Creating:
-		namedSession.SessionState = EOnlineSessionState::Creating;
-		break;
-	case EOS_EOnlineSessionState::EOS_OSS_Pending:
-		namedSession.SessionState = EOnlineSessionState::Pending;
-		break;
-	case EOS_EOnlineSessionState::EOS_OSS_Starting:
-		namedSession.SessionState = EOnlineSessionState::Starting;
-		break;
-	case EOS_EOnlineSessionState::EOS_OSS_InProgress:
-		namedSession.SessionState = EOnlineSessionState::InProgress;
-		break;
-	case EOS_EOnlineSessionState::EOS_OSS_Ending:
-		namedSession.SessionState = EOnlineSessionState::Ending;
-		break;
-	case EOS_EOnlineSessionState::EOS_OSS_Ended:
-		namedSession.SessionState = EOnlineSessionState::Ended;
-		break;
-	case EOS_EOnlineSessionState::EOS_OSS_Destroying:
-		namedSession.SessionState = EOnlineSessionState::Destroying;
-		break;
-	default:
-		checkNoEntry();
-		break;
-	}
-
-	return namedSession;
-}
-FOnlineSession FOnlineSessionEpic::SessionDetailsToSessionOnlineSession(EOS_SessionDetails_Info const* SessionDetails)
-{
-	EOS_SessionDetails_Settings const* eosSessionSettings = SessionDetails->Settings;
-
-	// Copy over the session settings
-	FOnlineSessionSettings sessionSettings;
-	sessionSettings.bAllowInvites = eosSessionSettings->bInvitesAllowed == EOS_TRUE ? true : false;
-	sessionSettings.bAllowJoinInProgress = eosSessionSettings->bAllowJoinInProgress == EOS_TRUE ? true : false;
-	sessionSettings.NumPublicConnections = eosSessionSettings->NumPublicConnections;
-
-	// Unique identifier of this build for compatibility
-	sessionSettings.BuildUniqueId = GetBuildUniqueId();
-
-	FOnlineSession session(sessionSettings);
-	session.NumOpenPublicConnections = SessionDetails->NumOpenPublicConnections;
-
-	// Setup the host session info
-	TSharedPtr<FOnlineSessionInfoEpic> sessionInfo = MakeShared<FOnlineSessionInfoEpic>();
-	sessionInfo->HostAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
-
-	FString hostAddrStr = UTF8_TO_TCHAR(SessionDetails->HostAddress);
-	FString ip, port;
-	ip.Split(":", &ip, &port);
-
-	bool isValid;
-	sessionInfo->HostAddr->SetIp(*ip, isValid);
-	sessionInfo->HostAddr->SetPort(FCString::Atoi(*port));
-
-	session.SessionInfo = sessionInfo;
-
-	return session;
 }

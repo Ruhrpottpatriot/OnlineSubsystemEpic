@@ -20,6 +20,27 @@ class FOnlineSessionEpic
 	: public IOnlineSession
 {
 private:
+	/** Hidden on purpose */
+	FOnlineSessionEpic()
+		: Subsystem(nullptr)
+		, sessionsHandle(nullptr)
+	{
+	}
+
+	// --------
+	// Important Handles
+	// --------
+
+	/** The subsystem that owns this instance*/
+	FOnlineSubsystemEpic* Subsystem;
+
+	/** Convenience handle to EOS sessions */
+	EOS_HSessions sessionsHandle;
+
+	/**  Handle to the session invite callback. */
+	EOS_NotificationId sessionInviteRecivedCallbackHandle;
+
+
 	// --------
 	// EOS Callbacks
 	// --------
@@ -34,11 +55,11 @@ private:
 	static void OnEOSUnRegisterPlayersComplete(const EOS_Sessions_UnregisterPlayersCallbackInfo* Data);
 	static void OnEOSFindFriendSessionComplete(const EOS_SessionSearch_FindCallbackInfo* Data);
 	static void OnEOSSendSessionInviteToFriendsComplete(const EOS_Sessions_SendInviteCallbackInfo* Data);
-
 	static void OnEOSSessionInviteReceived(const EOS_Sessions_SessionInviteReceivedCallbackInfo* Data);
-	EOS_NotificationId sessionInviteRecivedCallbackHandle;
 
-
+	// --------
+	// Private Utility methods
+	// --------
 
 	/** Convert the EOS session details into an online session */
 	FOnlineSession SessionDetailsToSessionOnlineSession(EOS_SessionDetails_Info const* SessionDetails);
@@ -49,32 +70,15 @@ private:
 	/** Creates a pointer to an EOS session update struct from the passed session settings */
 	void CreateSessionModificationHandle(FOnlineSessionSettings const& NewSessionSettings, EOS_HSessionModification& ModificationHandle, FString& Error);
 
-
-	/** Reference to the main Null subsystem */
-	FOnlineSubsystemEpic* Subsystem;
-
-	EOS_HSessions sessionsHandle;
-
-	/** Hidden on purpose */
-	FOnlineSessionEpic()
-		: Subsystem(nullptr)
-		, sessionsHandle(nullptr)
-	{
-	}
-
-	/**
-	 * Determines whether this particular session is joinable.
-	 *
-	 * @return true if yes
-	 */
+	/** Determines whether this particular session is joinable. */
 	bool IsSessionJoinable(const FNamedOnlineSession& Session) const;
 
-	/**
-	 * Returns true if the session owner is also the host.
-	 */
+	/** Returns true if the session owner is also the host. */
 	bool IsHost(const FNamedOnlineSession& Session) const;
 
+
 	void OnRegisterLocalPlayerComplete(const FUniqueNetId& PlayerId, EOnJoinSessionCompleteResult::Type Result);
+
 
 	void UpdateSessionOptions();
 
@@ -85,8 +89,6 @@ PACKAGE_SCOPE:
 
 	/** Array of sessions currently available on the local machine. Might not be in sync with remote */
 	TArray<FNamedOnlineSession> Sessions;
-
-	TArray<FNamedOnlineSession> SessionInvites;
 
 	TMap<double, TSharedRef<FOnlineSessionSearch>> CurrentSessionSearches;
 
@@ -119,13 +121,6 @@ PACKAGE_SCOPE:
 		FScopeLock ScopeLock(&SessionLock);
 		return new (Sessions) FNamedOnlineSession(SessionName, Session);
 	}
-
-	/**
-	 * Registers all local players with the current session
-	 *
-	 * @param Session the session that they are registering in
-	 */
-	void RegisterLocalPlayers(class FNamedOnlineSession* Session);
 
 public:
 
@@ -175,4 +170,4 @@ public:
 	virtual void DumpSessionState() override;
 };
 
-typedef TSharedPtr<FOnlineSessionEpic, ESPMode::ThreadSafe> FOnlineSessionNullPtr;
+using FOnlineSessionNullPtr = TSharedPtr<FOnlineSessionEpic, ESPMode::ThreadSafe>;
