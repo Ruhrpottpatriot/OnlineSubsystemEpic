@@ -1,10 +1,12 @@
 #include "OnlineSubsystemEpic.h"
 #include "OnlineIdentityInterfaceEpic.h"
+#include "OnlineSessionInterfaceEpic.h"
+#include "OnlineUserInterfaceEpic.h"
 #include <string>
 
 IOnlineSessionPtr FOnlineSubsystemEpic::GetSessionInterface() const
 {
-	return nullptr;
+	return this->SessionInterface;
 }
 
 IOnlineFriendsPtr FOnlineSubsystemEpic::GetFriendsInterface() const
@@ -99,7 +101,7 @@ IOnlineSharingPtr FOnlineSubsystemEpic::GetSharingInterface() const
 
 IOnlineUserPtr FOnlineSubsystemEpic::GetUserInterface() const
 {
-	return nullptr;
+	return this->UserInterface;
 }
 
 IOnlineMessagePtr FOnlineSubsystemEpic::GetMessageInterface() const
@@ -243,7 +245,9 @@ bool FOnlineSubsystemEpic::Init()
 		return false;
 	}
 
-	IdentityInterface = MakeShareable(new FOnlineIdentityInterfaceEpic(this));
+	this->IdentityInterface = MakeShareable(new FOnlineIdentityInterfaceEpic(this));
+	this->SessionInterface = MakeShareable(new FOnlineSessionEpic(this));
+	this->UserInterface = MakeShareable(new FOnlineUserEpic(this));
 
 	this->IsInit = true;
 	return true;
@@ -264,6 +268,8 @@ bool FOnlineSubsystemEpic::Shutdown()
 
 	// Destruct the interfaces
 	DESTRUCT_INTERFACE(IdentityInterface);
+	DESTRUCT_INTERFACE(SessionInterface);
+	DESTRUCT_INTERFACE(UserInterface);
 
 #undef DESTRUCT_INTERFACE
 
@@ -292,6 +298,16 @@ bool FOnlineSubsystemEpic::Tick(float DeltaTime)
 	if (this->PlatformHandle)
 	{
 		EOS_Platform_Tick(this->PlatformHandle);
+	}
+
+	if (this->SessionInterface)
+	{
+		this->SessionInterface->Tick(DeltaTime);
+	}
+
+	if (this->UserInterface)
+	{
+		this->UserInterface->Tick(DeltaTime);
 	}
 
 	return true;

@@ -165,4 +165,4 @@ public:
 	virtual void DumpSessionState() override;
 };
 
-using FOnlineSessionNullPtr = TSharedPtr<FOnlineSessionEpic, ESPMode::ThreadSafe>;
+using FOnlineSessionEpicPtr = TSharedPtr<FOnlineSessionEpic, ESPMode::ThreadSafe>;
