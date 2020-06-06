@@ -661,11 +661,6 @@ FOnlineSession FOnlineSessionEpic::SessionDetailsToSessionOnlineSession(EOS_Sess
 	return session;
 }
 
-
-// ---------------------------------------------
-// EOS SDK Callback functions
-// ---------------------------------------------
-
 void FOnlineSessionEpic::OnEOSCreateSessionComplete(const EOS_Sessions_UpdateSessionCallbackInfo* Data)
 {
 	FName sessionName = FName(Data->SessionName);
