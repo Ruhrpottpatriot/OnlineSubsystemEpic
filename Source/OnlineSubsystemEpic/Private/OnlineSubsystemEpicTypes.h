@@ -128,13 +128,7 @@ public:
 	{
 	}
 
-	FUserOnlineAccountEpic(const FUniqueNetIdEpic& InUserId)
-		: UserIdPtr(&InUserId)
-	{
-	}
-
 	virtual ~FUserOnlineAccountEpic() = default;
-
 };
 
 /**

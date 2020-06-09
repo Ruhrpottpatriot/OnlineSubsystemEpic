@@ -232,12 +232,12 @@ void FOnlineIdentityInterfaceEpic::LoginCompleteCallbackFunc(const EOS_Auth_Logi
 				break;
 			}
 		}
-
-		// ToDo: This only holds the most basic information about an account, since EOS doesn't give us anything else
-		TSharedRef<FUserOnlineAccountEpic> userPtr = MakeShareable(new FUserOnlineAccountEpic(id));
-		thisPtr->userAccounts.Add(id, userPtr);
-
-		UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Login Complete - User ID: %s"), *id.ToString());
+		if (!thisPtr->userAccounts.Contains(id)) {
+			// ToDo: This only holds the most basic information about an account, since EOS doesn't give us anything else
+			TSharedRef<FUserOnlineAccountEpic> userPtr = MakeShareable(new FUserOnlineAccountEpic(id));
+			thisPtr->userAccounts.Add(id, userPtr);
+		}
+		UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Login Complete - User ID: %s"), *id->ToString());
 	}
 	else if (Data->ResultCode == EOS_EResult::EOS_OperationWillRetry)
 	{
@@ -457,7 +457,7 @@ void FOnlineIdentityInterfaceEpic::LogoutCompleteCallbackFunc(const EOS_Auth_Log
 	{
 		char const* resultStr = EOS_EResult_ToString(Data->ResultCode);
 
-		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("[EOS SDK] Logout Failed - User: %s, Result : %s"), *id.ToString(), resultStr);
+		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("[EOS SDK] Logout Failed - User: %s, Result : %s"), *id->ToString(), resultStr);
 		return;
 	}
 
