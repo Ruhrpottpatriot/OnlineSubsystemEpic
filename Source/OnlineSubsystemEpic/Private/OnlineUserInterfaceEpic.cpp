@@ -159,6 +159,7 @@ FString ExternalAccountTypeToString(EOS_EExternalAccountType externalAccountType
 	case EOS_EExternalAccountType::EOS_EAT_APPLE:
 		return TEXT("apple");
 	}
+	return TEXT("unknown");
 }
 
 bool ExternalAccountTypeFromString(FString externalAccountTypeString, EOS_EExternalAccountType& outExternalAccountType)

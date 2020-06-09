@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Interfaces/OnlineUserInterface.h"
 #include "eos_sdk.h"
+#include "Misc/ScopeLock.h"
 #include "OnlineSubsystemEpicPackage.h" // Needs to be the last include
 
 class FOnlineSubsystemEpic;
