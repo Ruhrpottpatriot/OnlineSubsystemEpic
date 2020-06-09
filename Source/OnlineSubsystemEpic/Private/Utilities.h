@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/CoreOnline.h"
-#include <eos_sdk.h>
+#include "eos_sdk.h"
 
 
 class FIdentityUtilities

@@ -10,6 +10,7 @@ public class OnlineSubsystemEpic : ModuleRules
         PrivateDefinitions.Add("ONLINESUBSYSTEMEPIC_PACKAGE=1");
         PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 
+        PublicIncludePaths.Add(Path.Combine(ModuleDirectory, "..", "ThirdParty", "OnlineSubsystemEpicLibrary", "Include"));
         PublicDependencyModuleNames.AddRange(
             new string[] {
                 "OnlineSubsystemUtils"

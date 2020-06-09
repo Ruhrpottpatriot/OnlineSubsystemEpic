@@ -3,10 +3,12 @@
 #include "CoreMinimal.h"
 #include "OnlineSubsystemEpicPackage.h"
 #include "OnlineSubsystemImpl.h"
-#include <ThirdParty\OnlineSubsystemEpicLibrary\Include\eos_sdk.h>
+#include "eos_sdk.h"
 
 
 using FOnlineIdentityEpicPtr = TSharedPtr<class FOnlineIdentityInterfaceEpic, ESPMode::ThreadSafe>;
+using FOnlineSessionEpicPtr = TSharedPtr<class FOnlineSessionEpic, ESPMode::ThreadSafe>;
+using FOnlineUserEpicPtr = TSharedPtr<class FOnlineUserEpic, ESPMode::ThreadSafe>;
 
 class ONLINESUBSYSTEMEPIC_API FOnlineSubsystemEpic
 	: public FOnlineSubsystemImpl
@@ -68,6 +70,10 @@ PACKAGE_SCOPE:
 
 	/** Interface to the identity registration/auth services */
 	FOnlineIdentityEpicPtr IdentityInterface;
+
+	FOnlineSessionEpicPtr SessionInterface;
+
+	FOnlineUserEpicPtr UserInterface;
 
 	int32 devToolPort;
 };

@@ -102,8 +102,8 @@ bool FOnlineIdentityInterfaceEpic::Login(int32 LocalUserNum, const FOnlineAccoun
 			}
 			else
 			{
-				FUniqueNetIdEpic id = FUniqueNetIdEpic(FIdentityUtilities::EpicAccountIDToString(eosId));
-				TSharedPtr<FUserOnlineAccountEpic> userAccPtr = *(userAccounts.Find(id.ToString()));
+				auto id = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::EpicAccountIDToString(eosId));
+				TSharedPtr<FUserOnlineAccountEpic> userAccPtr = *(userAccounts.Find(id));
 				if (userAccPtr != nullptr)
 				{
 					auto userId = userAccPtr->GetUserId();
@@ -211,7 +211,7 @@ void FOnlineIdentityInterfaceEpic::LoginCompleteCallbackFunc(const EOS_Auth_Logi
 	check(authHandle);
 
 	// Transform the retrieved ID into a UniqueNetId
-	FUniqueNetIdEpic id = FUniqueNetIdEpic(FIdentityUtilities::EpicAccountIDToString(Data->LocalUserId));
+	auto id = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::EpicAccountIDToString(Data->LocalUserId));
 
 	FString errorString;
 	int32 localIdx;
@@ -221,20 +221,18 @@ void FOnlineIdentityInterfaceEpic::LoginCompleteCallbackFunc(const EOS_Auth_Logi
 		for (localIdx = 0; localIdx < accCount; ++localIdx)
 		{
 			EOS_EpicAccountId eosID = EOS_Auth_GetLoggedInAccountByIndex(authHandle, localIdx);
-			FUniqueNetIdEpic epicId = FUniqueNetIdEpic(FIdentityUtilities::EpicAccountIDToString(eosID));
-			if (id == epicId)
+			auto epicId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::EpicAccountIDToString(eosID));
+			if (*id == *epicId)
 			{
 				break;
 			}
 		}
-		auto idString = id.ToString();
-		if (!thisPtr->userAccounts.Contains(idString)) {
+		if (!thisPtr->userAccounts.Contains(id)) {
 			// ToDo: This only holds the most basic information about an account, since EOS doesn't give us anything else
 			TSharedRef<FUserOnlineAccountEpic> userPtr = MakeShareable(new FUserOnlineAccountEpic(id));
-			thisPtr->userAccounts.Add(idString, userPtr);
+			thisPtr->userAccounts.Add(id, userPtr);
 		}
-
-		UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Login Complete - User ID: %s"), *idString);
+		UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Login Complete - User ID: %s"), (*id).ToString());
 	}
 	else if (Data->ResultCode == EOS_EResult::EOS_OperationWillRetry)
 	{
@@ -256,7 +254,7 @@ void FOnlineIdentityInterfaceEpic::LoginCompleteCallbackFunc(const EOS_Auth_Logi
 	}
 	else
 	{
-		thisPtr->TriggerOnLoginCompleteDelegates(0, true, id, TEXT(""));
+		thisPtr->TriggerOnLoginCompleteDelegates(localIdx, true, *id, TEXT(""));
 	}
 }
 
@@ -390,8 +388,9 @@ TSharedPtr<const FUniqueNetId> FOnlineIdentityInterfaceEpic::GetUniquePlayerId(i
 
 TSharedPtr<FUserOnlineAccount> FOnlineIdentityInterfaceEpic::GetUserAccount(const FUniqueNetId& UserId) const
 {
-	auto userId = FUniqueNetIdEpic(UserId);
-	const TSharedRef<FUserOnlineAccountEpic>* acc = this->userAccounts.Find(userId.ToString());
+	// ToDo: this is wrong here, we want to avoid deleting the memory of the incoming parameter
+	auto userId = MakeShared<FUniqueNetIdEpic>(UserId);
+	const TSharedRef<FUserOnlineAccountEpic>* acc = this->userAccounts.Find(userId);
 	if (acc)
 	{
 		return *acc;
@@ -435,19 +434,19 @@ void FOnlineIdentityInterfaceEpic::LogoutCompleteCallbackFunc(const EOS_Auth_Log
 {
 	checkf(Data, TEXT("Logout complete allback called, but no data was returned"));
 
-	FUniqueNetIdEpic id = FUniqueNetIdEpic(FIdentityUtilities::EpicAccountIDToString(Data->LocalUserId));
+	auto id = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::EpicAccountIDToString(Data->LocalUserId));
 	if (Data->ResultCode != EOS_EResult::EOS_Success)
 	{
 		char const* resultStr = EOS_EResult_ToString(Data->ResultCode);
 
-		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("[EOS SDK] Logout Failed - User: %s, Result : %s"), *id.ToString(), resultStr);
+		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("[EOS SDK] Logout Failed - User: %s, Result : %s"), (*id).ToString(), resultStr);
 		return;
 	}
 
 	FOnlineIdentityInterfaceEpic* thisPtr = (FOnlineIdentityInterfaceEpic*)Data->ClientData;
 	check(thisPtr);
 
-	int32 idIdx = thisPtr->GetPlatformUserIdFromUniqueNetId(id);
+	int32 idIdx = thisPtr->GetPlatformUserIdFromUniqueNetId(*id);
 
 	thisPtr->userAccounts.Remove(id.ToString());
 
