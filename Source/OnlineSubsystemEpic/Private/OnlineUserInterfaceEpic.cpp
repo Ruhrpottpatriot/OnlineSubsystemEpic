@@ -90,8 +90,8 @@ void FOnlineUserEpic::HandleQueryUserIdMappingsCallback(FOnlineUserEpic* thisPtr
 	// is equal to the number of total queries the error message will be created and the completion delegate triggered
 
 	// Lock the following section to make sure the amount of completed queries doesn't change mid way.
-	FScopeLock ScopeLock(&thisPtr->ExternalIdMappingsQueriesLock);
-
+	FScopeLock* ScopeLock = new FScopeLock(&thisPtr->UserQueryLock);
+	
 	// Auto used below to increase readability
 	auto query = thisPtr->ExternalIdMappingsQueries.Find(startTime);
 
@@ -114,7 +114,8 @@ void FOnlineUserEpic::HandleQueryUserIdMappingsCallback(FOnlineUserEpic* thisPtr
 		}
 	}
 
-	ScopeLock.Unlock();
+	// The destructor calls Unlock
+	delete(ScopeLock);
 
 	// If all queries are done, log the result of the function
 	if (doneQueries == userIds.Num())
@@ -271,7 +272,7 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 	// is equal to the number of total queries the error message will be created and the completion delegate triggered
 
 	// Lock the following section to make sure the amount of completed queries doesn't change mid way.
-	FScopeLock ScopeLock(&thisPtr->UserQueryLock);
+	FScopeLock* ScopeLock = new FScopeLock(&thisPtr->UserQueryLock);
 
 	// Auto used below to increase readability
 	auto query = thisPtr->UserQueries.Find(additionalData->StartTime);
@@ -294,7 +295,8 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 		}
 	}
 
-	ScopeLock.Unlock();
+	// The destructor calls Unlock
+	delete(ScopeLock);
 
 	// If all queries are done, log the result of the function
 	if (doneQueries == userIds.Num())
