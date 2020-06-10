@@ -30,22 +30,19 @@ private:
 	 */
 	FString ConcatErrorString(TArray<FString> ErrorStrings);
 
-	/** Since the UserIdMappings callbacks are pretty much identical, this can be done without problems */
-	void HandleQueryUserIdMappingsCallback(FOnlineUserEpic* ThisPtr, EOS_EResult Result, EOS_EpicAccountId LocalUserId, EOS_EpicAccountId TargetUserId, double StartTime, FOnQueryExternalIdMappingsComplete const& CompletionDelegate);
-
 	/**
 	 * A list of all running user queries
 	 * @key - The start time of the query
 	 * @value - A tuple containing data with the queried id, the query state, and the optional error message
 	 */
-	TMap<double, TTuple<TArray<TSharedRef<FUniqueNetId const>>, TArray<bool>, TArray<FString>>> UserQueries;
+	TMap<double, TTuple<TArray<TSharedRef<FUniqueNetId const>>, TArray<bool>, TArray<FString>>> userQueries;
 
 	/**
 	 * A list of all currently running external id mappings queries
 	 * @key - The start time of the query
 	 * @value - A tuple containing the data with the queried data (either id or display name), the state and optional error message
 	 */
-	TMap<double, TTuple<FExternalIdQueryOptions, TArray<FString>, TArray<bool>, TArray<FString>>> ExternalIdMappingsQueries;
+	TMap<double, TTuple<FExternalIdQueryOptions, TArray<FString>, TArray<bool>, TArray<FString>>> externalIdMappingsQueries;
 
 	/** A list of all user ids for which the SDK has cached user information. */
 	TArray<TSharedRef<FUniqueNetId const>> queriedUserIds;
@@ -56,6 +53,7 @@ private:
 	 * to retrieve cached information about an external id mapping.
 	 * However the methods to retrieve the data don't offer a way
 	 * to specify the user id that wants to retrieve the cached data.
+	 * Improvement: In the future this might be changed into a map
 	 */
 	TArray<struct FExternalIdMapping> externalIdMappings;
 
