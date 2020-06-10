@@ -211,7 +211,7 @@ void FOnlineIdentityInterfaceEpic::LoginCompleteCallbackFunc(const EOS_Auth_Logi
 	check(authHandle);
 
 	// Transform the retrieved ID into a UniqueNetId
-	auto id = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::EpicAccountIDToString(Data->LocalUserId));
+	TSharedRef<FUniqueNetId const> id = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::EpicAccountIDToString(Data->LocalUserId));
 
 	FString errorString;
 	int32 localIdx;
@@ -232,7 +232,7 @@ void FOnlineIdentityInterfaceEpic::LoginCompleteCallbackFunc(const EOS_Auth_Logi
 			TSharedRef<FUserOnlineAccountEpic> userPtr = MakeShareable(new FUserOnlineAccountEpic(id));
 			thisPtr->userAccounts.Add(id, userPtr);
 		}
-		UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Login Complete - User ID: %s"), (*id).ToString());
+		UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Login Complete - User ID: %s"), *id->ToString());
 	}
 	else if (Data->ResultCode == EOS_EResult::EOS_OperationWillRetry)
 	{
@@ -434,12 +434,12 @@ void FOnlineIdentityInterfaceEpic::LogoutCompleteCallbackFunc(const EOS_Auth_Log
 {
 	checkf(Data, TEXT("Logout complete allback called, but no data was returned"));
 
-	auto id = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::EpicAccountIDToString(Data->LocalUserId));
+	TSharedRef<FUniqueNetId const> id = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::EpicAccountIDToString(Data->LocalUserId));
 	if (Data->ResultCode != EOS_EResult::EOS_Success)
 	{
 		char const* resultStr = EOS_EResult_ToString(Data->ResultCode);
 
-		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("[EOS SDK] Logout Failed - User: %s, Result : %s"), (*id).ToString(), resultStr);
+		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("[EOS SDK] Logout Failed - User: %s, Result : %s"), *id->ToString(), resultStr);
 		return;
 	}
 
@@ -448,7 +448,7 @@ void FOnlineIdentityInterfaceEpic::LogoutCompleteCallbackFunc(const EOS_Auth_Log
 
 	int32 idIdx = thisPtr->GetPlatformUserIdFromUniqueNetId(*id);
 
-	thisPtr->userAccounts.Remove(id.ToString());
+	thisPtr->userAccounts.Remove(id);
 
 	thisPtr->TriggerOnLogoutCompleteDelegates(idIdx, true);
 }

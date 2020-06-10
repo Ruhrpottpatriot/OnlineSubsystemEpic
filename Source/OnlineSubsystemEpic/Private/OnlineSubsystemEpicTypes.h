@@ -85,7 +85,7 @@ public:
 	virtual bool SetAuthAttribute(const FString& AttrName, const FString& AttrValue);
 
 	FUserOnlineAccountEpic(TSharedRef<FUniqueNetId const> InUserIdPtr)
-		:UserIdPtr(InUserIdPtr)
+		: UserIdPtr(InUserIdPtr)
 	{
 	}
 
@@ -94,13 +94,7 @@ public:
 	{
 	}
 
-	FUserOnlineAccountEpic(const FUniqueNetIdEpic& InUserId)
-		: UserIdPtr(&InUserId)
-	{
-	}
-
 	virtual ~FUserOnlineAccountEpic() = default;
-
 };
 
 /**
