@@ -5,32 +5,45 @@
 #include "OnlineSubsystemTypes.h"
 #include "IPAddress.h"
 
+#define LOGIN_TYPE_EAS TEXT("EAS")
+#define LOGIN_TYPE_CONNECT TEXT("CONNECT")
+
 class FUniqueNetIdEpic
 	: public FUniqueNetIdString
 {
+private:
+
+	FString LoginType;
+
 public:
 	FUniqueNetIdEpic()
 		: FUniqueNetIdString()
+		, LoginType (TEXT(""))
 	{
 		Type = EPIC_SUBSYSTEM;
 	}
+
 	explicit FUniqueNetIdEpic(const FString& InUniqueNetId)
 		: FUniqueNetIdString(InUniqueNetId, EPIC_SUBSYSTEM)
 	{
 	}
+
 	explicit FUniqueNetIdEpic(FString&& InUniqueNetId)
 		: FUniqueNetIdString(MoveTemp(InUniqueNetId), EPIC_SUBSYSTEM)
 	{
 	}
+
 	explicit FUniqueNetIdEpic(const FUniqueNetId& Src)
 		: FUniqueNetIdString(Src)
 	{
 		check(GetType() == EPIC_SUBSYSTEM);
 	}
+
 	friend uint32 GetTypeHash(const FUniqueNetIdEpic& A)
 	{
 		return ::GetTypeHash(A.UniqueNetIdStr);
 	}
+
 	static const TSharedRef<const FUniqueNetIdEpic>& EmptyId()
 	{
 		static const TSharedRef<const FUniqueNetIdEpic> EmptyId = MakeShared<const FUniqueNetIdEpic>(FString());
