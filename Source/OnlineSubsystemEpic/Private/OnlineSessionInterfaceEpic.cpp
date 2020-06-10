@@ -102,14 +102,16 @@ bool CreateEOSAttributeData(FString const attributeName, FVariantData const vari
 		outAttributeData.Value.AsBool = bData;
 		outAttributeData.ValueType = EOS_ESessionAttributeType::EOS_AT_BOOLEAN;
 	}
-	else if (variantData.GetType() == EOnlineKeyValuePairDataType::Double)
+	else if (variantData.GetType() == EOnlineKeyValuePairDataType::Double 
+		|| variantData.GetType() == EOnlineKeyValuePairDataType::Float)
 	{
 		double dData;
 		variantData.GetValue(dData);
 		outAttributeData.Value.AsDouble = dData;
 		outAttributeData.ValueType = EOS_ESessionAttributeType::EOS_AT_DOUBLE;
 	}
-	else if (variantData.GetType() == EOnlineKeyValuePairDataType::Int64)
+	else if (variantData.GetType() == EOnlineKeyValuePairDataType::Int64
+		|| variantData.GetType() == EOnlineKeyValuePairDataType::Int32)
 	{
 		int64 iData;
 		variantData.GetValue(iData);
@@ -122,6 +124,17 @@ bool CreateEOSAttributeData(FString const attributeName, FVariantData const vari
 		variantData.GetValue(sData);
 		outAttributeData.Value.AsUtf8 = TCHAR_TO_UTF8(*sData);
 		outAttributeData.ValueType = EOS_ESessionAttributeType::EOS_AT_STRING;
+	}
+	else if(variantData.GetType() == EOnlineKeyValuePairDataType::Json 
+		|| variantData.GetType() == EOnlineKeyValuePairDataType::UInt32 
+		|| variantData.GetType() == EOnlineKeyValuePairDataType::UInt64
+		|| variantData.GetType() == EOnlineKeyValuePairDataType::Blob)
+	{
+		error = FString::Printf(TEXT("Data of type \"%s\" not supported."), EOnlineKeyValuePairDataType::ToString(variantData.GetType()));
+	}
+	else if (variantData.GetType() == EOnlineKeyValuePairDataType::Empty)
+	{
+		// Ignore the data
 	}
 	else
 	{
@@ -577,7 +590,7 @@ void FOnlineSessionEpic::CreateSessionModificationHandle(FOnlineSessionSettings 
 
 handleError:
 	// If there's an error, assign it to Error and default the ModificationHandle
-	Error = FString::Printf(TEXT("Cannot update setting: %s - Error Code: %s"), *setting, *UTF8_TO_TCHAR(EOS_EResult_ToString(eosResult)));
+	Error = FString::Printf(TEXT("Cannot update setting: %s - Error Code: %s"), *setting, UTF8_TO_TCHAR(EOS_EResult_ToString(eosResult)));
 	ModificationHandle = EOS_HSessionModification();
 }
 
@@ -672,7 +685,7 @@ void FOnlineSessionEpic::OnEOSCreateSessionComplete(const EOS_Sessions_UpdateSes
 
 	if (ResultCode != EOS_EResult::EOS_Success)
 	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("Update Session failed. Error Code: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(ResultCode)));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Update Session failed. Error Code: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(ResultCode)));
 		thisPtr->RemoveNamedSession(sessionName);
 		thisPtr->TriggerOnCreateSessionCompleteDelegates(sessionName, false);
 		return;
@@ -730,7 +743,7 @@ void FOnlineSessionEpic::OnEOSStartSessionComplete(const EOS_Sessions_StartSessi
 	EOS_EResult result = Data->ResultCode;
 	if (result != EOS_EResult::EOS_Success)
 	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't start session. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't start session. Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
 		thisPtr->TriggerOnStartSessionCompleteDelegates(sessionName, false);
 		return;
 	}
@@ -765,7 +778,7 @@ void FOnlineSessionEpic::OnEOSUpdateSessionComplete(const EOS_Sessions_UpdateSes
 			// Revert local only changes
 			session->SessionSettings = oldSettings;
 		}
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Failed to update session - Error Code: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(ResultCode)));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Failed to update session - Error Code: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(ResultCode)));
 		thisPtr->TriggerOnCreateSessionCompleteDelegates(sessionName, false);
 		return;
 	}
@@ -789,7 +802,7 @@ void FOnlineSessionEpic::OnEOSEndSessionComplete(const EOS_Sessions_EndSessionCa
 	EOS_EResult result = Data->ResultCode;
 	if (result != EOS_EResult::EOS_Success)
 	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't end session. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't end session. Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
 		thisPtr->TriggerOnEndSessionCompleteDelegates(sessionName, false);
 		return;
 	}
@@ -819,7 +832,7 @@ void FOnlineSessionEpic::OnEOSDestroySessionComplete(const EOS_Sessions_DestroyS
 	EOS_EResult result = Data->ResultCode;
 	if (result != EOS_EResult::EOS_Success)
 	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't destroy session. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't destroy session. Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
 		thisPtr->TriggerOnDestroySessionCompleteDelegates(sessionName, false);
 		return;
 	}
@@ -897,7 +910,7 @@ void FOnlineSessionEpic::OnEOSFindSessionComplete(const EOS_SessionSearch_FindCa
 						}
 						else
 						{
-							error = FString::Printf(TEXT("[EOS SDK] Couldn't copy session info.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+							error = FString::Printf(TEXT("[EOS SDK] Couldn't copy session info.\r\n    Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
 						}
 
 						// Release the prevously allocated memory for the session info;
@@ -905,7 +918,7 @@ void FOnlineSessionEpic::OnEOSFindSessionComplete(const EOS_SessionSearch_FindCa
 					}
 					else
 					{
-						error = FString::Printf(TEXT("[EOS SDK] Couldn't get session details handle.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+						error = FString::Printf(TEXT("[EOS SDK] Couldn't get session details handle.\r\n    Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
 					}
 				}
 			}
@@ -919,7 +932,7 @@ void FOnlineSessionEpic::OnEOSFindSessionComplete(const EOS_SessionSearch_FindCa
 		}
 		else
 		{
-			error = FString::Printf(TEXT("[EOS SDK] Couldn't find session. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+			error = FString::Printf(TEXT("[EOS SDK] Couldn't find session. Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
 		}
 	}
 	else
@@ -948,7 +961,7 @@ void FOnlineSessionEpic::OnEOSJoinSessionComplete(const EOS_Sessions_JoinSession
 	{
 		thisPtr->RemoveNamedSession(sessionName);
 
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
 		thisPtr->TriggerOnJoinSessionCompleteDelegates(sessionName, EOnJoinSessionCompleteResult::UnknownError);
 		return;
 	}
@@ -1031,7 +1044,7 @@ void FOnlineSessionEpic::OnEOSFindFriendSessionComplete(const EOS_SessionSearch_
 					}
 					else
 					{
-						error = FString::Printf(TEXT("[EOS SDK] Couldn't copy session info.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+						error = FString::Printf(TEXT("[EOS SDK] Couldn't copy session info.\r\n    Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
 					}
 
 					// Release the prevously allocated memory for the session info;
@@ -1039,7 +1052,7 @@ void FOnlineSessionEpic::OnEOSFindFriendSessionComplete(const EOS_SessionSearch_
 				}
 				else
 				{
-					error = FString::Printf(TEXT("[EOS SDK] Couldn't get session details handle.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+					error = FString::Printf(TEXT("[EOS SDK] Couldn't get session details handle.\r\n    Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
 				}
 			}
 
@@ -1052,7 +1065,7 @@ void FOnlineSessionEpic::OnEOSFindFriendSessionComplete(const EOS_SessionSearch_
 	}
 	else
 	{
-		error = FString::Printf(TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+		error = FString::Printf(TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
 	}
 
 	// Report an error if there was any
@@ -1073,7 +1086,7 @@ void FOnlineSessionEpic::OnEOSSendSessionInviteToFriendsComplete(const EOS_Sessi
 
 	if (Data->ResultCode != EOS_EResult::EOS_Success)
 	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Session invite(s) couldn't be sent to remote.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Session invite(s) couldn't be sent to remote.\r\n    Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
 	}
 	else
 	{
@@ -1120,7 +1133,7 @@ void FOnlineSessionEpic::OnEOSRegisterPlayersComplete(const EOS_Sessions_Registe
 			}
 		}
 
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
 		thisPtr->TriggerOnRegisterPlayersCompleteDelegates(sessionName, TArray<TSharedRef<const FUniqueNetId>>(), false);
 		return;
 	}
@@ -1167,7 +1180,7 @@ void FOnlineSessionEpic::OnEOSUnRegisterPlayersComplete(const EOS_Sessions_Unreg
 			}
 		}
 
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
 		thisPtr->TriggerOnUnregisterPlayersCompleteDelegates(sessionName, TArray<TSharedRef<const FUniqueNetId>>(), false);
 		return;
 	}
@@ -1224,7 +1237,7 @@ void FOnlineSessionEpic::OnEOSSessionInviteReceived(const EOS_Sessions_SessionIn
 	}
 	else
 	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Error copying session handle by invite.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(eosResult)));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Error copying session handle by invite.\r\n    Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(eosResult)));
 	}
 
 	EOS_SessionDetails_Release(sessionDetailsHandle);
@@ -1280,7 +1293,7 @@ void FOnlineSessionEpic::OnEOSSessionInviteAccepted(const EOS_Sessions_SessionIn
 	}
 	else
 	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Error copying session handle by invite.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(eosResult)));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Error copying session handle by invite.\r\n    Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(eosResult)));
 	}
 
 	EOS_SessionDetails_Release(sessionDetailsHandle);
@@ -1421,8 +1434,9 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 			session->NumOpenPrivateConnections = NewSessionSettings.NumPrivateConnections;
 			session->NumOpenPublicConnections = NewSessionSettings.NumPublicConnections;
 
+
 			session->HostingPlayerNum = INDEX_NONE; // HostingPlayernNum is going to be deprecated. Don't use it here
-			session->LocalOwnerId = MakeShareable(&HostingPlayerId);
+			session->LocalOwnerId = HostingPlayerId.AsShared();
 			session->bHosting = true; // A person creating a session is always hosting
 
 			IOnlineIdentityPtr identityPtr = this->Subsystem->GetIdentityInterface();
@@ -1446,18 +1460,21 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 			FString bucketId;
 			if (!NewSessionSettings.Get(TEXT("BucketId"), bucketId))
 			{
-				UE_LOG_ONLINE_SESSION(Log, TEXT("No BucketId specified"));
+				UE_LOG_ONLINE_SESSION(Log, TEXT("No BucketId specified. Using default of \"0\""));
+				bucketId = TEXT("0");
 			}
 
 			EOS_Sessions_CreateSessionModificationOptions opts = {
 				EOS_SESSIONS_CREATESESSIONMODIFICATION_API_LATEST,
 				TCHAR_TO_UTF8(*SessionName.ToString()),
 				TCHAR_TO_UTF8(*bucketId),
-				NewSessionSettings.NumPublicConnections + NewSessionSettings.NumPrivateConnections
+				NewSessionSettings.NumPublicConnections + NewSessionSettings.NumPrivateConnections,
+				FIdentityUtilities::ProductUserIDFromString(HostingPlayerId.ToString()),
+				session->SessionSettings.bUsesPresence
 			};
 
 			// Create a new - local - session handle
-			EOS_HSessionModification sessionModificationHandle = {};
+			EOS_HSessionModification sessionModificationHandle = nullptr;
 			EOS_EResult eosResult = EOS_Sessions_CreateSessionModification(this->sessionsHandle, &opts, &sessionModificationHandle);
 			if (eosResult == EOS_EResult::EOS_Success)
 			{
@@ -1483,14 +1500,24 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 					else
 					{
 						char const* resultStr = EOS_EResult_ToString(eosResult);
-						err = FString::Printf(TEXT("[EOS SDK] Error modifying session options - Error Code: %s"), resultStr);
+						err = FString::Printf(TEXT("[EOS SDK] Error modifying session options - Error Code: %s"), UTF8_TO_TCHAR(resultStr));
+
+						// We failed in creating a new session, so we need to clean up the one we created
+						this->RemoveNamedSession(SessionName);
+
+						result = ONLINE_FAIL;
 					}
 				}
 			}
 			else
 			{
 				char const* resultStr = EOS_EResult_ToString(eosResult);
-				err = FString::Printf(TEXT("[EOS SDK] Error creating session - Error Code: %s"), resultStr);
+				err = FString::Printf(TEXT("[EOS SDK] Error creating session - Error Code: %s"), UTF8_TO_TCHAR(resultStr));
+
+				// We failed in creating a new session, so we need to clean up the one we created
+				this->RemoveNamedSession(SessionName);
+
+				result = ONLINE_FAIL;
 			}
 
 			// No matter the update result, release the memory for the SessionModification handle
@@ -1500,7 +1527,7 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 
 	if (result != ONLINE_IO_PENDING)
 	{
-		if (!err.IsEmpty())
+		if (result == ONLINE_FAIL)
 		{
 			UE_LOG_ONLINE_SESSION(Warning, TEXT("%s"), *err);
 		}
