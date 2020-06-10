@@ -13,9 +13,16 @@
 /** Stores information about an external id mapping */
 typedef struct FExternalIdMapping
 {
+	// THe local FUniqueNetId the external user info maps to
 	TSharedRef<FUniqueNetId const> UserId;
+
+	// The external display name
 	FString DisplayName;
+
+	// The external id, can be anything really
 	FString ExternalId;
+
+	// The external account type (Steam, XBL, PSN, etc.)
 	FString AccountType;
 } FExternalIdMapping;
 
@@ -38,6 +45,7 @@ typedef struct FQueryUserIdMappingAdditionalInfo
 typedef struct FQueryExternalIdMappingsAdditionalData {
 	FOnlineUserEpic* OnlineUserPtr;
 	double StartTime;
+	int32 SubQueryIndex;
 	const IOnlineUser::FOnQueryExternalIdMappingsComplete& Delegate;
 } FQueryExternalIdMappingsAdditionalData;
 
@@ -54,84 +62,13 @@ FString FOnlineUserEpic::ConcatErrorString(TArray<FString> ErrorStrings)
 	{
 		return TEXT("");
 	}
+	if (ErrorStrings.Num() == 1)
+	{
+		return ErrorStrings[0];
+	}
 
 	FString concatError = FString::Join(ErrorStrings, TEXT(";"));
 	return concatError;
-}
-
-void FOnlineUserEpic::HandleQueryUserIdMappingsCallback(FOnlineUserEpic* thisPtr, EOS_EResult result, EOS_EpicAccountId eosLocalUserId, EOS_EpicAccountId eosTargetUserId, double startTime, FOnQueryExternalIdMappingsComplete const& completionDelegate)
-{
-	FString error;
-
-	// The local user id is ALWAYS needed, ans we want to fail quickly if it is not present
-	TSharedPtr<FUniqueNetId const> localUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::EpicAccountIDToString(eosLocalUserId));
-	checkf(localUserId, TEXT("%s returned invalid local user id"), *FString(__FUNCTION__));
-
-	// Since the SDK caches the user info by itself, we only need to check if there were any errors.
-	if (result != EOS_EResult::EOS_Success)
-	{
-		error = FString::Printf(TEXT("[EOS SDK] Server returned an error. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
-	}
-	else
-	{
-		TSharedRef<FUniqueNetId> targetUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::EpicAccountIDToString(eosTargetUserId));
-		if (targetUserId->IsValid())
-		{
-			thisPtr->queriedUserIds.Add(targetUserId);
-		}
-		else
-		{
-			error = TEXT("TargetUserId is invalid.");
-		}
-	}
-
-	// Since the EOS SDK only allows a single user query, we have to make sure the delegate only fires when all user queries are done
-	// For this, we retrieve the query by its start time, and check how many queries are complete. If the amount of completed queries
-	// is equal to the number of total queries the error message will be created and the completion delegate triggered
-
-	// Lock the following section to make sure the amount of completed queries doesn't change mid way.
-	FScopeLock ScopeLock(&thisPtr->ExternalIdMappingsQueriesLock);
-
-	// Auto used below to increase readability
-	auto query = thisPtr->ExternalIdMappingsQueries.Find(startTime);
-
-	FExternalIdQueryOptions const& queryOptions = query->Get<0>();
-	TArray<FString> userIds = query->Get<1>();
-	TArray<bool> completedQueries = query->Get<2>();
-	TArray<FString> errors = query->Get<3>();
-
-	checkf(userIds.Num() == errors.Num() && errors.Num() == completedQueries.Num(), TEXT("Amount(UserIds, completedQueries, errors) mismatch."));
-
-	// Count the number of completed queries
-	int32 doneQueries = 0;
-	for (int32 i = 0; i < errors.Num(); ++i)
-	{
-		if (completedQueries[i])
-		{
-			// Change the error message so that the end user knows at which sub-query index the error occurred.
-			errors[i] = FString::Printf(TEXT("SubQueryId: %d, Message: %s"), i, *errors[i]);
-			doneQueries += 1;
-		}
-	}
-
-	ScopeLock.Unlock();
-
-	// If all queries are done, log the result of the function
-	if (doneQueries == userIds.Num())
-	{
-		FString completeErrorString = thisPtr->ConcatErrorString(errors);
-
-		if (completeErrorString.IsEmpty())
-		{
-			UE_LOG_ONLINE_USER(Display, TEXT("Query user info successful."));
-			completionDelegate.ExecuteIfBound(true, *localUserId, queryOptions, userIds, FString());
-		}
-		else
-		{
-			UE_LOG_ONLINE_USER(Warning, TEXT("Query user info failed:\r\n%s"), *error);
-			completionDelegate.ExecuteIfBound(false, *localUserId, queryOptions, userIds, completeErrorString);
-		}
-	}
 }
 
 FString ExternalAccountTypeToString(EOS_EExternalAccountType externalAccountType)
@@ -274,7 +211,7 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 	FScopeLock ScopeLock(&thisPtr->UserQueryLock);
 
 	// Auto used below to increase readability
-	auto query = thisPtr->UserQueries.Find(additionalData->StartTime);
+	auto query = thisPtr->userQueries.Find(additionalData->StartTime);
 
 	TArray<TSharedRef<FUniqueNetId const>> userIds = query->Get<0>();
 	TArray<bool> completedQueries = query->Get<1>();
@@ -350,25 +287,279 @@ void FOnlineUserEpic::OnEOSQueryUserInfoByDisplayNameComplete(EOS_UserInfo_Query
 
 void FOnlineUserEpic::OnEOSQueryExternalIdMappingsByDisplayNameComplete(EOS_UserInfo_QueryUserInfoByDisplayNameCallbackInfo const* Data)
 {
+	// Make sure the this pointer is always valid. Since we as the caller control this, we can fail fast and hard here
 	FQueryExternalIdMappingsAdditionalData* additionalData = (FQueryExternalIdMappingsAdditionalData*)Data->ClientData;
 	FOnlineUserEpic* thisPtr = additionalData->OnlineUserPtr;
 	checkf(thisPtr, TEXT("%s called, but \"this\" is missing."), *FString(__FUNCTION__));
 
-	thisPtr->HandleQueryUserIdMappingsCallback(additionalData->OnlineUserPtr, Data->ResultCode, Data->LocalUserId, Data->TargetUserId, additionalData->StartTime, additionalData->Delegate);
+	// Same as above goes for the local user id
+	checkf(EOS_EpicAccountId_IsValid(Data->LocalUserId), TEXT("%s returned invalid local user id"), *FString(__FUNCTION__));
+	TSharedPtr<FUniqueNetId const> localUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::EpicAccountIDToString(Data->LocalUserId));
 
-	// Release the additional memory
+	// Get the query corresponding query at start time t
+	auto query = thisPtr->externalIdMappingsQueries.Find(additionalData->StartTime); // Auto used below to increase readability
+
+	// Get the parts of the tuple
+	FExternalIdQueryOptions const& queryOptions = query->Get<0>();
+	TArray<FString> userIds = query->Get<1>();
+	TArray<bool> completedQueries = query->Get<2>();
+	TArray<FString> errors = query->Get<3>();
+
+	// Make sure every array in the tuple has the same number of elements		
+	checkf(userIds.Num() == errors.Num() && errors.Num() == completedQueries.Num(), TEXT("Amount(UserIds, CompletedQueries, Errors) mismatch."));
+
+
+	FString error;
+	EOS_EResult result = Data->ResultCode;
+	if (result == EOS_EResult::EOS_Success)
+	{
+		// Get the target user id, shouldn't be null
+		if (EOS_EpicAccountId_IsValid(Data->TargetUserId))
+		{
+			TSharedRef<FUniqueNetId const> targetUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::EpicAccountIDToString(Data->TargetUserId));
+			FString externalAccountType = queryOptions.AuthType;
+
+			FExternalIdMapping* mapping = thisPtr->externalIdMappings.FindByPredicate([&externalAccountType, &targetUserId](FExternalIdMapping mapping)
+				{
+					return mapping.AccountType == externalAccountType && mapping.UserId == targetUserId;
+				});
+
+			// If there already exists a mapping for the target user, update it with new information
+			if (mapping)
+			{
+				mapping->DisplayName = UTF8_TO_TCHAR(Data->DisplayName);
+			}
+			else
+			{
+				FExternalIdMapping newMapping {
+					targetUserId,
+					UTF8_TO_TCHAR(Data->DisplayName),
+					externalAccountType
+				};
+				thisPtr->externalIdMappings.Add(newMapping);
+			}
+		}
+		else
+		{
+			error = TEXT("[EOS SDK] Target user id invalid");
+		}
+	}
+	else
+	{
+		error = FString::Printf(TEXT("[EOS SDK] Server returned an error. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(result)));;
+	}
+
+	// Put the error into the error array and mark the sub-query as completed
+	// No lock needed, as only one callback can ever access the sub-query index
+	errors[additionalData->SubQueryIndex] = error;
+	completedQueries[additionalData->SubQueryIndex] = true;
+
+
+	// As the EOS SDK only allows single queries, we have to make sure the delegate only fires when all user queries are done
+	// For this, we retrieve the query by its start time, and check how many queries are complete. If the amount of completed queries
+	// is equal to the number of total queries the error message will be created and the completion delegate triggered
+
+
+	// Set the number of queries to finish to the amount of users we had to query
+	// This gives us the ability to just check for > 0 later
+	int32 queriesYetToFinish = userIds.Num();
+
+	// Lock the following section to make sure the amount of completed queries doesn't change mid way.
+	thisPtr->ExternalIdMappingsQueriesLock.Lock();
+
+	// Count the number of completed queries
+	for (int32 i = 0; i < userIds.Num(); ++i)
+	{
+		if (completedQueries[i])
+		{
+			// Change the error message so that the end user knows at which sub-query index the error occurred.
+			if (!errors[i].IsEmpty())
+			{
+				errors[i] = FString::Printf(TEXT("SubQueryId: %d, Message: %s"), i, *errors[i]);
+			}
+
+			// Count down the number of completed queries
+			queriesYetToFinish -= 1;
+		}
+	}
+
+	// Unlock
+	thisPtr->ExternalIdMappingsQueriesLock.Unlock();
+
+	// If all queries are done, log the result of the function
+	if (queriesYetToFinish == 0)
+	{
+		FString completeErrorString = thisPtr->ConcatErrorString(errors);
+
+		if (completeErrorString.IsEmpty())
+		{
+			UE_LOG_ONLINE_USER(Display, TEXT("Query user info successful."));
+			additionalData->Delegate.ExecuteIfBound(true, *localUserId, queryOptions, userIds, FString());
+		}
+		else
+		{
+			UE_LOG_ONLINE_USER(Warning, TEXT("Query user info failed:\r\n%s"), *error);
+			additionalData->Delegate.ExecuteIfBound(false, *localUserId, queryOptions, userIds, completeErrorString);
+		}
+	}
+
+	// Release the additionalData memory
 	delete(additionalData);
 }
 
 void FOnlineUserEpic::OnEOSQueryExternalIdMappingsByIdComplete(EOS_UserInfo_QueryUserInfoCallbackInfo const* Data)
 {
+	// Make sure the this pointer is always valid. Since we as the caller control this, we can fail fast and hard here
 	FQueryExternalIdMappingsAdditionalData* additionalData = (FQueryExternalIdMappingsAdditionalData*)Data->ClientData;
 	FOnlineUserEpic* thisPtr = additionalData->OnlineUserPtr;
 	checkf(thisPtr, TEXT("%s called, but \"this\" is missing."), *FString(__FUNCTION__));
 
-	thisPtr->HandleQueryUserIdMappingsCallback(thisPtr, Data->ResultCode, Data->LocalUserId, Data->TargetUserId, additionalData->StartTime, additionalData->Delegate);
+	// Same as above goes for the local user id
+	checkf(EOS_EpicAccountId_IsValid(Data->LocalUserId), TEXT("%s returned invalid local user id"), *FString(__FUNCTION__));
+	TSharedPtr<FUniqueNetId const> localUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::EpicAccountIDToString(Data->LocalUserId));
 
-	// Release the additional memory
+	// Get the query corresponding query at start time t
+	auto query = thisPtr->externalIdMappingsQueries.Find(additionalData->StartTime); // Auto used below to increase readability
+
+	// Get the parts of the tuple
+	FExternalIdQueryOptions const& queryOptions = query->Get<0>();
+	TArray<FString> userIds = query->Get<1>();
+	TArray<bool> completedQueries = query->Get<2>();
+	TArray<FString> errors = query->Get<3>();
+
+	// Make sure every array in the tuple has the same number of elements		
+	checkf(userIds.Num() == errors.Num() && errors.Num() == completedQueries.Num(), TEXT("Amount(UserIds, CompletedQueries, Errors) mismatch."));
+
+
+	FString error;
+	EOS_EResult result = Data->ResultCode;
+	if (result == EOS_EResult::EOS_Success)
+	{
+		// Get the target user id, shouldn't be null
+		if (EOS_EpicAccountId_IsValid(Data->TargetUserId))
+		{
+			EOS_UserInfo_GetExternalUserInfoCountOptions getUserInfoCountOptions = {
+								EOS_USERINFO_GETEXTERNALUSERINFOCOUNT_API_LATEST,
+								Data->LocalUserId,
+								Data->TargetUserId
+			};
+			uint32 count = EOS_UserInfo_GetExternalUserInfoCount(thisPtr->userInfoHandle, &getUserInfoCountOptions);
+
+			thisPtr->ExternalIdMappingsQueriesLock.Lock();
+
+			EOS_UserInfo_ExternalUserInfo* externalUserInfoHandle = nullptr;
+			for (uint32 i = 0; i < count; ++i)
+			{
+				EOS_UserInfo_CopyExternalUserInfoByIndexOptions copyExternalInfoOptions = {
+					EOS_USERINFO_COPYEXTERNALUSERINFOBYINDEX_API_LATEST,
+					Data->LocalUserId,
+					Data->TargetUserId,
+					i
+				};
+				result = EOS_UserInfo_CopyExternalUserInfoByIndex(thisPtr->userInfoHandle, &copyExternalInfoOptions, &externalUserInfoHandle);
+				if (result == EOS_EResult::EOS_Success)
+				{
+					TSharedRef<FUniqueNetId const> targetUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::EpicAccountIDToString(Data->TargetUserId));
+					FString externalAccountType = queryOptions.AuthType;
+
+					FExternalIdMapping* mapping = thisPtr->externalIdMappings.FindByPredicate([&externalAccountType, &targetUserId](FExternalIdMapping mapping)
+						{
+							return mapping.AccountType == externalAccountType && mapping.UserId == targetUserId;
+						});
+
+					// If there already exists a mapping for the target user, update it with new information
+					if (mapping)
+					{
+						mapping->AccountType = ExternalAccountTypeToString(externalUserInfoHandle->AccountType);
+						mapping->DisplayName = UTF8_TO_TCHAR(externalUserInfoHandle->DisplayName);
+						mapping->ExternalId = UTF8_TO_TCHAR(externalUserInfoHandle->AccountId);
+						mapping->UserId = targetUserId;
+					}
+					else
+					{
+						FExternalIdMapping newMapping = {
+							targetUserId,
+							UTF8_TO_TCHAR(externalUserInfoHandle->DisplayName),
+							UTF8_TO_TCHAR(externalUserInfoHandle->AccountId),
+							ExternalAccountTypeToString(externalUserInfoHandle->AccountType),
+						};
+						thisPtr->externalIdMappings.Add(newMapping);
+					}
+				}
+				else
+				{
+					error = TEXT("[EOS SDK] Couldn't copy external user info.");
+				}
+			}
+			thisPtr->ExternalIdMappingsQueriesLock.Unlock();
+
+			EOS_UserInfo_ExternalUserInfo_Release(externalUserInfoHandle);
+		}
+		else
+		{
+			error = TEXT("[EOS SDK] Target user id invalid");
+		}
+	}
+	else
+	{
+		error = FString::Printf(TEXT("[EOS SDK] Server returned an error. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(result)));;
+	}
+
+	// Put the error into the error array and mark the sub-query as completed
+	// No lock needed, as only one callback can ever access the sub-query index
+	errors[additionalData->SubQueryIndex] = error;
+	completedQueries[additionalData->SubQueryIndex] = true;
+
+
+	// As the EOS SDK only allows single queries, we have to make sure the delegate only fires when all user queries are done
+	// For this, we retrieve the query by its start time, and check how many queries are complete. If the amount of completed queries
+	// is equal to the number of total queries the error message will be created and the completion delegate triggered
+
+
+	// Set the number of queries to finish to the amount of users we had to query
+	// This gives us the ability to just check for > 0 later
+	int32 queriesYetToFinish = userIds.Num();
+
+	// Lock the following section to make sure the amount of completed queries doesn't change mid way.
+	thisPtr->ExternalIdMappingsQueriesLock.Lock();
+
+	// Count the number of completed queries
+	for (int32 i = 0; i < userIds.Num(); ++i)
+	{
+		if (completedQueries[i])
+		{
+			// Change the error message so that the end user knows at which sub-query index the error occurred.
+			if (!errors[i].IsEmpty())
+			{
+				errors[i] = FString::Printf(TEXT("SubQueryId: %d, Message: %s"), i, *errors[i]);
+			}
+
+			// Count down the number of completed queries
+			queriesYetToFinish -= 1;
+		}
+	}
+
+	// Unlock
+	thisPtr->ExternalIdMappingsQueriesLock.Unlock();
+
+	// If all queries are done, log the result of the function
+	if (queriesYetToFinish == 0)
+	{
+		FString completeErrorString = thisPtr->ConcatErrorString(errors);
+
+		if (completeErrorString.IsEmpty())
+		{
+			UE_LOG_ONLINE_USER(Display, TEXT("Query user info successful."));
+			additionalData->Delegate.ExecuteIfBound(true, *localUserId, queryOptions, userIds, FString());
+		}
+		else
+		{
+			UE_LOG_ONLINE_USER(Warning, TEXT("Query user info failed:\r\n%s"), *error);
+			additionalData->Delegate.ExecuteIfBound(false, *localUserId, queryOptions, userIds, completeErrorString);
+		}
+	}
+
+	// Release the additionalData memory
 	delete(additionalData);
 }
 
@@ -408,7 +599,7 @@ bool FOnlineUserEpic::QueryUserInfo(int32 LocalUserNum, const TArray<TSharedRef<
 			errors.Init(FString(), UserIds.Num());
 
 			TTuple<TArray<TSharedRef<FUniqueNetId const>>, TArray<bool>, TArray<FString>> queries = MakeTuple(UserIds, states, errors);
-			this->UserQueries.Add(FDateTime::UtcNow().ToUnixTimestamp(), queries);
+			this->userQueries.Add(FDateTime::UtcNow().ToUnixTimestamp(), queries);
 
 			// Start the actual queries
 			for (auto id : UserIds)
@@ -607,6 +798,12 @@ bool FOnlineUserEpic::QueryUserIdMapping(const FUniqueNetId& UserId, const FStri
 	return false;
 }
 
+
+
+
+
+
+
 bool FOnlineUserEpic::QueryExternalIdMappings(const FUniqueNetId& UserId, const FExternalIdQueryOptions& QueryOptions, const TArray<FString>& ExternalIds, const FOnQueryExternalIdMappingsComplete& Delegate)
 {
 	FString error;
@@ -617,11 +814,6 @@ bool FOnlineUserEpic::QueryExternalIdMappings(const FUniqueNetId& UserId, const 
 		if (ExternalIds.Num() > 0)
 		{
 			double startTime = FDateTime::UtcNow().ToUnixTimestamp();
-			FQueryExternalIdMappingsAdditionalData* additionalData = new FQueryExternalIdMappingsAdditionalData{
-				this,
-				startTime,
-				Delegate
-			};
 
 			// Store the query inside the queries map beforehand
 			// Without this it might be possible that the callback gets an inconsistent array
@@ -632,10 +824,20 @@ bool FOnlineUserEpic::QueryExternalIdMappings(const FUniqueNetId& UserId, const 
 			errors.Init(FString(), ExternalIds.Num());
 
 			TTuple<FExternalIdQueryOptions, TArray<FString>, TArray<bool>, TArray<FString>> queries = MakeTuple(QueryOptions, ExternalIds, states, errors);
-			this->ExternalIdMappingsQueries.Add(FDateTime::UtcNow().ToUnixTimestamp(), queries);
+			this->externalIdMappingsQueries.Add(FDateTime::UtcNow().ToUnixTimestamp(), queries);
 
-			for (auto id : ExternalIds)
+			for (int32 i = 0; i < ExternalIds.Num(); ++i)
+				//for (auto id : ExternalIds)
 			{
+				FString id = ExternalIds[i];
+
+				FQueryExternalIdMappingsAdditionalData* additionalData = new FQueryExternalIdMappingsAdditionalData{
+				this,
+				startTime,
+				i,
+				Delegate
+				};
+
 				if (QueryOptions.bLookupByDisplayName)
 				{
 					EOS_UserInfo_QueryUserInfoByDisplayNameOptions queryByDisplaynameOptions = {
@@ -697,7 +899,6 @@ void FOnlineUserEpic::GetExternalIdMappings(const FExternalIdQueryOptions& Query
 		UE_LOG_ONLINE_USER(Warning, TEXT("No external ids to retrieve."));
 	}
 }
-
 
 TSharedPtr<const FUniqueNetId> FOnlineUserEpic::GetExternalIdMapping(const FExternalIdQueryOptions& QueryOptions, const FString& ExternalId)
 {
