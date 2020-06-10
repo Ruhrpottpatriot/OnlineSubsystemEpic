@@ -146,6 +146,17 @@ EOS_Sessions_AttributeData FOnlineSessionEpic::CreateEOSAttributeData(FString co
 		outAttributeData.Value.AsUtf8 = TCHAR_TO_UTF8(*sData);
 		outAttributeData.ValueType = EOS_ESessionAttributeType::EOS_AT_STRING;
 	}
+	else if(variantData.GetType() == EOnlineKeyValuePairDataType::Json 
+		|| variantData.GetType() == EOnlineKeyValuePairDataType::UInt32 
+		|| variantData.GetType() == EOnlineKeyValuePairDataType::UInt64
+		|| variantData.GetType() == EOnlineKeyValuePairDataType::Blob)
+	{
+		error = FString::Printf(TEXT("Data of type \"%s\" not supported."), EOnlineKeyValuePairDataType::ToString(variantData.GetType()));
+	}
+	else if (variantData.GetType() == EOnlineKeyValuePairDataType::Empty)
+	{
+		// Ignore the data
+	}
 	else
 	{
 		error = FString::Printf(TEXT("Type \"%s\" not supported as attribute data."), *EOnlineKeyValuePairDataType::ToString(variantData.GetType()));
@@ -1521,6 +1532,7 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 			session->NumOpenPrivateConnections = NewSessionSettings.NumPrivateConnections;
 			session->NumOpenPublicConnections = NewSessionSettings.NumPublicConnections;
 
+
 			session->HostingPlayerNum = INDEX_NONE; // HostingPlayernNum is going to be deprecated. Don't use it here
 			session->LocalOwnerId = HostingPlayerId.AsShared();
 			session->bHosting = true; // A person creating a session is always hosting
@@ -1540,12 +1552,12 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 			result = ONLINE_IO_PENDING;
 
 			// Interface with EOS
-			FString bucketId = TEXT("0");
+			FString bucketId;
 			if (!NewSessionSettings.Get(TEXT("BucketId"), bucketId))
 			{
 				UE_LOG_ONLINE_SESSION(Log, TEXT("No BucketId specified. Using default of \"0\""));
+				bucketId = TEXT("0");
 			}
-
 
 			EOS_Sessions_CreateSessionModificationOptions createSessionOptions = {
 				EOS_SESSIONS_CREATESESSIONMODIFICATION_API_LATEST,
@@ -1596,7 +1608,12 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 			else
 			{
 				char const* resultStr = EOS_EResult_ToString(eosResult);
-				err = FString::Printf(TEXT("[EOS SDK] Error creating session - Error Code: %s"), resultStr);
+				err = FString::Printf(TEXT("[EOS SDK] Error creating session - Error Code: %s"), UTF8_TO_TCHAR(resultStr));
+
+				// We failed in creating a new session, so we need to clean up the one we created
+				this->RemoveNamedSession(SessionName);
+
+				result = ONLINE_FAIL;
 			}
 
 			// No matter the update result, release the memory for the SessionModification handle
@@ -1606,7 +1623,7 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 
 	if (result != ONLINE_IO_PENDING)
 	{
-		if (!err.IsEmpty())
+		if (result == ONLINE_FAIL)
 		{
 			UE_LOG_ONLINE_SESSION(Warning, TEXT("%s"), *err);
 		}
