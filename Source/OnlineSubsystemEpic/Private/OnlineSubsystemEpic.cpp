@@ -2,6 +2,7 @@
 #include "OnlineIdentityInterfaceEpic.h"
 #include "OnlineSessionInterfaceEpic.h"
 #include "OnlineUserInterfaceEpic.h"
+#include "Utilities.h"
 #include <string>
 
 IOnlineSessionPtr FOnlineSubsystemEpic::GetSessionInterface() const
