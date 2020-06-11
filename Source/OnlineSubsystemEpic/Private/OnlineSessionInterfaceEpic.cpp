@@ -97,9 +97,19 @@ EOS_Sessions_AttributeData FOnlineSessionEpic::CreateEOSAttributeData(FString co
 	outAttributeData.ApiVersion = EOS_SESSIONS_SESSIONATTRIBUTEDATA_API_LATEST;
 	outAttributeData.Key = TCHAR_TO_UTF8(*attributeName);
 
-	if (variantData.GetType() == EOnlineKeyValuePairDataType::Empty)
+	bool success = false;
+	if (variantData.GetType() == EOnlineKeyValuePairDataType::Json
+		|| variantData.GetType() == EOnlineKeyValuePairDataType::UInt32
+		|| variantData.GetType() == EOnlineKeyValuePairDataType::UInt64
+		|| variantData.GetType() == EOnlineKeyValuePairDataType::Blob)
 	{
-		// Empty data needs to be ignored
+		error = FString::Printf(TEXT("Data of type \"%s\" not supported."), EOnlineKeyValuePairDataType::ToString(variantData.GetType()));
+		success = false;
+	}
+	else if (variantData.GetType() == EOnlineKeyValuePairDataType::Empty)
+	{
+		// Ignore the data
+		success = true;
 	}
 	else if (variantData.GetType() == EOnlineKeyValuePairDataType::Bool)
 	{
@@ -107,14 +117,15 @@ EOS_Sessions_AttributeData FOnlineSessionEpic::CreateEOSAttributeData(FString co
 		variantData.GetValue(data);
 		outAttributeData.Value.AsBool = data;
 		outAttributeData.ValueType = EOS_ESessionAttributeType::EOS_AT_BOOLEAN;
+		success = true;
 	}
-
 	else if (variantData.GetType() == EOnlineKeyValuePairDataType::Float)
 	{
 		float data;
 		variantData.GetValue(data);
 		outAttributeData.Value.AsDouble = data;
 		outAttributeData.ValueType = EOS_ESessionAttributeType::EOS_AT_DOUBLE;
+		success = true;
 	}
 	else if (variantData.GetType() == EOnlineKeyValuePairDataType::Double)
 	{
@@ -122,72 +133,47 @@ EOS_Sessions_AttributeData FOnlineSessionEpic::CreateEOSAttributeData(FString co
 		variantData.GetValue(data);
 		outAttributeData.Value.AsDouble = data;
 		outAttributeData.ValueType = EOS_ESessionAttributeType::EOS_AT_DOUBLE;
-	}
-
-	else if (variantData.GetType() == EOnlineKeyValuePairDataType::Int32)
-	{
-		int32 data;
-		variantData.GetValue(data);
-		outAttributeData.Value.AsDouble = data;
-		outAttributeData.ValueType = EOS_ESessionAttributeType::EOS_AT_INT64;
+		success = true;
 	}
 	else if (variantData.GetType() == EOnlineKeyValuePairDataType::Int64)
 	{
-		int64 data;
-		variantData.GetValue(data);
-		outAttributeData.Value.AsDouble = data;
+		int64 iData;
+		variantData.GetValue(iData);
+		outAttributeData.Value.AsInt64 = iData;
 		outAttributeData.ValueType = EOS_ESessionAttributeType::EOS_AT_INT64;
+		success = true;
 	}
-
+	else if (variantData.GetType() == EOnlineKeyValuePairDataType::Int32)
+	{
+		int32 iData;
+		variantData.GetValue(iData);
+		outAttributeData.Value.AsInt64 = iData;
+		outAttributeData.ValueType = EOS_ESessionAttributeType::EOS_AT_INT64;
+		success = true;
+	}
 	else if (variantData.GetType() == EOnlineKeyValuePairDataType::String)
 	{
 		FString sData;
 		variantData.GetValue(sData);
 		outAttributeData.Value.AsUtf8 = TCHAR_TO_UTF8(*sData);
 		outAttributeData.ValueType = EOS_ESessionAttributeType::EOS_AT_STRING;
-	}
-	else if(variantData.GetType() == EOnlineKeyValuePairDataType::Json 
-		|| variantData.GetType() == EOnlineKeyValuePairDataType::UInt32 
-		|| variantData.GetType() == EOnlineKeyValuePairDataType::UInt64
-		|| variantData.GetType() == EOnlineKeyValuePairDataType::Blob)
-	{
-		error = FString::Printf(TEXT("Data of type \"%s\" not supported."), EOnlineKeyValuePairDataType::ToString(variantData.GetType()));
-	}
-	else if (variantData.GetType() == EOnlineKeyValuePairDataType::Empty)
-	{
-		// Ignore the data
+		success = true;
 	}
 	else
 	{
-		error = FString::Printf(TEXT("Type \"%s\" not supported as attribute data."), *EOnlineKeyValuePairDataType::ToString(variantData.GetType()));
-		return EOS_Sessions_AttributeData();
+		error = TEXT("Type mismatch for session setting attribute.");
+		success = false;
 	}
-	return outAttributeData;
+
+	if (success)
+	{
+		return outAttributeData;
+	}
+	return EOS_Sessions_AttributeData();
 }
 
-//EOS_SessionModification_AddAttributeOptions FOnlineSessionEpic::CreateCustomAttrHandle(FString attributeName, FVariantData data, EOS_ESessionAttributeAdvertisementType advertisementType)
-//{
-//	EOS_Sessions_AttributeData attributeData = {};
-//	FString error;
-//
-//	if (CreateEOSAttributeData(attributeName, data, attributeData, error))
-//	{
-//		EOS_SessionModification_AddAttributeOptions attrOpts = {
-//		EOS_SESSIONMODIFICATION_ADDATTRIBUTE_API_LATEST,
-//		&attributeData,
-//		advertisementType
-//		};
-//		return attrOpts;
-//	}
-//	else
-//	{
-//		UE_LOG_ONLINE_SESSION(Warning, TEXT("%s"), *error);
-//		return EOS_SessionModification_AddAttributeOptions();
-//	}
-//}
-
 /** Get a resolved connection string from a session info */
-bool GetConnectStringFromSessionInfo(TSharedPtr<FOnlineSessionInfoEpic>& SessionInfo, FString& ConnectInfo, int32 PortOverride = 0)
+bool FOnlineSessionEpic::GetConnectStringFromSessionInfo(TSharedPtr<FOnlineSessionInfoEpic>& SessionInfo, FString& ConnectInfo, int32 PortOverride)
 {
 	bool bSuccess = false;
 	if (SessionInfo.IsValid())
@@ -349,11 +335,12 @@ void FOnlineSessionEpic::CreateSessionModificationHandle(FOnlineSessionSettings 
 
 	EOS_EResult eosResult = EOS_EResult::EOS_Success;
 	FString setting;
+	FVariantData data;
+	FString error;
 
 	// NumPublicConnections
 	{
 		setting = TEXT("NumPublicConnections");
-		FVariantData data = FVariantData();
 		data.SetValue(NewSessionSettings.NumPublicConnections);
 
 		EOS_Sessions_AttributeData attrData = CreateEOSAttributeData(setting, data, Error);
@@ -407,7 +394,6 @@ void FOnlineSessionEpic::CreateSessionModificationHandle(FOnlineSessionSettings 
 	// bUsesPresence
 	{
 		setting = TEXT("bUsesPresence");
-		FVariantData data = FVariantData();
 		data.SetValue(NewSessionSettings.bShouldAdvertise);
 
 		EOS_Sessions_AttributeData attrData = CreateEOSAttributeData(setting, data, Error);
@@ -448,7 +434,6 @@ void FOnlineSessionEpic::CreateSessionModificationHandle(FOnlineSessionSettings 
 	// bIsLANMatch
 	{
 		setting = TEXT("bIsLANMatch");
-		FVariantData data = FVariantData();
 		data.SetValue(NewSessionSettings.bIsLANMatch);
 
 		EOS_Sessions_AttributeData attrData = CreateEOSAttributeData(setting, data, Error);
@@ -475,7 +460,6 @@ void FOnlineSessionEpic::CreateSessionModificationHandle(FOnlineSessionSettings 
 	// bIsDedicated
 	{
 		setting = TEXT("bIsDedicated");
-		FVariantData data = FVariantData();
 		data.SetValue(NewSessionSettings.bIsDedicated);
 
 		EOS_Sessions_AttributeData attrData = CreateEOSAttributeData(setting, data, Error);
@@ -502,7 +486,6 @@ void FOnlineSessionEpic::CreateSessionModificationHandle(FOnlineSessionSettings 
 	// bUsesStats
 	{
 		setting = TEXT("bUsesStats");
-		FVariantData data = FVariantData();
 		data.SetValue(NewSessionSettings.bUsesStats);
 
 		EOS_Sessions_AttributeData attrData = CreateEOSAttributeData(setting, data, Error);
@@ -529,7 +512,6 @@ void FOnlineSessionEpic::CreateSessionModificationHandle(FOnlineSessionSettings 
 	// bAllowInvites
 	{
 		setting = TEXT("bAllowInvites");
-		FVariantData data = FVariantData();
 		data.SetValue(NewSessionSettings.bAllowInvites);
 
 		EOS_Sessions_AttributeData attrData = CreateEOSAttributeData(setting, data, Error);
@@ -583,7 +565,6 @@ void FOnlineSessionEpic::CreateSessionModificationHandle(FOnlineSessionSettings 
 	// bAntiCheatProtected
 	{
 		setting = TEXT("bAntiCheatProtected");
-		FVariantData data = FVariantData();
 		data.SetValue(NewSessionSettings.bAntiCheatProtected);
 
 		EOS_Sessions_AttributeData attrData = CreateEOSAttributeData(setting, data, Error);
@@ -610,7 +591,6 @@ void FOnlineSessionEpic::CreateSessionModificationHandle(FOnlineSessionSettings 
 	// BuildUniqueId
 	{
 		setting = TEXT("BuildUniqueId");
-		FVariantData data = FVariantData();
 		data.SetValue(NewSessionSettings.BuildUniqueId);
 
 		EOS_Sessions_AttributeData attrData = CreateEOSAttributeData(setting, data, Error);
@@ -738,6 +718,7 @@ FNamedOnlineSession FOnlineSessionEpic::ActiveSessionToNamedSession(EOS_ActiveSe
 
 	return namedSession;
 }
+
 FOnlineSession FOnlineSessionEpic::SessionDetailsToSessionOnlineSession(EOS_SessionDetails_Info const* SessionDetails)
 {
 	EOS_SessionDetails_Settings const* eosSessionSettings = SessionDetails->Settings;
@@ -772,6 +753,11 @@ FOnlineSession FOnlineSessionEpic::SessionDetailsToSessionOnlineSession(EOS_Sess
 
 	return session;
 }
+
+
+// ---------------------------------------------
+// EOS method callbacks
+// ---------------------------------------------
 
 void FOnlineSessionEpic::OnEOSCreateSessionComplete(const EOS_Sessions_UpdateSessionCallbackInfo* Data)
 {
