@@ -151,7 +151,7 @@ void FOnlineSubsystemEpicModule::StartupModule()
 	else
 	{
 		UE_LOG_ONLINE(Display, TEXT("[EOS SDK] Logging Callback Set"));
-		EOS_Logging_SetLogLevel(EOS_ELogCategory::EOS_LC_ALL_CATEGORIES, EOS_ELogLevel::EOS_LOG_Verbose);
+		EOS_Logging_SetLogLevel(EOS_ELogCategory::EOS_LC_ALL_CATEGORIES, EOS_ELogLevel::EOS_LOG_VeryVerbose);
 	}
 
 }
