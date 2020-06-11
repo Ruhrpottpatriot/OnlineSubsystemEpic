@@ -1,6 +1,14 @@
 # OnlineSubsystemEpic
 An unofficial integration of the Epic Online Systems SDK with Unreal Engine 4's OnlineSubsystem
 
+### Currently Supported Versions
+The plugin is coded against a specific version of the EOS SDK. While Epic promises to deliver a stable ABI, it's best to use the Plugin with the SDK version it was coded against
+
+| Plugin Version | SDK Version |
+| -------------- |------------ |
+|     0.0.2      |    1.6.0    |
+|     0.0.1      |    1.6.0    |
+
 ## Installation
 1. Clone the repository into your Projects _Plugins_ directory.
 2. Download the EOS C++ SDK from the Developer Portal
