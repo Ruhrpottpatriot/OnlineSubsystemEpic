@@ -36,10 +36,9 @@ class FUniqueNetIdEpic
 	// Only valid when using EAS login flow
 	EOS_EpicAccountId epicAccountId;
 
-protected:
+public:
 	FUniqueNetIdEpic() = default;
 
-public:
 	// Define these to increase visibility to public (from parent's protected)
 	FUniqueNetIdEpic(FUniqueNetIdEpic&&) = default;
 	FUniqueNetIdEpic(const FUniqueNetIdEpic&) = default;
@@ -53,9 +52,8 @@ public:
 		: Type(EPIC_SUBSYSTEM)
 		, epicAccountId(nullptr)
 	{
-		check(InUniqueNetId);
-		const char* car = TCHAR_TO_UTF8(*AccountString);
-		this->productUserId = EOS_ProductUserId_FromString(car);
+		check(InUniqueNetId.IsEmpty());
+		this->productUserId = EOS_ProductUserId_FromString(TCHAR_TO_UTF8(*InUniqueNetId));
 	}
 
 	/** Create a new id from an existing PUID */
@@ -116,12 +114,12 @@ public:
 	virtual int32 GetSize() const override
 	{
 		// The size of the data is the size of the PUID and the size of the EAID, if the latter is valid.
-		return sizeof(this->productUserId) + this->epicAccountId ? sizeof(this->epicAccountId) : 0;
+		return sizeof(this->productUserId) + (this->epicAccountId ? sizeof(this->epicAccountId) : 0);
 	}
 
 	virtual bool IsValid() const override
 	{
-		return EOS_ProductUserId_IsValid(this->productUserId);
+		return (bool)EOS_ProductUserId_IsValid(this->productUserId);
 	}
 
 	virtual FString ToString() const override
@@ -131,8 +129,8 @@ public:
 
 	virtual FString ToDebugString() const override
 	{
-		bool puidValid = EOS_ProductUserId_IsValid(this->productUserId);
-		bool eaidValid = EOS_EpicAccountId_IsValid(this->epicAccountId);
+		bool puidValid = (bool)EOS_ProductUserId_IsValid(this->productUserId);
+		bool eaidValid = (bool)EOS_EpicAccountId_IsValid(this->epicAccountId);
 
 		return FString::Printf(TEXT("PUID: %s; EAID: %s"),
 			puidValid ? *FUniqueNetIdEpic::ProductUserIdToString(this->productUserId) : TEXT("INVALID"),
@@ -141,11 +139,13 @@ public:
 
 	/**
 	  * Converts this instance to a PUID.
-	  * Keep in mind that, the returned pointer doesn't grant ownership
-	  * and might become invalid at any given point.
+	  * Keep in mind that this returns a non owning pointer
+	  * which might become invalid at any given point.
 	  */
-	EOS_ProductUserId ToProdcutUserId()
+	EOS_ProductUserId ToProdcutUserId() const
 	{
+		bool puidValid = (bool)EOS_ProductUserId_IsValid(this->productUserId);
+		check(puidValid);
 		return this->productUserId;
 	}
 
@@ -155,7 +155,7 @@ public:
 	  * and might become invalid at any given point. If the instance wasn't
 	  * set-up with an EAID, a nullptr is returned.
 	  */
-	EOS_EpicAccountId ToEpicAccountId()
+	EOS_EpicAccountId ToEpicAccountId() const
 	{
 		if (EOS_EpicAccountId_IsValid(this->epicAccountId))
 		{
@@ -264,7 +264,6 @@ enum class ELoginType : uint8
 	AccountPortal	UMETA(DisplayName = "Account Portal"),
 	PersistentAuth	UMETA(DisplayName = "Persistent Auth"),
 };
-
 
 /**
  * User attribution constants for GetUserAttribute()
