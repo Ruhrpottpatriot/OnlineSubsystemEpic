@@ -6,6 +6,7 @@
 #include "eos_sessions.h"
 #include "SocketSubsystem.h"
 #include "Utilities.h"
+#include "eos_auth.h"
 
 // ---------------------------------------------
 // FOnlineSessionInfoEpic definitions
@@ -1449,11 +1450,75 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 				UE_LOG_ONLINE_SESSION(Log, TEXT("No BucketId specified"));
 			}
 
+<<<<<<< Updated upstream
 			EOS_Sessions_CreateSessionModificationOptions opts = {
 				EOS_SESSIONS_CREATESESSIONMODIFICATION_API_LATEST,
 				TCHAR_TO_UTF8(*SessionName.ToString()),
 				TCHAR_TO_UTF8(*bucketId),
 				NewSessionSettings.NumPublicConnections + NewSessionSettings.NumPrivateConnections
+=======
+			/*auto hauth = EOS_Platform_GetAuthInterface(this->Subsystem->PlatformHandle);
+
+
+			EOS_Auth_CopyUserAuthTokenOptions copts = {
+				EOS_AUTH_COPYUSERAUTHTOKEN_API_LATEST
+			};
+			EOS_Auth_Token* authToken = NULL;
+			EOS_EpicAccountId easid = FIdentityUtilities::EpicAccountIDFromString(HostingPlayerId.ToString());
+			EOS_EResult eosResult = EOS_Auth_CopyUserAuthToken(hauth, &copts, easid, &authToken);
+
+
+
+			EOS_Connect_Credentials connCreds = {
+				EOS_CONNECT_CREDENTIALS_API_LATEST,
+				authToken->AccessToken,
+				EOS_EExternalCredentialType::EOS_ECT_EPIC
+			};
+
+			EOS_Connect_LoginOptions loginOpts = {
+				EOS_CONNECT_LOGIN_API_LATEST,
+				&connCreds,
+				nullptr
+			};
+
+			auto hconnect = EOS_Platform_GetConnectInterface(this->Subsystem->PlatformHandle);
+			EOS_Connect_Login(hconnect, &loginOpts, this, [](const EOS_Connect_LoginCallbackInfo* Data){
+				FOnlineSessionEpic* thisPtr = (FOnlineSessionEpic*)Data->ClientData;
+
+
+				EOS_Sessions_CreateSessionModificationOptions createSessionOptions = {
+					EOS_SESSIONS_CREATESESSIONMODIFICATION_API_LATEST,
+					"GameSession",
+					"bucketId",
+					1,
+					Data->LocalUserId,
+					true
+				};
+				EOS_HSessionModification modificationHandle = NULL;
+				EOS_EResult eosResult = EOS_Sessions_CreateSessionModification(thisPtr->sessionsHandle, &createSessionOptions, &modificationHandle);
+
+				EOS_Sessions_UpdateSessionOptions updateSessionOptions = {
+					EOS_SESSIONS_UPDATESESSION_API_LATEST,
+					modificationHandle
+				};
+				EOS_Sessions_UpdateSession(thisPtr->sessionsHandle, &updateSessionOptions, thisPtr, &FOnlineSessionEpic::OnEOSCreateSessionComplete);
+
+
+				});
+
+			return false;*/
+
+
+
+
+				EOS_Sessions_CreateSessionModificationOptions createSessionOptions = {
+					EOS_SESSIONS_CREATESESSIONMODIFICATION_API_LATEST,
+					TCHAR_TO_UTF8(*SessionName.ToString()),
+					TCHAR_TO_UTF8(*bucketId),
+					NewSessionSettings.NumPublicConnections + NewSessionSettings.NumPrivateConnections,
+					FIdentityUtilities::ProductUserIDFromString(HostingPlayerId.ToString()),
+					true//session->SessionSettings.bUsesPresence
+>>>>>>> Stashed changes
 			};
 
 			// Create a new - local - session handle
@@ -1461,6 +1526,7 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 			EOS_EResult eosResult = EOS_Sessions_CreateSessionModification(this->sessionsHandle, &opts, &sessionModificationHandle);
 			if (eosResult == EOS_EResult::EOS_Success)
 			{
+<<<<<<< Updated upstream
 				this->CreateSessionModificationHandle(NewSessionSettings, sessionModificationHandle, err);
 				if (err.IsEmpty())
 				{
@@ -1486,6 +1552,39 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 						err = FString::Printf(TEXT("[EOS SDK] Error modifying session options - Error Code: %s"), resultStr);
 					}
 				}
+=======
+				this->CreateSessionModificationHandle(NewSessionSettings, modificationHandle, err);
+				//if (err.IsEmpty())
+				//{
+				//	// Modify the local session with the modified session options
+				//	EOS_Sessions_UpdateSessionModificationOptions sessionModificationOptions = {
+				//		EOS_SESSIONS_UPDATESESSIONMODIFICATION_API_LATEST,
+				//		TCHAR_TO_UTF8(*SessionName.ToString())
+				//	};
+				//	eosResult = EOS_Sessions_UpdateSessionModification(this->sessionsHandle, &sessionModificationOptions, &modificationHandle);
+				//	if (eosResult == EOS_EResult::EOS_Success)
+				//	{
+						// Update the remote session
+				EOS_Sessions_UpdateSessionOptions updateSessionOptions = {
+					EOS_SESSIONS_UPDATESESSION_API_LATEST,
+					modificationHandle
+				};
+				EOS_Sessions_UpdateSession(this->sessionsHandle, &updateSessionOptions, this, &FOnlineSessionEpic::OnEOSCreateSessionComplete);
+
+				result = ONLINE_IO_PENDING;
+				//}
+				//else
+				//{
+				//	char const* resultStr = EOS_EResult_ToString(eosResult);
+				//	err = FString::Printf(TEXT("[EOS SDK] Error modifying session options - Error Code: %s"), UTF8_TO_TCHAR(resultStr));
+
+				//	// We failed in creating a new session, so we need to clean up the one we created
+				//	this->RemoveNamedSession(SessionName);
+
+				//	result = ONLINE_FAIL;
+				//}
+			//}
+>>>>>>> Stashed changes
 			}
 			else
 			{

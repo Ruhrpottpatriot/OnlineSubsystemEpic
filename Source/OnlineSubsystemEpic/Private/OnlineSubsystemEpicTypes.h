@@ -4,50 +4,252 @@
 #include "OnlineSubsystemEpicPackage.h"
 #include "OnlineSubsystemTypes.h"
 #include "IPAddress.h"
+#include "eos_sdk.h"
 
 #define LOGIN_TYPE_EAS TEXT("EAS")
 #define LOGIN_TYPE_CONNECT TEXT("CONNECT")
 
+/**
+ * Wraps the native product user id (PUID) and epic account id (EAID).
+ *
+ * Since the identity interface primarily uses the connect interface
+ * to retrieve user data, the internal PUID will always be valid and
+ * thus is used as basis for this unique net id. Should the user opt
+ * to use the epic accout system login flow, the EAID will be valid
+ * in addition to the PUID.
+ * In general a user should never have to access the PUID or EAID
+ * themselves, if this should become necessary at some point, both id's
+ * can be accessed via FUserOnlineAccount::GetAuthAttribute() with
+ * the following keys:
+ * - PUID: AUTH_ATTR_ID_TOKEN
+ * - EAID: AUTH_ATTR_EA_TOKEN
+ */
 class FUniqueNetIdEpic
-	: public FUniqueNetIdString
+	: public FUniqueNetId
 {
-private:
+	// Used purely for GetType()
+	FName Type = EPIC_SUBSYSTEM;
 
-	FString LoginType;
+	// Always valid
+	EOS_ProductUserId productUserId;
+
+	// Only valid when using EAS login flow
+	EOS_EpicAccountId epicAccountId;
+
+protected:
+	FUniqueNetIdEpic() = default;
 
 public:
-	FUniqueNetIdEpic()
-		: FUniqueNetIdString()
-		, LoginType (TEXT(""))
-	{
-		Type = EPIC_SUBSYSTEM;
-	}
+	// Define these to increase visibility to public (from parent's protected)
+	FUniqueNetIdEpic(FUniqueNetIdEpic&&) = default;
+	FUniqueNetIdEpic(const FUniqueNetIdEpic&) = default;
+	FUniqueNetIdEpic& operator=(FUniqueNetIdEpic&&) = default;
+	FUniqueNetIdEpic& operator=(const FUniqueNetIdEpic&) = default;
 
+	virtual ~FUniqueNetIdEpic() = default;
+
+	/** Create a new id from a given string. */
 	explicit FUniqueNetIdEpic(const FString& InUniqueNetId)
-		: FUniqueNetIdString(InUniqueNetId, EPIC_SUBSYSTEM)
+		: Type(EPIC_SUBSYSTEM)
+		, epicAccountId(nullptr)
+	{
+		check(InUniqueNetId);
+		const char* car = TCHAR_TO_UTF8(*AccountString);
+		this->productUserId = EOS_ProductUserId_FromString(car);
+	}
+
+	/** Create a new id from an existing PUID */
+	explicit FUniqueNetIdEpic(const EOS_ProductUserId& InUserId)
+		: Type(EPIC_SUBSYSTEM)
+		, productUserId(productUserId)
+		, epicAccountId(nullptr)
+	{
+	}
+	explicit FUniqueNetIdEpic(EOS_ProductUserId&& InUserId)
+		: Type(EPIC_SUBSYSTEM)
+		, productUserId(MoveTemp(InUserId))
+		, epicAccountId(nullptr)
 	{
 	}
 
-	explicit FUniqueNetIdEpic(FString&& InUniqueNetId)
-		: FUniqueNetIdString(MoveTemp(InUniqueNetId), EPIC_SUBSYSTEM)
-	{
-	}
-
-	explicit FUniqueNetIdEpic(const FUniqueNetId& Src)
-		: FUniqueNetIdString(Src)
+	/**
+	 * Constructs this object with the string value of the specified net id
+	 *
+	 * @param Src the id to copy
+	 */
+	explicit FUniqueNetIdEpic(const FUniqueNetId& OtherId)
+		: Type(OtherId.GetType())
+		, epicAccountId(nullptr)
 	{
 		check(GetType() == EPIC_SUBSYSTEM);
+
+		check(OtherId.IsValid());
+		const char* car = TCHAR_TO_UTF8(*OtherId.ToString());
+		this->productUserId = EOS_ProductUserId_FromString(car);
 	}
 
+	FUniqueNetIdEpic(const EOS_ProductUserId& InProductUserId, const EOS_EpicAccountId& InEpicAccountId)
+		: Type(EPIC_SUBSYSTEM)
+		, productUserId(InProductUserId)
+		, epicAccountId(InEpicAccountId)
+	{
+	}
+
+	FUniqueNetIdEpic(EOS_ProductUserId&& InProductUserId, EOS_EpicAccountId&& InEpicAccountId)
+		: Type(EPIC_SUBSYSTEM)
+		, productUserId(MoveTemp(InProductUserId))
+		, epicAccountId(MoveTemp(InEpicAccountId))
+	{
+	}
+
+	virtual FName GetType() const override
+	{
+		return this->Type;
+	}
+
+	virtual const uint8* GetBytes() const override
+	{
+		// Only the mandatory PUID should be considered for GetBytes()
+		return (const uint8*)this->ToString().GetCharArray().GetData();
+	}
+
+	virtual int32 GetSize() const override
+	{
+		// The size of the data is the size of the PUID and the size of the EAID, if the latter is valid.
+		return sizeof(this->productUserId) + this->epicAccountId ? sizeof(this->epicAccountId) : 0;
+	}
+
+	virtual bool IsValid() const override
+	{
+		return EOS_ProductUserId_IsValid(this->productUserId);
+	}
+
+	virtual FString ToString() const override
+	{
+		return FUniqueNetIdEpic::ProductUserIdToString(this->productUserId);
+	}
+
+	virtual FString ToDebugString() const override
+	{
+		bool puidValid = EOS_ProductUserId_IsValid(this->productUserId);
+		bool eaidValid = EOS_EpicAccountId_IsValid(this->epicAccountId);
+
+		return FString::Printf(TEXT("PUID: %s; EAID: %s"),
+			puidValid ? *FUniqueNetIdEpic::ProductUserIdToString(this->productUserId) : TEXT("INVALID"),
+			eaidValid ? *FUniqueNetIdEpic::EpicAccountIdToString(this->epicAccountId) : TEXT("INVALID"));
+	}
+
+	/**
+	  * Converts this instance to a PUID.
+	  * Keep in mind that, the returned pointer doesn't grant ownership
+	  * and might become invalid at any given point.
+	  */
+	EOS_ProductUserId ToProdcutUserId()
+	{
+		return this->productUserId;
+	}
+
+	/**
+	  * Converts this instance to a EAID.
+	  * Keep in mind that, the returned pointer doesn't grant ownership
+	  * and might become invalid at any given point. If the instance wasn't
+	  * set-up with an EAID, a nullptr is returned.
+	  */
+	EOS_EpicAccountId ToEpicAccountId()
+	{
+		if (EOS_EpicAccountId_IsValid(this->epicAccountId))
+		{
+			return this->epicAccountId;
+		}
+		return nullptr;
+	}
+
+	/** 
+	  * Converts the given ProductUserId to a string. 
+	  * @param InAccountId - The PUID to convert
+	  * @returns - A string representing a valid PUId, empty otherwise.
+	  */
+	static FString ProductUserIdToString(EOS_ProductUserId InAccountId)
+	{
+		// Only the mandatory PUID should be considered for a string representation
+		static char buffer[EOS_PRODUCTUSERID_MAX_LENGTH];
+		int32_t bufferSize = sizeof(buffer);
+		EOS_EResult Result = EOS_ProductUserId_ToString(InAccountId, buffer, &bufferSize);
+
+		if (Result == EOS_EResult::EOS_Success)
+		{
+			return buffer;
+		}
+		return FString();
+	}
+
+	/**
+	 * Converts a string into a ProductUserId
+	 * @param AccountString - The string representing the PUID
+	 * @returns - A PUID if the string was not empty or malformed,
+	 *			  nullptr otherwise.
+	 */
+	static EOS_ProductUserId ProductUserIDFromString(FString const AccountString)
+	{
+		if (AccountString.IsEmpty())
+		{
+			return nullptr;
+		}
+
+		EOS_ProductUserId id = EOS_ProductUserId_FromString(TCHAR_TO_UTF8(*AccountString));
+
+		if (EOS_ProductUserId_IsValid(id))
+		{
+			return id;
+		}
+		return nullptr;
+	}
+
+
+	/** Converts the given EpicAccountId to a string.
+	  * @param InAccountId - The EAID to convert
+	  * @returns - A string representing a valid EAID, empty otherwise.
+	  */
+	static FString EpicAccountIdToString(EOS_EpicAccountId InAccountId)
+	{
+		static char buffer[EOS_EPICACCOUNTID_MAX_LENGTH];
+		int32_t bufferSize = sizeof(buffer);
+		EOS_EResult Result = EOS_EpicAccountId_ToString(InAccountId, buffer, &bufferSize);
+
+		if (Result == EOS_EResult::EOS_Success)
+		{
+			return buffer;
+		}
+		return FString();
+
+	}
+
+	/**
+	 * Converts a string into an EpicAccountId
+	 * @param AccountString - The string representing the PUID
+	 * @returns - A EAID if the string was not empty or malformed,
+	 *			  nullptr otherwise.
+	 */
+	static EOS_EpicAccountId EpicAccountIDFromString(const FString AccountString)
+	{
+		if (AccountString.IsEmpty())
+		{
+			return nullptr;
+		}
+
+		EOS_EpicAccountId id = EOS_EpicAccountId_FromString(TCHAR_TO_UTF8(*AccountString));
+		if (EOS_EpicAccountId_IsValid(id))
+		{
+			return id;
+		}
+		return nullptr;
+	}
+
+	/** Needed for TMap::GetTypeHash() */
 	friend uint32 GetTypeHash(const FUniqueNetIdEpic& A)
 	{
-		return ::GetTypeHash(A.UniqueNetIdStr);
-	}
-
-	static const TSharedRef<const FUniqueNetIdEpic>& EmptyId()
-	{
-		static const TSharedRef<const FUniqueNetIdEpic> EmptyId = MakeShared<const FUniqueNetIdEpic>(FString());
-		return EmptyId;
+		// ToDo: Find a better hash representation than just the PUID string
+		return ::GetTypeHash(A.ToString());
 	}
 };
 
@@ -69,6 +271,7 @@ enum class ELoginType : uint8
  */
 #define USER_ATTR_COUNTRY TEXT("country")
 #define USER_ATTR_PREFERRED_LANGUAGE TEXT("preferred_language")
+#define AUTH_ATTR_EA_TOKEN TEXT("eas_id_token")
 
  /**
   * Info associated with an user account generated by this online service
