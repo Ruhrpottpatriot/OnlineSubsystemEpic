@@ -11,29 +11,32 @@ class FOnlineSubsystemEpic;
 class FOnlineIdentityInterfaceEpic
 	: public IOnlineIdentity
 {
+	FOnlineSubsystemEpic* subsystemEpic;
+
+	EOS_HConnect connectHandle;
+
+	EOS_HAuth authHandle;
+
+	EOS_NotificationId notifyLoginStatusChangedId;
+
+	EOS_NotificationId notifyAuthExpiration;
+
+	FOnlineIdentityInterfaceEpic() = delete;
+
 	static void EOS_Connect_OnLoginComplete(EOS_Connect_LoginCallbackInfo const* Data);
 	static void EOS_Connect_OnAuthExpiration(EOS_Connect_AuthExpirationCallbackInfo const* Data);
 	static void EOS_Connect_OnLoginStatusChanged(EOS_Connect_LoginStatusChangedCallbackInfo const* Data);
 	static void EOS_Auth_OnLoginComplete(EOS_Auth_LoginCallbackInfo const* Data);
 	static void EOS_Auth_OnLogoutComplete(const EOS_Auth_LogoutCallbackInfo* Data);
 
-	FOnlineIdentityInterfaceEpic() = delete;
-
-	FOnlineSubsystemEpic* subsystemEpic;
-
-	EOS_HConnect connectHandle;
-	EOS_HAuth authHandle;
-	EOS_NotificationId notifyLoginStatusChangedId;
-	EOS_NotificationId notifyAuthExpiration;
-
-	/** Ids mapped to locally registered users */
-	//TUniqueNetIdMap<TSharedRef<FUserOnlineAccountEpic>> userAccounts;
+	TSharedPtr<FUserOnlineAccount> OnlineUserAcccountFromPUID(EOS_ProductUserId const & PUID) const;
+	ELoginStatus::Type EOSLoginStatusToUELoginStatus(EOS_ELoginStatus LoginStatus);
 
 
 public:
 	virtual ~FOnlineIdentityInterfaceEpic();
 
-	FOnlineIdentityInterfaceEpic(FOnlineSubsystemEpic * inSubsystem);
+	FOnlineIdentityInterfaceEpic(FOnlineSubsystemEpic* inSubsystem);
 
 	virtual bool Login(int32 LocalUserNum, const FOnlineAccountCredentials& AccountCredentials) override;
 	bool AutoLogin(int32 LocalUserNum) override;

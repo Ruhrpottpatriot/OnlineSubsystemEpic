@@ -164,6 +164,8 @@ void FOnlineIdentityInterfaceEpic::EOS_Auth_OnLoginComplete(EOS_Auth_LoginCallba
 		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("Epic Account Service Login failed. Message:\r\n    %s"), *error);
 		thisPtr->TriggerOnLoginCompleteDelegates(0, false, FUniqueNetIdEpic(), error);
 	}
+
+	delete(additionalData);
 }
 
 void FOnlineIdentityInterfaceEpic::EOS_Connect_OnLoginComplete(EOS_Connect_LoginCallbackInfo const* Data)
@@ -174,17 +176,14 @@ void FOnlineIdentityInterfaceEpic::EOS_Connect_OnLoginComplete(EOS_Connect_Login
 	check(thisPtr);
 
 	FString error;
-	bool finished = false;
 
-	TSharedPtr<FUniqueNetId> userId;
+	FUniqueNetIdEpic userId;
 	EOS_EResult eosResult = Data->ResultCode;
 	if (eosResult == EOS_EResult::EOS_Success)
 	{
-		userId = MakeShared<FUniqueNetIdEpic>(Data->LocalUserId, additionalData->EpicAccountId);
-		TSharedRef<FUserOnlineAccountEpic> userPtr = MakeShared<FUserOnlineAccountEpic>(userId.ToSharedRef());
-
-		thisPtr->userAccounts.Add(userId.ToSharedRef(), userPtr);
-		finished = true;
+		userId = FUniqueNetIdEpic(Data->LocalUserId, additionalData->EpicAccountId);
+		UE_LOG_ONLINE_IDENTITY(Display, TEXT("Finished logging in user \"%s\""), UTF8_TO_TCHAR(Data
+			->LocalUserId));
 	}
 	else if (eosResult == EOS_EResult::EOS_InvalidUser)
 	{
@@ -210,21 +209,36 @@ void FOnlineIdentityInterfaceEpic::EOS_Connect_OnLoginComplete(EOS_Connect_Login
 	}
 	else
 	{
-		if (finished)
-		{
-			thisPtr->TriggerOnLoginCompleteDelegates(additionalData->LocalUserNum, true, *userId, FString());
-		}
+		thisPtr->TriggerOnLoginCompleteDelegates(additionalData->LocalUserNum, true, userId, FString());
 	}
+
+	delete(additionalData);
 }
 
 void FOnlineIdentityInterfaceEpic::EOS_Connect_OnAuthExpiration(EOS_Connect_AuthExpirationCallbackInfo const* Data)
 {
-	unimplemented();
+	FOnlineIdentityInterfaceEpic* thisPtr = (FOnlineIdentityInterfaceEpic*)Data->ClientData;
+
+	thisPtr->TriggerOnLoginFlowLogoutDelegates();
+
+	// ToDo: Make the user see this.
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("Auth for user \"%s\" expired"), UTF8_TO_TCHAR(Data->LocalUserId));
 }
 
 void FOnlineIdentityInterfaceEpic::EOS_Connect_OnLoginStatusChanged(EOS_Connect_LoginStatusChangedCallbackInfo const* Data)
 {
-	unimplemented();
+	FOnlineIdentityInterfaceEpic* thisPtr = (FOnlineIdentityInterfaceEpic*)Data->ClientData;
+
+	FString localUser = UTF8_TO_TCHAR(Data->LocalUserId);
+	ELoginStatus::Type oldStatus = thisPtr->EOSLoginStatusToUELoginStatus(Data->PreviousStatus);
+	ELoginStatus::Type newStatus = thisPtr->EOSLoginStatusToUELoginStatus(Data->CurrentStatus);
+
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Login status changed.\r\n%9s: %s\r\n%9s: %s\r\n%9s: %s"), TEXT("User"), localUser, TEXT("New State"), ELoginStatus::Type(newStatus), TEXT("Old State"), ELoginStatus::ToString(oldStatus));
+
+	FUniqueNetIdEpic netId = FUniqueNetIdEpic(localUser);
+	FPlatformUserId localUserNum = thisPtr->GetPlatformUserIdFromUniqueNetId(netId);
+
+	thisPtr->TriggerOnLoginStatusChangedDelegates(localUserNum, oldStatus, newStatus, netId);
 }
 
 void FOnlineIdentityInterfaceEpic::EOS_Auth_OnLogoutComplete(const EOS_Auth_LogoutCallbackInfo* Data)
@@ -528,131 +542,19 @@ TArray<TSharedPtr<FUserOnlineAccount>> FOnlineIdentityInterfaceEpic::GetAllUserA
 	{
 		EOS_ProductUserId puid = EOS_Connect_GetLoggedInUserByIndex(this->connectHandle, i);
 
-		EOS_Connect_ExternalAccountInfo* externalAccountInfo = nullptr;
-
-		EOS_Connect_CopyProductUserInfoOptions copyUserInfoOptions = {
-			EOS_CONNECT_COPYPRODUCTUSERINFO_API_LATEST,
-			puid
-		};
-		EOS_Connect_CopyProductUserInfo(this->connectHandle, &copyUserInfoOptions, &externalAccountInfo);
-
-		TSharedPtr<FUserOnlineAccountEpic> userAccount = nullptr;
-
-		// Check if this user account is also owned by EPIC and if, make calls to the Auth interface
-		if (externalAccountInfo->AccountIdType == EOS_EExternalAccountType::EOS_EAT_EPIC)
-		{
-			EOS_EpicAccountId eaid = EOS_EpicAccountId_FromString(externalAccountInfo->AccountId);
-			if (EOS_EpicAccountId_IsValid(eaid))
-			{
-				EOS_Auth_Token* authToken = nullptr;
-
-				EOS_Auth_CopyUserAuthTokenOptions copyUserAuthTokenOptions = {
-					EOS_AUTH_COPYUSERAUTHTOKEN_API_LATEST
-				};
-				EOS_EResult eosResult = EOS_Auth_CopyUserAuthToken(this->authHandle, &copyUserAuthTokenOptions, eaid, &authToken);
-				if (eosResult == EOS_EResult::EOS_Success)
-				{
-					TSharedRef<FUniqueNetId> netid = MakeShared<FUniqueNetIdEpic>(puid, eaid);
-					userAccount = MakeShared<FUserOnlineAccountEpic>(netid);
-
-					userAccount->SetAuthAttribute(AUTH_ATTR_REFRESH_TOKEN, UTF8_TO_TCHAR(authToken->RefreshToken));
-					// ToDo: Discussion needs to happen, what else to include into the UserOnlineAccount
-				}
-				else
-				{
-					UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] No auth token for EAID %s"), UTF8_TO_TCHAR(externalAccountInfo->AccountId));
-				}
-
-				EOS_Auth_Token_Release(authToken);
-			}
-			else
-			{
-				UE_LOG_ONLINE_IDENTITY(Display, TEXT("External account id was epic, but account id is invalid"));
-			}
-		}
-
-		// Check if we already created a user account with EPIC data
-		if (!userAccount)
-		{
-			TSharedRef<FUniqueNetId> netid = MakeShared<FUniqueNetIdEpic>(puid);
-			userAccount = MakeShared<FUserOnlineAccountEpic>(netid);
-		}
-
-		userAccount->SetUserAttribute(USER_ATTR_DISPLAYNAME, UTF8_TO_TCHAR(externalAccountInfo->DisplayName));
-		userAccount->SetUserLocalAttribute(USER_ATTR_LAST_LOGIN_TIME, FString::Printf(TEXT("%s"), externalAccountInfo->LastLoginTime));
+		TSharedPtr<FUserOnlineAccount> userAccount = this->OnlineUserAcccountFromPUID(puid);
 
 		accounts.Add(userAccount);
-
-
-		EOS_Connect_ExternalAccountInfo_Release(externalAccountInfo);
 	}
 	return accounts;
 }
 
 TSharedPtr<FUserOnlineAccount> FOnlineIdentityInterfaceEpic::GetUserAccount(const FUniqueNetId& UserId) const
 {
-	TSharedRef<FUniqueNetId const> netId = UserId.AsShared();
-	TSharedRef<FUniqueNetIdEpic const> epicNetId = StaticCastSharedRef<FUniqueNetIdEpic const>(netId);
-
+	TSharedRef<FUniqueNetIdEpic const> epicNetId = StaticCastSharedRef<FUniqueNetIdEpic const>(UserId.AsShared());
 	EOS_ProductUserId puid = epicNetId->ToProdcutUserId();
 
-
-	EOS_Connect_ExternalAccountInfo* externalAccountInfo = nullptr;
-
-	EOS_Connect_CopyProductUserInfoOptions copyUserInfoOptions = {
-		EOS_CONNECT_COPYPRODUCTUSERINFO_API_LATEST,
-		puid
-	};
-	EOS_Connect_CopyProductUserInfo(this->connectHandle, &copyUserInfoOptions, &externalAccountInfo);
-
-	TSharedPtr<FUserOnlineAccountEpic> userAccount = nullptr;
-
-	// Check if this user account is also owned by EPIC and if, make calls to the Auth interface
-	if (externalAccountInfo->AccountIdType == EOS_EExternalAccountType::EOS_EAT_EPIC)
-	{
-		EOS_EpicAccountId eaid = EOS_EpicAccountId_FromString(externalAccountInfo->AccountId);
-		if (EOS_EpicAccountId_IsValid(eaid))
-		{
-			EOS_Auth_Token* authToken = nullptr;
-
-			EOS_Auth_CopyUserAuthTokenOptions copyUserAuthTokenOptions = {
-				EOS_AUTH_COPYUSERAUTHTOKEN_API_LATEST
-			};
-			EOS_EResult eosResult = EOS_Auth_CopyUserAuthToken(this->authHandle, &copyUserAuthTokenOptions, eaid, &authToken);
-			if (eosResult == EOS_EResult::EOS_Success)
-			{
-				TSharedRef<FUniqueNetId> netid = MakeShared<FUniqueNetIdEpic>(puid, eaid);
-				userAccount = MakeShared<FUserOnlineAccountEpic>(netid);
-
-				userAccount->SetAuthAttribute(AUTH_ATTR_REFRESH_TOKEN, UTF8_TO_TCHAR(authToken->RefreshToken));
-				// ToDo: Discussion needs to happen, what else to include into the UserOnlineAccount
-			}
-			else
-			{
-				UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] No auth token for EAID %s"), UTF8_TO_TCHAR(externalAccountInfo->AccountId));
-			}
-
-			EOS_Auth_Token_Release(authToken);
-		}
-		else
-		{
-			UE_LOG_ONLINE_IDENTITY(Display, TEXT("External account id was epic, but account id is invalid"));
-		}
-	}
-
-	// Check if we already created a user account with EPIC data
-	if (!userAccount)
-	{
-		TSharedRef<FUniqueNetId> netid = MakeShared<FUniqueNetIdEpic>(puid);
-		userAccount = MakeShared<FUserOnlineAccountEpic>(netid);
-	}
-
-	userAccount->SetUserAttribute(USER_ATTR_DISPLAYNAME, UTF8_TO_TCHAR(externalAccountInfo->DisplayName));
-	userAccount->SetUserLocalAttribute(USER_ATTR_LAST_LOGIN_TIME, FString::Printf(TEXT("%s"), externalAccountInfo->LastLoginTime));
-
-	EOS_Connect_ExternalAccountInfo_Release(externalAccountInfo);
-
-	return userAccount;
+	return this->OnlineUserAcccountFromPUID(puid);
 }
 
 FString FOnlineIdentityInterfaceEpic::GetAuthToken(int32 LocalUserNum) const
@@ -785,7 +687,7 @@ bool FOnlineIdentityInterfaceEpic::Logout(int32 LocalUserNum)
 
 		// Remove the user id from the local cache
 		TSharedRef<const FUniqueNetIdEpic> idRef = id.ToSharedRef();
-		this->userAccounts.Remove(idRef);
+		///this->userAccounts.Remove(idRef);
 	}
 	else
 	{
@@ -804,4 +706,85 @@ bool FOnlineIdentityInterfaceEpic::Logout(int32 LocalUserNum)
 void FOnlineIdentityInterfaceEpic::RevokeAuthToken(const FUniqueNetId& LocalUserId, const FOnRevokeAuthTokenCompleteDelegate& Delegate)
 {
 	UE_LOG_ONLINE_IDENTITY(Fatal, TEXT("FOnlineIdentityInterfaceEpic::RevokeAuthToken not implemented"));
+}
+
+//-------------------------------
+// Utility Methods
+//-------------------------------
+
+TSharedPtr<FUserOnlineAccount> FOnlineIdentityInterfaceEpic::OnlineUserAcccountFromPUID(EOS_ProductUserId const& puid) const
+{
+	EOS_Connect_ExternalAccountInfo* externalAccountInfo = nullptr;
+
+	EOS_Connect_CopyProductUserInfoOptions copyUserInfoOptions = {
+		EOS_CONNECT_COPYPRODUCTUSERINFO_API_LATEST,
+		puid
+	};
+	EOS_Connect_CopyProductUserInfo(this->connectHandle, &copyUserInfoOptions, &externalAccountInfo);
+
+	TSharedPtr<FUserOnlineAccountEpic> userAccount = nullptr;
+
+	// Check if this user account is also owned by EPIC and if, make calls to the Auth interface
+	if (externalAccountInfo->AccountIdType == EOS_EExternalAccountType::EOS_EAT_EPIC)
+	{
+		EOS_EpicAccountId eaid = EOS_EpicAccountId_FromString(externalAccountInfo->AccountId);
+		if (EOS_EpicAccountId_IsValid(eaid))
+		{
+			EOS_Auth_Token* authToken = nullptr;
+
+			EOS_Auth_CopyUserAuthTokenOptions copyUserAuthTokenOptions = {
+				EOS_AUTH_COPYUSERAUTHTOKEN_API_LATEST
+			};
+			EOS_EResult eosResult = EOS_Auth_CopyUserAuthToken(this->authHandle, &copyUserAuthTokenOptions, eaid, &authToken);
+			if (eosResult == EOS_EResult::EOS_Success)
+			{
+				TSharedRef<FUniqueNetId> netid = MakeShared<FUniqueNetIdEpic>(puid, eaid);
+				userAccount = MakeShared<FUserOnlineAccountEpic>(netid);
+
+				userAccount->SetAuthAttribute(AUTH_ATTR_REFRESH_TOKEN, UTF8_TO_TCHAR(authToken->RefreshToken));
+				// ToDo: Discussion needs to happen, what else to include into the UserOnlineAccount
+			}
+			else
+			{
+				UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] No auth token for EAID %s"), UTF8_TO_TCHAR(externalAccountInfo->AccountId));
+			}
+
+			EOS_Auth_Token_Release(authToken);
+		}
+		else
+		{
+			UE_LOG_ONLINE_IDENTITY(Display, TEXT("External account id was epic, but account id is invalid"));
+		}
+	}
+
+	// Check if we already created a user account with EPIC data
+	if (!userAccount)
+	{
+		TSharedRef<FUniqueNetId> netid = MakeShared<FUniqueNetIdEpic>(puid);
+		userAccount = MakeShared<FUserOnlineAccountEpic>(netid);
+	}
+
+	userAccount->SetUserAttribute(USER_ATTR_DISPLAYNAME, UTF8_TO_TCHAR(externalAccountInfo->DisplayName));
+	userAccount->SetUserLocalAttribute(USER_ATTR_LAST_LOGIN_TIME, FString::Printf(TEXT("%s"), externalAccountInfo->LastLoginTime));
+
+	EOS_Connect_ExternalAccountInfo_Release(externalAccountInfo);
+
+	return userAccount;
+}
+
+ELoginStatus::Type FOnlineIdentityInterfaceEpic::EOSLoginStatusToUELoginStatus(EOS_ELoginStatus LoginStatus)
+{
+	switch (LoginStatus)
+	{
+	case EOS_ELoginStatus::EOS_LS_NotLoggedIn:
+		return ELoginStatus::NotLoggedIn;
+	case EOS_ELoginStatus::EOS_LS_UsingLocalProfile:
+		return ELoginStatus::UsingLocalProfile;
+	case EOS_ELoginStatus::EOS_LS_LoggedIn:
+		return ELoginStatus::LoggedIn;
+	default:
+		checkNoEntry();
+	}
+
+	return ELoginStatus::NotLoggedIn;
 }
