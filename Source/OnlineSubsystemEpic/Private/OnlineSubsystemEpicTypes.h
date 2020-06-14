@@ -71,19 +71,23 @@ public:
 	}
 
 	/**
-	 * Constructs this object with the string value of the specified net id
+	 * Constructs this object with the string value of the specified net id.
+	 * While this allows the possibility of coversion from arbitrary unique net ids
+	 * to this type, it doesn't mean the new unique net id is valid apart from
+	 * grammatical correctness.
 	 *
 	 * @param Src the id to copy
 	 */
 	explicit FUniqueNetIdEpic(const FUniqueNetId& OtherId)
-		: Type(OtherId.GetType())
-		, epicAccountId(nullptr)
+		: Type(EPIC_SUBSYSTEM)
 	{
-		check(GetType() == EPIC_SUBSYSTEM);
-		FUniqueNetIdEpic OtherIdEpic = static_cast<FUniqueNetIdEpic>(OtherId);
+		FString idString = OtherId.ToString();
+		check(idString.IsEmpty());
 
-		this->epicAccountId = OtherIdEpic.epicAccountId;
-		this->productUserId = OtherIdEpic.productUserId;
+		EOS_ProductUserId puid = ProductUserIDFromString(idString);
+		check(EOS_ProductUserId_IsValid(puid));
+
+		this->productUserId = puid;
 	}
 
 	FUniqueNetIdEpic(const EOS_ProductUserId& InProductUserId, const EOS_EpicAccountId& InEpicAccountId)
@@ -135,6 +139,17 @@ public:
 		return FString::Printf(TEXT("PUID: %s; EAID: %s"),
 			puidValid ? *FUniqueNetIdEpic::ProductUserIdToString(this->productUserId) : TEXT("INVALID"),
 			eaidValid ? *FUniqueNetIdEpic::EpicAccountIdToString(this->epicAccountId) : TEXT("INVALID"));
+	}
+
+	/** Sets the Epic Account Id after the Net Id has been constructed. */
+	bool SetEpicAccountId(EOS_EpicAccountId eaid)
+	{
+		if (EOS_EpicAccountId_IsValid(eaid))
+		{
+			this->epicAccountId = eaid;
+			return true;
+		}
+		return false;
 	}
 
 	/**
