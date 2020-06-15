@@ -189,8 +189,8 @@ void FOnlineIdentityInterfaceEpic::EOS_Connect_OnLoginComplete(EOS_Connect_Login
 	{
 		if (Data->ContinuanceToken)
 		{
-			// ToDo: FInd a way to let the user either create or link a user account.
-			error = TEXT("[EOS SDK] Got invalid user, but no continuance token. Creating user account?");
+			// ToDo: Find a way to let the user either create or link a user account.
+			error = TEXT("[EOS SDK] Got invalid user, but a contiuance token.");
 		}
 		else
 		{
@@ -219,8 +219,6 @@ void FOnlineIdentityInterfaceEpic::EOS_Connect_OnAuthExpiration(EOS_Connect_Auth
 {
 	FOnlineIdentityInterfaceEpic* thisPtr = (FOnlineIdentityInterfaceEpic*)Data->ClientData;
 
-	thisPtr->TriggerOnLoginFlowLogoutDelegates();
-
 	// ToDo: Make the user see this.
 	UE_LOG_ONLINE_IDENTITY(Display, TEXT("Auth for user \"%s\" expired"), UTF8_TO_TCHAR(Data->LocalUserId));
 }
@@ -233,7 +231,7 @@ void FOnlineIdentityInterfaceEpic::EOS_Connect_OnLoginStatusChanged(EOS_Connect_
 	ELoginStatus::Type oldStatus = thisPtr->EOSLoginStatusToUELoginStatus(Data->PreviousStatus);
 	ELoginStatus::Type newStatus = thisPtr->EOSLoginStatusToUELoginStatus(Data->CurrentStatus);
 
-	UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Login status changed.\r\n%9s: %s\r\n%9s: %s\r\n%9s: %s"), TEXT("User"), localUser, TEXT("New State"), ELoginStatus::Type(newStatus), TEXT("Old State"), ELoginStatus::ToString(oldStatus));
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Login status changed.\r\n%9s: %s\r\n%9s: %s\r\n%9s: %s"), TEXT("User"), *localUser, TEXT("New State"), *ELoginStatus::ToString(newStatus), TEXT("Old State"), *ELoginStatus::ToString(oldStatus));
 
 	FUniqueNetIdEpic netId = FUniqueNetIdEpic(localUser);
 	FPlatformUserId localUserNum = thisPtr->GetPlatformUserIdFromUniqueNetId(netId);
