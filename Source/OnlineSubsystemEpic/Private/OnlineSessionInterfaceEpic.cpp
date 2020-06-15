@@ -582,11 +582,12 @@ handleError:
 	ModificationHandle = EOS_HSessionModification();
 }
 
-
 FNamedOnlineSession FOnlineSessionEpic::ActiveSessionToNamedSession(EOS_ActiveSession_Info const* ActiveSession, bool IsHosting)
 {
 	FString sessionName = UTF8_TO_TCHAR(ActiveSession->SessionName);
-	TSharedRef<FUniqueNetId> localUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::ProductUserIDToString(ActiveSession->LocalUserId));
+
+	// Create a new local user if from a PUID
+	TSharedRef<FUniqueNetId> localUserId = MakeShared<FUniqueNetIdEpic>(UTF8_TO_TCHAR(ActiveSession->LocalUserId));
 
 	FOnlineSession session = SessionDetailsToSessionOnlineSession(ActiveSession->SessionDetails);
 
@@ -1182,10 +1183,10 @@ void FOnlineSessionEpic::OnEOSSessionInviteReceived(const EOS_Sessions_SessionIn
 	checkf(thisPtr, TEXT("%s called. But \"this\" is missing"), *FString(__FUNCTION__));
 
 	// User that received the invite
-	TSharedRef<FUniqueNetId const> localUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::ProductUserIDToString(Data->LocalUserId));
+	TSharedRef<FUniqueNetId const> localUserId = MakeShared<FUniqueNetIdEpic>(UTF8_TO_TCHAR(Data->LocalUserId));
 
 	// User that sent the invite
-	TSharedRef<FUniqueNetId const> fromUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::ProductUserIDToString(Data->TargetUserId));
+	TSharedRef<FUniqueNetId const> fromUserId = MakeShared<FUniqueNetIdEpic>(UTF8_TO_TCHAR(Data->TargetUserId));
 
 	EOS_Sessions_CopySessionHandleByInviteIdOptions copySessionHandleByInviteIdOptions = {
 		EOS_SESSIONS_COPYSESSIONHANDLEBYINVITEID_API_LATEST,
@@ -1237,10 +1238,10 @@ void FOnlineSessionEpic::OnEOSSessionInviteAccepted(const EOS_Sessions_SessionIn
 	checkf(thisPtr, TEXT("%s called. But \"this\" is missing"), *FString(__FUNCTION__));
 
 	// User that received the invite
-	TSharedRef<FUniqueNetId const> localUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::ProductUserIDToString(Data->LocalUserId));
+	TSharedRef<FUniqueNetId const> localUserId = MakeShared<FUniqueNetIdEpic>(UTF8_TO_TCHAR(Data->LocalUserId));
 
 	// User that sent the invite
-	TSharedRef<FUniqueNetId const> fromUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::ProductUserIDToString(Data->TargetUserId));
+	TSharedRef<FUniqueNetId const> fromUserId = MakeShared<FUniqueNetIdEpic>(UTF8_TO_TCHAR(Data->TargetUserId));
 
 
 	EOS_HSessionDetails sessionDetailsHandle = {};
@@ -1316,7 +1317,6 @@ FOnlineSessionEpic::FOnlineSessionEpic(FOnlineSubsystemEpic* InSubsystem)
 		EOS_SESSIONS_ADDNOTIFYSESSIONINVITEACCEPTED_API_LATEST
 	};
 	this->sessionInviteAcceptedCallbackHandle = EOS_Sessions_AddNotifySessionInviteAccepted(hSessions, &nofitySessionInviteAcceptedOptions, this, &FOnlineSessionEpic::OnEOSSessionInviteAccepted);
-
 }
 
 FOnlineSessionEpic::~FOnlineSessionEpic()
@@ -1450,84 +1450,22 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 				UE_LOG_ONLINE_SESSION(Log, TEXT("No BucketId specified"));
 			}
 
-<<<<<<< Updated upstream
-			EOS_Sessions_CreateSessionModificationOptions opts = {
+
+			EOS_Sessions_CreateSessionModificationOptions createSessionOptions = {
 				EOS_SESSIONS_CREATESESSIONMODIFICATION_API_LATEST,
 				TCHAR_TO_UTF8(*SessionName.ToString()),
 				TCHAR_TO_UTF8(*bucketId),
-				NewSessionSettings.NumPublicConnections + NewSessionSettings.NumPrivateConnections
-=======
-			/*auto hauth = EOS_Platform_GetAuthInterface(this->Subsystem->PlatformHandle);
-
-
-			EOS_Auth_CopyUserAuthTokenOptions copts = {
-				EOS_AUTH_COPYUSERAUTHTOKEN_API_LATEST
-			};
-			EOS_Auth_Token* authToken = NULL;
-			EOS_EpicAccountId easid = FIdentityUtilities::EpicAccountIDFromString(HostingPlayerId.ToString());
-			EOS_EResult eosResult = EOS_Auth_CopyUserAuthToken(hauth, &copts, easid, &authToken);
-
-
-
-			EOS_Connect_Credentials connCreds = {
-				EOS_CONNECT_CREDENTIALS_API_LATEST,
-				authToken->AccessToken,
-				EOS_EExternalCredentialType::EOS_ECT_EPIC
-			};
-
-			EOS_Connect_LoginOptions loginOpts = {
-				EOS_CONNECT_LOGIN_API_LATEST,
-				&connCreds,
-				nullptr
-			};
-
-			auto hconnect = EOS_Platform_GetConnectInterface(this->Subsystem->PlatformHandle);
-			EOS_Connect_Login(hconnect, &loginOpts, this, [](const EOS_Connect_LoginCallbackInfo* Data){
-				FOnlineSessionEpic* thisPtr = (FOnlineSessionEpic*)Data->ClientData;
-
-
-				EOS_Sessions_CreateSessionModificationOptions createSessionOptions = {
-					EOS_SESSIONS_CREATESESSIONMODIFICATION_API_LATEST,
-					"GameSession",
-					"bucketId",
-					1,
-					Data->LocalUserId,
-					true
-				};
-				EOS_HSessionModification modificationHandle = NULL;
-				EOS_EResult eosResult = EOS_Sessions_CreateSessionModification(thisPtr->sessionsHandle, &createSessionOptions, &modificationHandle);
-
-				EOS_Sessions_UpdateSessionOptions updateSessionOptions = {
-					EOS_SESSIONS_UPDATESESSION_API_LATEST,
-					modificationHandle
-				};
-				EOS_Sessions_UpdateSession(thisPtr->sessionsHandle, &updateSessionOptions, thisPtr, &FOnlineSessionEpic::OnEOSCreateSessionComplete);
-
-
-				});
-
-			return false;*/
-
-
-
-
-				EOS_Sessions_CreateSessionModificationOptions createSessionOptions = {
-					EOS_SESSIONS_CREATESESSIONMODIFICATION_API_LATEST,
-					TCHAR_TO_UTF8(*SessionName.ToString()),
-					TCHAR_TO_UTF8(*bucketId),
-					NewSessionSettings.NumPublicConnections + NewSessionSettings.NumPrivateConnections,
-					FIdentityUtilities::ProductUserIDFromString(HostingPlayerId.ToString()),
-					true//session->SessionSettings.bUsesPresence
->>>>>>> Stashed changes
+				NewSessionSettings.NumPublicConnections + NewSessionSettings.NumPrivateConnections,
+				((FUniqueNetIdEpic)HostingPlayerId).ToProdcutUserId(),
+				session->SessionSettings.bUsesPresence
 			};
 
 			// Create a new - local - session handle
-			EOS_HSessionModification sessionModificationHandle = {};
-			EOS_EResult eosResult = EOS_Sessions_CreateSessionModification(this->sessionsHandle, &opts, &sessionModificationHandle);
+			EOS_HSessionModification modificationHandle = nullptr;
+			EOS_EResult eosResult = EOS_Sessions_CreateSessionModification(this->sessionsHandle, &createSessionOptions, &modificationHandle);
 			if (eosResult == EOS_EResult::EOS_Success)
 			{
-<<<<<<< Updated upstream
-				this->CreateSessionModificationHandle(NewSessionSettings, sessionModificationHandle, err);
+				this->CreateSessionModificationHandle(NewSessionSettings, modificationHandle, err);
 				if (err.IsEmpty())
 				{
 					// Modify the local session with the modified session options
@@ -1535,56 +1473,29 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 						EOS_SESSIONS_UPDATESESSIONMODIFICATION_API_LATEST,
 						TCHAR_TO_UTF8(*SessionName.ToString())
 					};
-					eosResult = EOS_Sessions_UpdateSessionModification(this->sessionsHandle, &sessionModificationOptions, &sessionModificationHandle);
+					eosResult = EOS_Sessions_UpdateSessionModification(this->sessionsHandle, &sessionModificationOptions, &modificationHandle);
 					if (eosResult == EOS_EResult::EOS_Success)
 					{
 						// Update the remote session
-						EOS_Sessions_UpdateSessionOptions updateSessionOptions = {};
-						updateSessionOptions.ApiVersion = EOS_SESSIONS_UPDATESESSION_API_LATEST;
-						updateSessionOptions.SessionModificationHandle = sessionModificationHandle;
-
+						EOS_Sessions_UpdateSessionOptions updateSessionOptions = {
+							EOS_SESSIONS_UPDATESESSION_API_LATEST,
+							modificationHandle
+						};
 						EOS_Sessions_UpdateSession(this->sessionsHandle, &updateSessionOptions, this, &FOnlineSessionEpic::OnEOSCreateSessionComplete);
+
 						result = ONLINE_IO_PENDING;
 					}
 					else
 					{
 						char const* resultStr = EOS_EResult_ToString(eosResult);
-						err = FString::Printf(TEXT("[EOS SDK] Error modifying session options - Error Code: %s"), resultStr);
+						err = FString::Printf(TEXT("[EOS SDK] Error modifying session options - Error Code: %s"), UTF8_TO_TCHAR(resultStr));
+
+						// We failed in creating a new session, so we need to clean up the one we created
+						this->RemoveNamedSession(SessionName);
+
+						result = ONLINE_FAIL;
 					}
 				}
-=======
-				this->CreateSessionModificationHandle(NewSessionSettings, modificationHandle, err);
-				//if (err.IsEmpty())
-				//{
-				//	// Modify the local session with the modified session options
-				//	EOS_Sessions_UpdateSessionModificationOptions sessionModificationOptions = {
-				//		EOS_SESSIONS_UPDATESESSIONMODIFICATION_API_LATEST,
-				//		TCHAR_TO_UTF8(*SessionName.ToString())
-				//	};
-				//	eosResult = EOS_Sessions_UpdateSessionModification(this->sessionsHandle, &sessionModificationOptions, &modificationHandle);
-				//	if (eosResult == EOS_EResult::EOS_Success)
-				//	{
-						// Update the remote session
-				EOS_Sessions_UpdateSessionOptions updateSessionOptions = {
-					EOS_SESSIONS_UPDATESESSION_API_LATEST,
-					modificationHandle
-				};
-				EOS_Sessions_UpdateSession(this->sessionsHandle, &updateSessionOptions, this, &FOnlineSessionEpic::OnEOSCreateSessionComplete);
-
-				result = ONLINE_IO_PENDING;
-				//}
-				//else
-				//{
-				//	char const* resultStr = EOS_EResult_ToString(eosResult);
-				//	err = FString::Printf(TEXT("[EOS SDK] Error modifying session options - Error Code: %s"), UTF8_TO_TCHAR(resultStr));
-
-				//	// We failed in creating a new session, so we need to clean up the one we created
-				//	this->RemoveNamedSession(SessionName);
-
-				//	result = ONLINE_FAIL;
-				//}
-			//}
->>>>>>> Stashed changes
 			}
 			else
 			{
@@ -1593,7 +1504,7 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 			}
 
 			// No matter the update result, release the memory for the SessionModification handle
-			EOS_SessionModification_Release(sessionModificationHandle);
+			EOS_SessionModification_Release(modificationHandle);
 		}
 	}
 
@@ -1876,7 +1787,8 @@ bool FOnlineSessionEpic::FindSessions(const FUniqueNetId& SearchingPlayerId, con
 	uint32 result = ONLINE_FAIL;
 	SearchSettings->SearchState = EOnlineAsyncTaskState::NotStarted;
 
-	if (SearchingPlayerId.IsValid())
+	FUniqueNetIdEpic const epicNetId = (FUniqueNetIdEpic)SearchingPlayerId;
+	if (epicNetId.IsEpicAccountIdValid())
 	{
 		if (SearchSettings->bIsLanQuery)
 		{
@@ -1895,7 +1807,7 @@ bool FOnlineSessionEpic::FindSessions(const FUniqueNetId& SearchingPlayerId, con
 			if (eosResult == EOS_EResult::EOS_Success)
 			{
 				UpdateSessionSearchParameters(SearchSettings, sessionSearchHandle, error);
-				if (error.IsEmpty()) // Only proceeed if there was no error
+				if (error.IsEmpty()) // Only proceeded if there was no error
 				{
 					// Locally store the session search so it can be accessed later
 					double searchCreationTime = FDateTime::UtcNow().ToUnixTimestamp();
@@ -1905,7 +1817,7 @@ bool FOnlineSessionEpic::FindSessions(const FUniqueNetId& SearchingPlayerId, con
 
 					EOS_SessionSearch_FindOptions findOptions = {
 						EOS_SESSIONSEARCH_FIND_API_LATEST,
-						FIdentityUtilities::ProductUserIDFromString(SearchingPlayerId.ToString())
+						epicNetId.ToProdcutUserId()
 					};
 					FFindSessionsAdditionalData* additionalData = new FFindSessionsAdditionalData{
 						this,
@@ -1938,7 +1850,7 @@ bool FOnlineSessionEpic::FindSessions(const FUniqueNetId& SearchingPlayerId, con
 	}
 	else
 	{
-		error = TEXT("Invalid SearchingPlayerId");
+		error = TEXT("SearchingPlayerId is not a valid EpicAccountId");
 	}
 
 	if (result != ONLINE_IO_PENDING)
@@ -1957,7 +1869,7 @@ bool FOnlineSessionEpic::FindSessionById(const FUniqueNetId& SearchingUserId, co
 	// of the current session searches or by using EOS_SessionSearch_SetSessionId.
 	// A way to make this work could be to assume that searched sessions are `GameSession`s only (bad)
 	// Or to only use the locally registered named sessions (also bad)
-	UE_LOG_ONLINE_SESSION(Warning, TEXT("FindSessionById not supported (yet)."));
+	UE_LOG_ONLINE_SESSION(Warning, TEXT("FindSessionById not supported by the EOS SDK(yet)."));
 	return false;
 
 	//FString error;
@@ -2143,10 +2055,13 @@ bool FOnlineSessionEpic::FindFriendSession(int32 LocalUserNum, const FUniqueNetI
 }
 bool FOnlineSessionEpic::FindFriendSession(const FUniqueNetId& LocalUserId, const FUniqueNetId& Friend)
 {
+	unimplemented();
+
 	FString error;
 	uint32 result = ONLINE_FAIL;
 
-	if (LocalUserId.IsValid())
+	FUniqueNetIdEpic const epicNetId = (FUniqueNetIdEpic)LocalUserId;
+	if (epicNetId.IsEpicAccountIdValid())
 	{
 		if (Friend.IsValid())
 		{
@@ -2164,14 +2079,14 @@ bool FOnlineSessionEpic::FindFriendSession(const FUniqueNetId& LocalUserId, cons
 			// Set the session search to only search for a user
 			EOS_SessionSearch_SetTargetUserIdOptions targetUserIdOptions = {
 				EOS_SESSIONSEARCH_SETTARGETUSERID_API_LATEST,
-				FIdentityUtilities::ProductUserIDFromString(Friend.ToString())
+				epicNetId.ToProdcutUserId()
 			};
 			EOS_SessionSearch_SetTargetUserId(sessionSearchHandle, &targetUserIdOptions);
 
 			// Create the session search itself and execute it
 			EOS_SessionSearch_FindOptions findOptions = {
 				EOS_SESSIONSEARCH_FIND_API_LATEST,
-				FIdentityUtilities::ProductUserIDFromString(LocalUserId.ToString())
+				NULL
 			};
 			FFindFriendSessionAdditionalData additionalData = {
 				this,
@@ -2251,17 +2166,20 @@ bool FOnlineSessionEpic::SendSessionInviteToFriends(const FUniqueNetId& LocalUse
 	FString error;
 	uint32 result = ONLINE_FAIL;
 
-	if (LocalUserId.IsValid())
+	FUniqueNetIdEpic const epicNetId = (FUniqueNetIdEpic)LocalUserId;
+	if (epicNetId.IsEpicAccountIdValid())
 	{
 		if (this->IsPlayerInSession(SessionName, LocalUserId))
 		{
 			for (auto f : Friends)
 			{
+				TSharedRef<FUniqueNetIdEpic const> epicFriendId = StaticCastSharedRef<FUniqueNetIdEpic>(f);
+
 				EOS_Sessions_SendInviteOptions sendInviteOptions = {
 					EOS_SESSIONS_SENDINVITE_API_LATEST,
 					TCHAR_TO_UTF8(*SessionName.ToString()),
-					FIdentityUtilities::ProductUserIDFromString(LocalUserId.ToString()),
-					FIdentityUtilities::ProductUserIDFromString(f->ToString())
+					epicNetId.ToProdcutUserId(),
+					epicFriendId->ToProdcutUserId()
 				};
 
 				EOS_Sessions_SendInvite(this->sessionsHandle, &sendInviteOptions, this, &FOnlineSessionEpic::OnEOSSendSessionInviteToFriendsComplete);
@@ -2379,6 +2297,9 @@ bool FOnlineSessionEpic::RegisterPlayers(FName SessionName, const TArray< TShare
 				Session->RegisteredPlayers.Add(playerId);
 				successfullyRegisteredPlayers.Add(playerId);
 
+				TSharedRef<FUniqueNetIdEpic const> epicNetId = StaticCastSharedRef<FUniqueNetIdEpic>(playerId);
+				userIdArr[i] = epicNetId->ToProdcutUserId();
+
 				// update number of open connections
 				if (Session->NumOpenPublicConnections > 0)
 				{
@@ -2388,9 +2309,6 @@ bool FOnlineSessionEpic::RegisterPlayers(FName SessionName, const TArray< TShare
 				{
 					Session->NumOpenPrivateConnections--;
 				}
-
-				EOS_ProductUserId userId = FIdentityUtilities::ProductUserIDFromString(playerId->ToString());
-				userIdArr[i] = userId;
 			}
 			else
 			{
@@ -2465,8 +2383,8 @@ bool FOnlineSessionEpic::UnregisterPlayers(FName SessionName, const TArray< TSha
 					session->NumOpenPrivateConnections += 1;
 				}
 
-				EOS_ProductUserId userId = FIdentityUtilities::ProductUserIDFromString(playerId->ToString());
-				productUserIdArr[i] = userId;
+				TSharedRef<FUniqueNetIdEpic const> epicNetId = StaticCastSharedRef<FUniqueNetIdEpic>(playerId);
+				productUserIdArr[i] = epicNetId->ToProdcutUserId();
 			}
 			else
 			{
