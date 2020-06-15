@@ -61,77 +61,79 @@ FString FOnlineUserEpic::ConcatErrorString(TArray<FString> ErrorStrings)
 
 void FOnlineUserEpic::HandleQueryUserIdMappingsCallback(FOnlineUserEpic* thisPtr, EOS_EResult result, EOS_EpicAccountId eosLocalUserId, EOS_EpicAccountId eosTargetUserId, double startTime, FOnQueryExternalIdMappingsComplete const& completionDelegate)
 {
-	FString error;
+	unimplemented();
 
-	// The local user id is ALWAYS needed, ans we want to fail quickly if it is not present
-	TSharedPtr<FUniqueNetId const> localUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::EpicAccountIDToString(eosLocalUserId));
-	checkf(localUserId, TEXT("%s returned invalid local user id"), *FString(__FUNCTION__));
+	//FString error;
 
-	// Since the SDK caches the user info by itself, we only need to check if there were any errors.
-	if (result != EOS_EResult::EOS_Success)
-	{
-		error = FString::Printf(TEXT("[EOS SDK] Server returned an error. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
-	}
-	else
-	{
-		TSharedRef<FUniqueNetId> targetUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::EpicAccountIDToString(eosTargetUserId));
-		if (targetUserId->IsValid())
-		{
-			thisPtr->queriedUserIds.Add(targetUserId);
-		}
-		else
-		{
-			error = TEXT("TargetUserId is invalid.");
-		}
-	}
+	//// The local user id is ALWAYS needed, ans we want to fail quickly if it is not present
+	//TSharedPtr<FUniqueNetId const> localUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::EpicAccountIDToString(eosLocalUserId));
+	//checkf(localUserId, TEXT("%s returned invalid local user id"), *FString(__FUNCTION__));
 
-	// Since the EOS SDK only allows a single user query, we have to make sure the delegate only fires when all user queries are done
-	// For this, we retrieve the query by its start time, and check how many queries are complete. If the amount of completed queries
-	// is equal to the number of total queries the error message will be created and the completion delegate triggered
+	//// Since the SDK caches the user info by itself, we only need to check if there were any errors.
+	//if (result != EOS_EResult::EOS_Success)
+	//{
+	//	error = FString::Printf(TEXT("[EOS SDK] Server returned an error. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
+	//}
+	//else
+	//{
+	//	TSharedRef<FUniqueNetId> targetUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::EpicAccountIDToString(eosTargetUserId));
+	//	if (targetUserId->IsValid())
+	//	{
+	//		thisPtr->queriedUserIds.Add(targetUserId);
+	//	}
+	//	else
+	//	{
+	//		error = TEXT("TargetUserId is invalid.");
+	//	}
+	//}
 
-	// Lock the following section to make sure the amount of completed queries doesn't change mid way.
-	FScopeLock ScopeLock(&thisPtr->ExternalIdMappingsQueriesLock);
+	//// Since the EOS SDK only allows a single user query, we have to make sure the delegate only fires when all user queries are done
+	//// For this, we retrieve the query by its start time, and check how many queries are complete. If the amount of completed queries
+	//// is equal to the number of total queries the error message will be created and the completion delegate triggered
 
-	// Auto used below to increase readability
-	auto query = thisPtr->ExternalIdMappingsQueries.Find(startTime);
+	//// Lock the following section to make sure the amount of completed queries doesn't change mid way.
+	//FScopeLock ScopeLock(&thisPtr->ExternalIdMappingsQueriesLock);
 
-	FExternalIdQueryOptions const& queryOptions = query->Get<0>();
-	TArray<FString> userIds = query->Get<1>();
-	TArray<bool> completedQueries = query->Get<2>();
-	TArray<FString> errors = query->Get<3>();
+	//// Auto used below to increase readability
+	//auto query = thisPtr->ExternalIdMappingsQueries.Find(startTime);
 
-	checkf(userIds.Num() == errors.Num() && errors.Num() == completedQueries.Num(), TEXT("Amount(UserIds, completedQueries, errors) mismatch."));
+	//FExternalIdQueryOptions const& queryOptions = query->Get<0>();
+	//TArray<FString> userIds = query->Get<1>();
+	//TArray<bool> completedQueries = query->Get<2>();
+	//TArray<FString> errors = query->Get<3>();
 
-	// Count the number of completed queries
-	int32 doneQueries = 0;
-	for (int32 i = 0; i < errors.Num(); ++i)
-	{
-		if (completedQueries[i])
-		{
-			// Change the error message so that the end user knows at which sub-query index the error occurred.
-			errors[i] = FString::Printf(TEXT("SubQueryId: %d, Message: %s"), i, *errors[i]);
-			doneQueries += 1;
-		}
-	}
+	//checkf(userIds.Num() == errors.Num() && errors.Num() == completedQueries.Num(), TEXT("Amount(UserIds, completedQueries, errors) mismatch."));
 
-	ScopeLock.Unlock();
+	//// Count the number of completed queries
+	//int32 doneQueries = 0;
+	//for (int32 i = 0; i < errors.Num(); ++i)
+	//{
+	//	if (completedQueries[i])
+	//	{
+	//		// Change the error message so that the end user knows at which sub-query index the error occurred.
+	//		errors[i] = FString::Printf(TEXT("SubQueryId: %d, Message: %s"), i, *errors[i]);
+	//		doneQueries += 1;
+	//	}
+	//}
 
-	// If all queries are done, log the result of the function
-	if (doneQueries == userIds.Num())
-	{
-		FString completeErrorString = thisPtr->ConcatErrorString(errors);
+	//ScopeLock.Unlock();
 
-		if (completeErrorString.IsEmpty())
-		{
-			UE_LOG_ONLINE_USER(Display, TEXT("Query user info successful."));
-			completionDelegate.ExecuteIfBound(true, *localUserId, queryOptions, userIds, FString());
-		}
-		else
-		{
-			UE_LOG_ONLINE_USER(Warning, TEXT("Query user info failed:\r\n%s"), *error);
-			completionDelegate.ExecuteIfBound(false, *localUserId, queryOptions, userIds, completeErrorString);
-		}
-	}
+	//// If all queries are done, log the result of the function
+	//if (doneQueries == userIds.Num())
+	//{
+	//	FString completeErrorString = thisPtr->ConcatErrorString(errors);
+
+	//	if (completeErrorString.IsEmpty())
+	//	{
+	//		UE_LOG_ONLINE_USER(Display, TEXT("Query user info successful."));
+	//		completionDelegate.ExecuteIfBound(true, *localUserId, queryOptions, userIds, FString());
+	//	}
+	//	else
+	//	{
+	//		UE_LOG_ONLINE_USER(Warning, TEXT("Query user info failed:\r\n%s"), *error);
+	//		completionDelegate.ExecuteIfBound(false, *localUserId, queryOptions, userIds, completeErrorString);
+	//	}
+	//}
 }
 
 FString ExternalAccountTypeToString(EOS_EExternalAccountType externalAccountType)
@@ -243,8 +245,9 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 	checkf(thisPtr, TEXT("%s called, but \"this\" is missing."), *FString(__FUNCTION__));
 
 	// The local user id is ALWAYS needed, ans we want to fail quickly if it is not present
-	TSharedPtr<FUniqueNetId const> localUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::EpicAccountIDToString(Data
-		->LocalUserId));
+	TSharedPtr<FUniqueNetId const> netId = thisPtr->Subsystem->IdentityInterface->GetUniquePlayerId(additionalData->LocalUserId);
+	TSharedPtr<FUniqueNetIdEpic> localUserId = MakeShared<FUniqueNetIdEpic>(*netId);
+	localUserId->SetEpicAccountId(Data->LocalUserId);
 	checkf(localUserId, TEXT("%s returned invalid local user id"), *FString(__FUNCTION__));
 
 	// Since the SDK caches the user info by itself, we only need to check if there were any errors.
@@ -254,8 +257,7 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 	}
 	else
 	{
-		TSharedRef<FUniqueNetId const> targetUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::EpicAccountIDToString(Data
-			->TargetUserId));
+		TSharedRef<FUniqueNetId const> targetUserId = MakeShared<FUniqueNetIdEpic>();
 		if (!targetUserId->IsValid())
 		{
 			error = TEXT("Callback returned invalid target user id.");
@@ -320,8 +322,8 @@ void FOnlineUserEpic::OnEOSQueryUserInfoByDisplayNameComplete(EOS_UserInfo_Query
 
 	FOnlineUserEpic* thisPtr = additionalData->OnlineUserPtr;
 
-	FUniqueNetIdEpic localUserId(FIdentityUtilities::EpicAccountIDToString(Data->LocalUserId));
-	FUniqueNetIdEpic targetUserID(FIdentityUtilities::EpicAccountIDToString(Data->TargetUserId));
+	FUniqueNetIdEpic localUserId;
+	FUniqueNetIdEpic targetUserID;
 	FString targetUserDisplayName(UTF8_TO_TCHAR(Data->DisplayName));
 
 	FString error;
@@ -391,51 +393,67 @@ bool FOnlineUserEpic::QueryUserInfo(int32 LocalUserNum, const TArray<TSharedRef<
 	FString error;
 	uint32 result = ONLINE_FAIL;
 
-	if (0 <= LocalUserNum && LocalUserNum < MAX_LOCAL_PLAYERS)
+	if (UserIds.Num())
 	{
-		IOnlineIdentityPtr identityPtr = this->Subsystem->GetIdentityInterface();
-		TSharedPtr<FUniqueNetId const> userId = identityPtr->GetUniquePlayerId(LocalUserNum);
-		if (userId.IsValid() && userId->IsValid())
+		if (0 <= LocalUserNum && LocalUserNum < MAX_LOCAL_PLAYERS)
 		{
-			double startTime = FDateTime::UtcNow().ToUnixTimestamp();
+			// Get the id of the local user specified by the index
+			IOnlineIdentityPtr identityPtr = this->Subsystem->GetIdentityInterface();
+			TSharedPtr<FUniqueNetIdEpic const> localUserId = StaticCastSharedPtr<FUniqueNetIdEpic const>(identityPtr->GetUniquePlayerId(LocalUserNum));
 
-			// Store the query inside the queries map beforehand
-			// Without this it might be possible that the callback gets an inconsistent array
-			TArray<bool> states;
-			states.Init(false, UserIds.Num());
-
-			TArray<FString> errors;
-			errors.Init(FString(), UserIds.Num());
-
-			TTuple<TArray<TSharedRef<FUniqueNetId const>>, TArray<bool>, TArray<FString>> queries = MakeTuple(UserIds, states, errors);
-			this->UserQueries.Add(FDateTime::UtcNow().ToUnixTimestamp(), queries);
-
-			// Start the actual queries
-			for (auto id : UserIds)
+			if (localUserId.IsValid() && localUserId->IsEpicAccountIdValid())
 			{
-				EOS_UserInfo_QueryUserInfoOptions queryUserInfoOptions = {
-					EOS_USERINFO_QUERYUSERINFO_API_LATEST,
-					FIdentityUtilities::EpicAccountIDFromString(userId->ToString()),
-					FIdentityUtilities::EpicAccountIDFromString(id->ToString())
-				};
-				FQueryUserInfoAdditionalData* additionalData = new FQueryUserInfoAdditionalData{
-					this,
-					LocalUserNum,
-					startTime
-				};
-				EOS_UserInfo_QueryUserInfo(this->userInfoHandle, &queryUserInfoOptions, additionalData, &FOnlineUserEpic::OnEOSQueryUserInfoComplete);
+				double startTime = FDateTime::UtcNow().ToUnixTimestamp();
 
-				result = ONLINE_IO_PENDING;
+				// Store the query inside the queries map beforehand
+				// Without this it might be possible that the callback gets an inconsistent array
+				TArray<bool> states;
+				states.Init(false, UserIds.Num());
+
+				TArray<FString> errors;
+				errors.Init(FString(), UserIds.Num());
+
+				TTuple<TArray<TSharedRef<FUniqueNetId const>>, TArray<bool>, TArray<FString>> queries = MakeTuple(UserIds, states, errors);
+				this->UserQueries.Add(FDateTime::UtcNow().ToUnixTimestamp(), queries);
+
+
+				// Start the actual queries
+				for (auto id : UserIds)
+				{
+					// Only do work, if the id is a valid EAID
+					TSharedRef<FUniqueNetIdEpic const> targetUserId = StaticCastSharedRef<FUniqueNetIdEpic const>(id);
+					if (targetUserId->IsEpicAccountIdValid())
+					{
+						EOS_UserInfo_QueryUserInfoOptions queryUserInfoOptions = {
+						   EOS_USERINFO_QUERYUSERINFO_API_LATEST,
+						   localUserId->ToEpicAccountId(),
+						   targetUserId->ToEpicAccountId()
+						};
+						FQueryUserInfoAdditionalData* additionalData = new FQueryUserInfoAdditionalData{
+							this,
+							LocalUserNum,
+							startTime
+						};
+						EOS_UserInfo_QueryUserInfo(this->userInfoHandle, &queryUserInfoOptions, additionalData, &FOnlineUserEpic::OnEOSQueryUserInfoComplete);
+
+						result = ONLINE_IO_PENDING;
+					}
+				}
+			}
+			else
+			{
+				error = FString::Printf(TEXT("Cannot retrieve user id for local user.\r\n    User index: %d"), LocalUserNum);
 			}
 		}
 		else
 		{
-			error = FString::Printf(TEXT("Cannot retrieve user id for local user.\r\n    User index: %d"), LocalUserNum);
+			error = FString::Printf(TEXT("Invalid local user index.\r\n    User index: %d"), LocalUserNum);
 		}
 	}
 	else
 	{
-		error = FString::Printf(TEXT("Invalid local user index.\r\n    User index: %d"), LocalUserNum);
+		// Doing nothing always succeeds
+		result = ONLINE_SUCCESS;
 	}
 
 	if (result != ONLINE_IO_PENDING)
@@ -455,41 +473,51 @@ bool FOnlineUserEpic::GetAllUserInfo(int32 LocalUserNum, TArray< TSharedRef<clas
 	if (0 <= LocalUserNum && LocalUserNum < MAX_LOCAL_PLAYERS)
 	{
 		IOnlineIdentityPtr identityPtr = this->Subsystem->GetIdentityInterface();
-		TSharedPtr<FUniqueNetId const> userId = identityPtr->GetUniquePlayerId(LocalUserNum);
-		if (userId.IsValid() && userId->IsValid())
+		TSharedPtr<FUniqueNetIdEpic const> localUserId = StaticCastSharedPtr<FUniqueNetIdEpic const>(identityPtr->GetUniquePlayerId(LocalUserNum));
+
+		if (localUserId.IsValid() && localUserId->IsEpicAccountIdValid())
 		{
 			// Empty the output array
 			OutUsers.Empty();
 
-			// Allocate the memory for the user information here so it can be reused
-			EOS_UserInfo* userInfo = new EOS_UserInfo();
+			// Declare here so the user information can be reused
+			EOS_UserInfo* userInfo = nullptr;
 			for (auto id : this->queriedUserIds)
 			{
-				EOS_UserInfo_CopyUserInfoOptions copyUserInfoOptions = {
-				   EOS_USERINFO_COPYUSERINFO_API_LATEST,
-				   FIdentityUtilities::EpicAccountIDFromString(userId->ToString()),
-				   FIdentityUtilities::EpicAccountIDFromString(id->ToString())
-				};
-				EOS_EResult result = EOS_UserInfo_CopyUserInfo(this->userInfoHandle, &copyUserInfoOptions, &userInfo);
-				if (result == EOS_EResult::EOS_Success)
+				// Only do work, if the id is a valid EAID
+				TSharedRef<FUniqueNetIdEpic const> targetUserId = StaticCastSharedRef<FUniqueNetIdEpic const>(id);
+				if (targetUserId->IsEpicAccountIdValid())
 				{
-					// Make sure the data is copied
-					FString country = UTF8_TO_TCHAR(userInfo->Country);
-					FString displayName = UTF8_TO_TCHAR(userInfo->DisplayName);
-					FString preferredLanguage = UTF8_TO_TCHAR(userInfo->PreferredLanguage);
-					FString nickname = UTF8_TO_TCHAR(userInfo->Nickname);
+					EOS_UserInfo_CopyUserInfoOptions copyUserInfoOptions = {
+					   EOS_USERINFO_COPYUSERINFO_API_LATEST,
+					   localUserId->ToEpicAccountId(),
+					   targetUserId->ToEpicAccountId()
+					};
+					EOS_EResult result = EOS_UserInfo_CopyUserInfo(this->userInfoHandle, &copyUserInfoOptions, &userInfo);
+					if (result == EOS_EResult::EOS_Success)
+					{
+						// Make sure the data is copied
+						FString country = UTF8_TO_TCHAR(userInfo->Country);
+						FString displayName = UTF8_TO_TCHAR(userInfo->DisplayName);
+						FString preferredLanguage = UTF8_TO_TCHAR(userInfo->PreferredLanguage);
+						FString nickname = UTF8_TO_TCHAR(userInfo->Nickname);
 
-					TSharedRef<FUserOnlineAccount> localUser = MakeShared<FUserOnlineAccountEpic>(id);
-					localUser->SetUserAttribute(USER_ATTR_COUNTRY, country);
-					localUser->SetUserAttribute(USER_ATTR_DISPLAYNAME, displayName);
-					localUser->SetUserAttribute(USER_ATTR_PREFERRED_LANGUAGE, preferredLanguage);
-					localUser->SetUserAttribute(USER_ATTR_PREFERRED_DISPLAYNAME, nickname);
+						TSharedRef<FUserOnlineAccount> localUser = MakeShared<FUserOnlineAccountEpic>(id);
+						localUser->SetUserAttribute(USER_ATTR_COUNTRY, country);
+						localUser->SetUserAttribute(USER_ATTR_DISPLAYNAME, displayName);
+						localUser->SetUserAttribute(USER_ATTR_PREFERRED_LANGUAGE, preferredLanguage);
+						localUser->SetUserAttribute(USER_ATTR_PREFERRED_DISPLAYNAME, nickname);
 
-					OutUsers.Add(localUser);
+						OutUsers.Add(localUser);
+					}
+					else
+					{
+						UE_LOG_ONLINE_USER(Display, TEXT("[EOS SDK] Couldn't get cached user data. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
+					}
 				}
 				else
 				{
-					UE_LOG_ONLINE_USER(Display, TEXT("[EOS SDK] Couldn't get cached user data. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
+					UE_LOG_ONLINE_USER(Display, TEXT("User id is not a valid EpicAccountId.\r\n    Id: %s"), *id->ToDebugString())
 				}
 			}
 			if (OutUsers.Num() < this->queriedUserIds.Num())
@@ -506,13 +534,15 @@ bool FOnlineUserEpic::GetAllUserInfo(int32 LocalUserNum, TArray< TSharedRef<clas
 		}
 		else
 		{
-			error = FString::Printf(TEXT("Cannot retrieve user id for local user.\r\n    User index: %d"), LocalUserNum);
+			error = FString::Printf(TEXT("User id for user \"%d\" is not a valid EpicAccountId."), LocalUserNum);
 		}
 	}
 	else
 	{
-		error = FString::Printf(TEXT("Invalid local user index.\r\n    User index: %d"), LocalUserNum);
+		error = FString::Printf(TEXT("Invalid local user index: %d"), LocalUserNum);
 	}
+
+	UE_CLOG_ONLINE_USER(!success, Warning, TEXT("Error in %s\r\n%s"), *FString(__FUNCTION__), *error);
 
 	return success;
 }
@@ -525,17 +555,20 @@ TSharedPtr<FOnlineUser> FOnlineUserEpic::GetUserInfo(int32 LocalUserNum, const c
 	if (0 <= LocalUserNum && LocalUserNum < MAX_LOCAL_PLAYERS)
 	{
 		IOnlineIdentityPtr identityPtr = this->Subsystem->GetIdentityInterface();
-		TSharedPtr<FUniqueNetId const> sourceUser = identityPtr->GetUniquePlayerId(LocalUserNum);
-		if (sourceUser.IsValid() && sourceUser->IsValid())
+		TSharedPtr<FUniqueNetIdEpic const> localUserId = StaticCastSharedPtr<FUniqueNetIdEpic const>(identityPtr->GetUniquePlayerId(LocalUserNum));
+
+		if (localUserId.IsValid() && localUserId->IsEpicAccountIdValid())
 		{
-			if (UserId.IsValid())
+			FUniqueNetIdEpic const epicUserId = (FUniqueNetIdEpic)UserId;
+
+			if (epicUserId.IsEpicAccountIdValid())
 			{
-				EOS_UserInfo* userInfo = new EOS_UserInfo();
+				EOS_UserInfo* userInfo = nullptr;
 
 				EOS_UserInfo_CopyUserInfoOptions copyUserInfoOptions = {
 				   EOS_USERINFO_COPYUSERINFO_API_LATEST,
-				   FIdentityUtilities::EpicAccountIDFromString(sourceUser->ToString()),
-				   FIdentityUtilities::EpicAccountIDFromString(UserId.ToString())
+				   localUserId->ToEpicAccountId(),
+				   epicUserId.ToEpicAccountId()
 				};
 				EOS_EResult result = EOS_UserInfo_CopyUserInfo(this->userInfoHandle, &copyUserInfoOptions, &userInfo);
 
@@ -563,17 +596,17 @@ TSharedPtr<FOnlineUser> FOnlineUserEpic::GetUserInfo(int32 LocalUserNum, const c
 			}
 			else
 			{
-				error = TEXT("Invalid target user id.");
+				error = TEXT("Target user id is not a valid EpicAccountId");
 			}
 		}
 		else
 		{
-			error = TEXT("Invalid local user id");
+			error = TEXT("Local user id is not a valid EpicAccountId");
 		}
 	}
 	else
 	{
-		error = FString::Printf(TEXT("Invalid local user index.\r\n    User index: %d"), LocalUserNum);
+		error = FString::Printf(TEXT("\"%d\" is not a valid local account index."), LocalUserNum);
 	}
 
 	UE_CLOG_ONLINE_USER(!localUser, Warning, TEXT("Error during %s. Message:\r\n%s"), *FString(__FUNCTION__),
@@ -585,7 +618,9 @@ TSharedPtr<FOnlineUser> FOnlineUserEpic::GetUserInfo(int32 LocalUserNum, const c
 bool FOnlineUserEpic::QueryUserIdMapping(const FUniqueNetId& UserId, const FString& DisplayNameOrEmail, const FOnQueryUserMappingComplete& Delegate)
 {
 	FString error;
-	if (UserId.IsValid())
+
+	FUniqueNetIdEpic const epicNetId = (FUniqueNetIdEpic)UserId;
+	if (epicNetId.IsEpicAccountIdValid())
 	{
 		FQueryUserIdMappingAdditionalInfo* additionalInfo = new FQueryUserIdMappingAdditionalInfo{
 			this,
@@ -594,8 +629,8 @@ bool FOnlineUserEpic::QueryUserIdMapping(const FUniqueNetId& UserId, const FStri
 
 		EOS_UserInfo_QueryUserInfoByDisplayNameOptions queryUserByDisplayNameOptions = {
 			EOS_USERINFO_QUERYUSERINFOBYDISPLAYNAME_API_LATEST,
-			FIdentityUtilities::EpicAccountIDFromString(UserId.ToString()),
-			TCHAR_TO_UTF8(*DisplayNameOrEmail)
+			epicNetId.ToEpicAccountId(),
+			TCHAR_TO_UTF8(*DisplayNameOrEmail),
 		};
 		EOS_UserInfo_QueryUserInfoByDisplayName(this->userInfoHandle, &queryUserByDisplayNameOptions, additionalInfo, &FOnlineUserEpic::OnEOSQueryUserInfoByDisplayNameComplete);
 	}
@@ -612,9 +647,10 @@ bool FOnlineUserEpic::QueryExternalIdMappings(const FUniqueNetId& UserId, const 
 	FString error;
 	bool success = false;
 
-	if (UserId.IsValid())
+	if (ExternalIds.Num())
 	{
-		if (ExternalIds.Num() > 0)
+		FUniqueNetIdEpic const epicNetId = (FUniqueNetIdEpic)UserId;
+		if (epicNetId.IsValid())
 		{
 			double startTime = FDateTime::UtcNow().ToUnixTimestamp();
 			FQueryExternalIdMappingsAdditionalData* additionalData = new FQueryExternalIdMappingsAdditionalData{
@@ -636,36 +672,48 @@ bool FOnlineUserEpic::QueryExternalIdMappings(const FUniqueNetId& UserId, const 
 
 			for (auto id : ExternalIds)
 			{
-				if (QueryOptions.bLookupByDisplayName)
+				EOS_EpicAccountId eaid = EOS_EpicAccountId_FromString(TCHAR_TO_UTF8(*id));
+				if (EOS_EpicAccountId_IsValid(eaid))
 				{
-					EOS_UserInfo_QueryUserInfoByDisplayNameOptions queryByDisplaynameOptions = {
-						EOS_USERINFO_QUERYUSERINFOBYDISPLAYNAME_API_LATEST,
-						FIdentityUtilities::EpicAccountIDFromString(UserId.ToString()),
-						TCHAR_TO_UTF8(*id)
-					};
-					EOS_UserInfo_QueryUserInfoByDisplayName(this->userInfoHandle, &queryByDisplaynameOptions, additionalData, &FOnlineUserEpic::OnEOSQueryExternalIdMappingsByDisplayNameComplete);
+					if (QueryOptions.bLookupByDisplayName)
+					{
+						EOS_UserInfo_QueryUserInfoByDisplayNameOptions queryByDisplaynameOptions = {
+							EOS_USERINFO_QUERYUSERINFOBYDISPLAYNAME_API_LATEST,
+							epicNetId.ToEpicAccountId(),
+							TCHAR_TO_UTF8(*id)
+						};
+						EOS_UserInfo_QueryUserInfoByDisplayName(this->userInfoHandle, &queryByDisplaynameOptions, additionalData, &FOnlineUserEpic::OnEOSQueryExternalIdMappingsByDisplayNameComplete);
+					}
+					else
+					{
+						EOS_UserInfo_QueryUserInfoOptions queryByIdOtios = {
+							EOS_USERINFO_QUERYUSERINFO_API_LATEST,
+							epicNetId.ToEpicAccountId(),
+							eaid
+						};
+						EOS_UserInfo_QueryUserInfo(this->userInfoHandle, &queryByIdOtios, additionalData, &FOnlineUserEpic::OnEOSQueryExternalIdMappingsByIdComplete);
+					}
 				}
 				else
 				{
-					EOS_UserInfo_QueryUserInfoOptions queryByIdOtios = {
-						EOS_USERINFO_QUERYUSERINFO_API_LATEST,
-						FIdentityUtilities::EpicAccountIDFromString(UserId.ToString()),
-						FIdentityUtilities::EpicAccountIDFromString(id)
-					};
-					EOS_UserInfo_QueryUserInfo(this->userInfoHandle, &queryByIdOtios, additionalData, &FOnlineUserEpic::OnEOSQueryExternalIdMappingsByIdComplete);
+					UE_LOG_ONLINE_USER(Display, TEXT("[EOS SDK] \"%s\" is not a vald epic user id"), *id);
 				}
 			}
 			success = true;
+
 		}
 		else
 		{
-			error = TEXT("No external user ids to query.");
+			error = TEXT("Local user id is not a valid EpicAccountId");
 		}
 	}
 	else
 	{
-		error = TEXT("Id of querying user is invalid.");
+		UE_LOG_ONLINE_USER(Display, TEXT("No external user ids to query."));
+		success = true; // Doing nothing will always succeed.
 	}
+
+	UE_CLOG_ONLINE_USER(!success, Warning, TEXT("%s encountered an error. Message\r\n    %s"), *FString(__FUNCTION__), *error);
 
 	return success;
 }
@@ -697,7 +745,6 @@ void FOnlineUserEpic::GetExternalIdMappings(const FExternalIdQueryOptions& Query
 		UE_LOG_ONLINE_USER(Warning, TEXT("No external ids to retrieve."));
 	}
 }
-
 
 TSharedPtr<const FUniqueNetId> FOnlineUserEpic::GetExternalIdMapping(const FExternalIdQueryOptions& QueryOptions, const FString& ExternalId)
 {
