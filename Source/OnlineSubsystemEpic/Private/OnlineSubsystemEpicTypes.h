@@ -72,7 +72,7 @@ public:
 
 	/**
 	 * Constructs this object with the string value of the specified net id.
-	 * While this allows the possibility of coversion from arbitrary unique net ids
+	 * While this allows the possibility of conversion from arbitrary unique net ids
 	 * to this type, it doesn't mean the new unique net id is valid apart from
 	 * grammatical correctness.
 	 *
@@ -126,6 +126,12 @@ public:
 		return (bool)EOS_ProductUserId_IsValid(this->productUserId);
 	}
 
+	/** Check if the underlying EpicAccountId is valid. */
+	bool IsEpicAccountIdValid() const 
+	{
+		return (bool)EOS_EpicAccountId_IsValid(this->epicAccountId);
+	}
+
 	virtual FString ToString() const override
 	{
 		return FUniqueNetIdEpic::ProductUserIdToString(this->productUserId);
@@ -172,7 +178,7 @@ public:
 	  */
 	EOS_EpicAccountId ToEpicAccountId() const
 	{
-		if (EOS_EpicAccountId_IsValid(this->epicAccountId))
+		if (this->IsEpicAccountIdValid())
 		{
 			return this->epicAccountId;
 		}
