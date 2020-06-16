@@ -52,7 +52,7 @@ public:
 		: Type(EPIC_SUBSYSTEM)
 		, epicAccountId(nullptr)
 	{
-		check(InUniqueNetId.IsEmpty());
+		check(!InUniqueNetId.IsEmpty());
 		this->productUserId = EOS_ProductUserId_FromString(TCHAR_TO_UTF8(*InUniqueNetId));
 	}
 
@@ -82,7 +82,7 @@ public:
 		: Type(EPIC_SUBSYSTEM)
 	{
 		FString idString = OtherId.ToString();
-		check(idString.IsEmpty());
+		check(!idString.IsEmpty());
 
 		EOS_ProductUserId puid = ProductUserIDFromString(idString);
 		check(EOS_ProductUserId_IsValid(puid));
