@@ -143,7 +143,13 @@ void FOnlineIdentityInterfaceEpic::EOS_Auth_OnLoginComplete(EOS_Auth_LoginCallba
 				&connectCrendentials,
 				nullptr
 			};
-			EOS_Connect_Login(thisPtr->connectHandle, &loginOptions, thisPtr, &FOnlineIdentityInterfaceEpic::EOS_Connect_OnLoginComplete);
+
+			FLoginCompleteAdditionalData* newAdditionalData = new FLoginCompleteAdditionalData{
+				thisPtr,
+				additionalData->LocalUserNum,
+				eosId
+			};
+			EOS_Connect_Login(thisPtr->connectHandle, &loginOptions, newAdditionalData, &FOnlineIdentityInterfaceEpic::EOS_Connect_OnLoginComplete);
 
 			// Release the auth token
 			EOS_Auth_Token_Release(authToken);
@@ -174,6 +180,7 @@ void FOnlineIdentityInterfaceEpic::EOS_Connect_OnLoginComplete(EOS_Connect_Login
 
 	FOnlineIdentityInterfaceEpic* thisPtr = additionalData->IdentityInterface;
 	check(thisPtr);
+
 
 	FString error;
 
@@ -208,8 +215,8 @@ void FOnlineIdentityInterfaceEpic::EOS_Connect_OnLoginComplete(EOS_Connect_Login
 		thisPtr->TriggerOnLoginCompleteDelegates(additionalData->LocalUserNum, false, FUniqueNetIdEpic(), error);
 	}
 	else
-	{
-		thisPtr->TriggerOnLoginCompleteDelegates(additionalData->LocalUserNum, true, userId, FString());
+	{		
+		thisPtr->TriggerOnLoginCompleteDelegates(additionalData->LocalUserNum, true, userId, TEXT(""));
 	}
 
 	delete(additionalData);
@@ -217,23 +224,24 @@ void FOnlineIdentityInterfaceEpic::EOS_Connect_OnLoginComplete(EOS_Connect_Login
 
 void FOnlineIdentityInterfaceEpic::EOS_Connect_OnAuthExpiration(EOS_Connect_AuthExpirationCallbackInfo const* Data)
 {
-	FOnlineIdentityInterfaceEpic* thisPtr = (FOnlineIdentityInterfaceEpic*)Data->ClientData;
-
 	// ToDo: Make the user see this.
-	UE_LOG_ONLINE_IDENTITY(Display, TEXT("Auth for user \"%s\" expired"), UTF8_TO_TCHAR(Data->LocalUserId));
+	FString localUser = FUniqueNetIdEpic::ProductUserIdToString(Data->LocalUserId);
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("Auth for user \"%s\" expired"), *localUser);
 }
 
 void FOnlineIdentityInterfaceEpic::EOS_Connect_OnLoginStatusChanged(EOS_Connect_LoginStatusChangedCallbackInfo const* Data)
 {
 	FOnlineIdentityInterfaceEpic* thisPtr = (FOnlineIdentityInterfaceEpic*)Data->ClientData;
 
-	FString localUser = UTF8_TO_TCHAR(Data->LocalUserId);
+	FString localUser = FUniqueNetIdEpic::ProductUserIdToString(Data->LocalUserId);
 	ELoginStatus::Type oldStatus = thisPtr->EOSLoginStatusToUELoginStatus(Data->PreviousStatus);
 	ELoginStatus::Type newStatus = thisPtr->EOSLoginStatusToUELoginStatus(Data->CurrentStatus);
 
-	UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Login status changed.\r\n%9s: %s\r\n%9s: %s\r\n%9s: %s"), TEXT("User"), *localUser, TEXT("New State"), *ELoginStatus::ToString(newStatus), TEXT("Old State"), *ELoginStatus::ToString(oldStatus));
 
-	FUniqueNetIdEpic netId = FUniqueNetIdEpic(localUser);
+	// ToDo: Somehow this always crashes
+	//UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Login status changed.\r\n%9s: %s\r\n%9s: %s\r\n%9s: %s"), TEXT("User"), *localUser, TEXT("New State"), *ELoginStatus::ToString(newStatus), TEXT("Old State"), *ELoginStatus::ToString(oldStatus));
+
+	FUniqueNetIdEpic netId = FUniqueNetIdEpic(Data->LocalUserId);
 	FPlatformUserId localUserNum = thisPtr->GetPlatformUserIdFromUniqueNetId(netId);
 
 	thisPtr->TriggerOnLoginStatusChangedDelegates(localUserNum, oldStatus, newStatus, netId);
@@ -254,7 +262,8 @@ void FOnlineIdentityInterfaceEpic::EOS_Auth_OnLogoutComplete(const EOS_Auth_Logo
 	int32 idIdx = thisPtr->GetPlatformUserIdFromUniqueNetId(FUniqueNetIdEpic(UTF8_TO_TCHAR(Data->LocalUserId)));
 
 	thisPtr->TriggerOnLogoutCompleteDelegates(idIdx, true);
-	UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Logout Complete - User: %s"), UTF8_TO_TCHAR(Data->LocalUserId));
+	FString localUser = FUniqueNetIdEpic::EpicAccountIdToString(Data->LocalUserId);
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Logout Complete - User: %s"), *localUser);
 }
 
 //-------------------------------
@@ -316,7 +325,12 @@ bool FOnlineIdentityInterfaceEpic::Login(int32 LocalUserNum, const FOnlineAccoun
 					&connectCrendentials,
 					nullptr
 				};
-				EOS_Connect_Login(this->connectHandle, &loginOptions, this, &FOnlineIdentityInterfaceEpic::EOS_Connect_OnLoginComplete);
+				FLoginCompleteAdditionalData* additionalData = new FLoginCompleteAdditionalData{
+					this,
+					LocalUserNum,
+					nullptr
+				};
+				EOS_Connect_Login(this->connectHandle, &loginOptions, additionalData, &FOnlineIdentityInterfaceEpic::EOS_Connect_OnLoginComplete);
 
 				// Release the auth token
 				EOS_Auth_Token_Release(authToken);
@@ -480,7 +494,12 @@ bool FOnlineIdentityInterfaceEpic::Login(int32 LocalUserNum, const FOnlineAccoun
 					};
 				}
 
-				EOS_Connect_Login(this->connectHandle, &loginOptions, this, &FOnlineIdentityInterfaceEpic::EOS_Connect_OnLoginComplete);
+				FLoginCompleteAdditionalData* additionalData = new FLoginCompleteAdditionalData{
+					this,
+					LocalUserNum,
+					nullptr
+				};
+				EOS_Connect_Login(this->connectHandle, &loginOptions, additionalData, &FOnlineIdentityInterfaceEpic::EOS_Connect_OnLoginComplete);
 
 				success = true;
 			}
@@ -488,6 +507,10 @@ bool FOnlineIdentityInterfaceEpic::Login(int32 LocalUserNum, const FOnlineAccoun
 			{
 				error == FString::Printf(TEXT("\"%s\" is not a recognized connect type"), *right);
 			}
+		}
+		else if (left.IsEmpty() || right.IsEmpty())
+		{
+			error = TEXT("Must specify login flow.");
 		}
 		else
 		{
@@ -763,7 +786,7 @@ TSharedPtr<FUserOnlineAccount> FOnlineIdentityInterfaceEpic::OnlineUserAcccountF
 	}
 
 	userAccount->SetUserAttribute(USER_ATTR_DISPLAYNAME, UTF8_TO_TCHAR(externalAccountInfo->DisplayName));
-	userAccount->SetUserLocalAttribute(USER_ATTR_LAST_LOGIN_TIME, FString::Printf(TEXT("%s"), externalAccountInfo->LastLoginTime));
+	userAccount->SetUserLocalAttribute(USER_ATTR_LAST_LOGIN_TIME, FString::Printf(TEXT("%d"), externalAccountInfo->LastLoginTime));
 
 	EOS_Connect_ExternalAccountInfo_Release(externalAccountInfo);
 
