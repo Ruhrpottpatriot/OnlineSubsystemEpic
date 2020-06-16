@@ -161,7 +161,7 @@ void FOnlineIdentityInterfaceEpic::EOS_Auth_OnLoginComplete(EOS_Auth_LoginCallba
 	}
 	else
 	{
-		error = FString::Printf(TEXT("[EOS SDK] Login Failed - Error Code: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+		error = FString::Printf(TEXT("[EOS SDK] Auth Login Failed - Error Code: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
 	}
 
 	// Abort if there was an error
@@ -206,7 +206,7 @@ void FOnlineIdentityInterfaceEpic::EOS_Connect_OnLoginComplete(EOS_Connect_Login
 	}
 	else
 	{
-		error = FString::Printf(TEXT("[EOS SDK] Login Failed - Error Code: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+		error = FString::Printf(TEXT("[EOS SDK] Connect Login Failed - Error Code: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
 	}
 
 	if (!error.IsEmpty())
@@ -215,7 +215,7 @@ void FOnlineIdentityInterfaceEpic::EOS_Connect_OnLoginComplete(EOS_Connect_Login
 		thisPtr->TriggerOnLoginCompleteDelegates(additionalData->LocalUserNum, false, FUniqueNetIdEpic(), error);
 	}
 	else
-	{		
+	{
 		thisPtr->TriggerOnLoginCompleteDelegates(additionalData->LocalUserNum, true, userId, TEXT(""));
 	}
 
@@ -266,6 +266,7 @@ void FOnlineIdentityInterfaceEpic::EOS_Auth_OnLogoutComplete(const EOS_Auth_Logo
 	UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Logout Complete - User: %s"), *localUser);
 }
 
+
 //-------------------------------
 // FOnlineIdentityInterfaceEpic
 //-------------------------------
@@ -276,6 +277,7 @@ FOnlineIdentityInterfaceEpic::FOnlineIdentityInterfaceEpic(FOnlineSubsystemEpic*
 	this->connectHandle = EOS_Platform_GetConnectInterface(inSubsystem->PlatformHandle);
 
 	EOS_Connect_AddNotifyAuthExpirationOptions expirationOptions = {
+		EOS_CONNECT_ADDNOTIFYAUTHEXPIRATION_API_LATEST
 	};
 	this->notifyAuthExpiration = EOS_Connect_AddNotifyAuthExpiration(this->connectHandle, &expirationOptions, this, &FOnlineIdentityInterfaceEpic::EOS_Connect_OnAuthExpiration);
 
@@ -728,6 +730,7 @@ void FOnlineIdentityInterfaceEpic::RevokeAuthToken(const FUniqueNetId& LocalUser
 {
 	UE_LOG_ONLINE_IDENTITY(Fatal, TEXT("FOnlineIdentityInterfaceEpic::RevokeAuthToken not implemented"));
 }
+
 
 //-------------------------------
 // Utility Methods
