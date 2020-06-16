@@ -172,6 +172,26 @@ EOS_Sessions_AttributeData FOnlineSessionEpic::CreateEOSAttributeData(FString co
 	return EOS_Sessions_AttributeData();
 }
 
+//EOS_SessionModification_AddAttributeOptions FOnlineSessionEpic::CreateCustomAttrHandle(FString attributeName, FVariantData data, EOS_ESessionAttributeAdvertisementType advertisementType)
+//{
+//	FString error;
+//	EOS_Sessions_AttributeData attributeData = CreateEOSAttributeData(attributeName, data, error);
+//	if (error.IsEmpty())
+//	{
+//		EOS_SessionModification_AddAttributeOptions attrOpts = {
+//			EOS_SESSIONMODIFICATION_ADDATTRIBUTE_API_LATEST,
+//			&attributeData,
+//			advertisementType
+//		};
+//		return attrOpts;
+//	}
+//	else
+//	{
+//		UE_LOG_ONLINE_SESSION(Warning, TEXT("%s"), *error);
+//		return EOS_SessionModification_AddAttributeOptions();
+//	}
+//}
+
 /** Get a resolved connection string from a session info */
 bool FOnlineSessionEpic::GetConnectStringFromSessionInfo(TSharedPtr<FOnlineSessionInfoEpic>& SessionInfo, FString& ConnectInfo, int32 PortOverride)
 {

@@ -93,12 +93,6 @@ private:
 	*/
 	EOS_Sessions_AttributeData CreateEOSAttributeData(FString const attributeName, FVariantData const variantData, FString& error);
 
-	/**
-	 * Creates the AddAttributeOptions struct
-	 */
-	//EOS_SessionModification_AddAttributeOptions CreateCustomAttrHandle(FString attributeName, FVariantData data, EOS_ESessionAttributeAdvertisementType advertisementType);
-
-
 	void UpdateSessionSearchParameters(TSharedRef<FOnlineSessionSearch> const& sessionSearchPtr, EOS_HSessionSearch const eosSessionSearch, FString& error);
 
 	/** Convert the EOS session details into an online session */
