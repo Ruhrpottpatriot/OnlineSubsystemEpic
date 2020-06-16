@@ -6,6 +6,7 @@
 #include "eos_sessions.h"
 #include "SocketSubsystem.h"
 #include "Utilities.h"
+#include "eos_auth.h"
 
 // ---------------------------------------------
 // FOnlineSessionInfoEpic definitions
@@ -79,7 +80,7 @@ typedef struct FRegisterPlayersAdditionalData
 // ---------------------------------------------
 // Free functions/Utility functions.
 // 
-// Most free functionss hould be moved to be private class functions
+// Most free functions should be moved to be private class functions
 // ---------------------------------------------
 
 /**
@@ -90,32 +91,54 @@ typedef struct FRegisterPlayersAdditionalData
  * @error - The error message if the creation was unsuccessful
  * @returns - True if the creation was successful, false otherwise
 */
-bool CreateEOSAttributeData(FString const attributeName, FVariantData const variantData, EOS_Sessions_AttributeData outAttributeData, FString& error)
+EOS_Sessions_AttributeData FOnlineSessionEpic::CreateEOSAttributeData(FString const attributeName, FVariantData const variantData, FString& error)
 {
+	EOS_Sessions_AttributeData outAttributeData;
 	outAttributeData.ApiVersion = EOS_SESSIONS_SESSIONATTRIBUTEDATA_API_LATEST;
 	outAttributeData.Key = TCHAR_TO_UTF8(*attributeName);
 
-	if (variantData.GetType() == EOnlineKeyValuePairDataType::Bool)
+	if (variantData.GetType() == EOnlineKeyValuePairDataType::Empty)
 	{
-		bool bData;
-		variantData.GetValue(bData);
-		outAttributeData.Value.AsBool = bData;
+		// Empty data needs to be ignored
+	}
+	else if (variantData.GetType() == EOnlineKeyValuePairDataType::Bool)
+	{
+		bool data;
+		variantData.GetValue(data);
+		outAttributeData.Value.AsBool = data;
 		outAttributeData.ValueType = EOS_ESessionAttributeType::EOS_AT_BOOLEAN;
+	}
+
+	else if (variantData.GetType() == EOnlineKeyValuePairDataType::Float)
+	{
+		float data;
+		variantData.GetValue(data);
+		outAttributeData.Value.AsDouble = data;
+		outAttributeData.ValueType = EOS_ESessionAttributeType::EOS_AT_DOUBLE;
 	}
 	else if (variantData.GetType() == EOnlineKeyValuePairDataType::Double)
 	{
-		double dData;
-		variantData.GetValue(dData);
-		outAttributeData.Value.AsDouble = dData;
+		double data;
+		variantData.GetValue(data);
+		outAttributeData.Value.AsDouble = data;
 		outAttributeData.ValueType = EOS_ESessionAttributeType::EOS_AT_DOUBLE;
+	}
+
+	else if (variantData.GetType() == EOnlineKeyValuePairDataType::Int32)
+	{
+		int32 data;
+		variantData.GetValue(data);
+		outAttributeData.Value.AsDouble = data;
+		outAttributeData.ValueType = EOS_ESessionAttributeType::EOS_AT_INT64;
 	}
 	else if (variantData.GetType() == EOnlineKeyValuePairDataType::Int64)
 	{
-		int64 iData;
-		variantData.GetValue(iData);
-		outAttributeData.Value.AsDouble = iData;
+		int64 data;
+		variantData.GetValue(data);
+		outAttributeData.Value.AsDouble = data;
 		outAttributeData.ValueType = EOS_ESessionAttributeType::EOS_AT_INT64;
 	}
+
 	else if (variantData.GetType() == EOnlineKeyValuePairDataType::String)
 	{
 		FString sData;
@@ -125,34 +148,32 @@ bool CreateEOSAttributeData(FString const attributeName, FVariantData const vari
 	}
 	else
 	{
-		error = TEXT("Type mismatch for session setting attribute.");
-		return false;
+		error = FString::Printf(TEXT("Type \"%s\" not supported as attribute data."), *EOnlineKeyValuePairDataType::ToString(variantData.GetType()));
+		return EOS_Sessions_AttributeData();
 	}
-	return true;
+	return outAttributeData;
 }
 
-/**
- * Creates the AddAttributeOptions struct
- */
-EOS_SessionModification_AddAttributeOptions CreateCustomAttrHandle(FString attributeName, FVariantData data, EOS_ESessionAttributeAdvertisementType advertisementType)
-{
-	EOS_Sessions_AttributeData attributeData = {};
-	FString error;
-	if (CreateEOSAttributeData(attributeName, data, attributeData, error))
-	{
-		EOS_SessionModification_AddAttributeOptions attrOpts = {
-		EOS_SESSIONMODIFICATION_ADDATTRIBUTE_API_LATEST,
-		&attributeData,
-		advertisementType
-		};
-		return attrOpts;
-	}
-	else
-	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("%s"), *error);
-		return EOS_SessionModification_AddAttributeOptions();
-	}
-}
+//EOS_SessionModification_AddAttributeOptions FOnlineSessionEpic::CreateCustomAttrHandle(FString attributeName, FVariantData data, EOS_ESessionAttributeAdvertisementType advertisementType)
+//{
+//	EOS_Sessions_AttributeData attributeData = {};
+//	FString error;
+//
+//	if (CreateEOSAttributeData(attributeName, data, attributeData, error))
+//	{
+//		EOS_SessionModification_AddAttributeOptions attrOpts = {
+//		EOS_SESSIONMODIFICATION_ADDATTRIBUTE_API_LATEST,
+//		&attributeData,
+//		advertisementType
+//		};
+//		return attrOpts;
+//	}
+//	else
+//	{
+//		UE_LOG_ONLINE_SESSION(Warning, TEXT("%s"), *error);
+//		return EOS_SessionModification_AddAttributeOptions();
+//	}
+//}
 
 /** Get a resolved connection string from a session info */
 bool GetConnectStringFromSessionInfo(TSharedPtr<FOnlineSessionInfoEpic>& SessionInfo, FString& ConnectInfo, int32 PortOverride = 0)
@@ -179,7 +200,7 @@ bool GetConnectStringFromSessionInfo(TSharedPtr<FOnlineSessionInfoEpic>& Session
 }
 
 /** Takes the session search handle and populates it the session query settings */
-void UpdateSessionSearchParameters(TSharedRef<FOnlineSessionSearch> const& sessionSearchPtr, EOS_HSessionSearch const eosSessionSearch, FString& error)
+void FOnlineSessionEpic::UpdateSessionSearchParameters(TSharedRef<FOnlineSessionSearch> const& sessionSearchPtr, EOS_HSessionSearch const eosSessionSearch, FString& error)
 {
 	FOnlineSearchSettings SearchSettings = sessionSearchPtr->QuerySettings;
 	for (auto param : SearchSettings.SearchParams)
@@ -289,20 +310,20 @@ void UpdateSessionSearchParameters(TSharedRef<FOnlineSessionSearch> const& sessi
 		}
 
 		// Create the attribute data struct
-		EOS_Sessions_AttributeData attributeData = {};
-		if (CreateEOSAttributeData(param.Key.ToString(), param.Value.Data, attributeData, error))
+		EOS_Sessions_AttributeData attributeData = CreateEOSAttributeData(param.Key.ToString(), param.Value.Data, error);
+		if (error.IsEmpty())
 		{
-			EOS_SessionSearch_SetParameterOptions eosParam;
-			eosParam.ApiVersion = EOS_SESSIONSEARCH_SETPARAMETER_API_LATEST;
-			eosParam.ComparisonOp = compOp;
-			eosParam.Parameter = &attributeData;
+			EOS_SessionSearch_SetParameterOptions eosParam = {
+				EOS_SESSIONSEARCH_SETPARAMETER_API_LATEST,
+				&attributeData,
+				compOp
+			};
 
 			// Pass the parameter to the session search
 			EOS_SessionSearch_SetParameter(eosSessionSearch, &eosParam);
 		}
 		else
 		{
-			// ToDo: Maybe return nullptr here?
 			return;
 		}
 	}
@@ -315,7 +336,7 @@ void FOnlineSessionEpic::CreateSessionModificationHandle(FOnlineSessionSettings 
 	// and make error handling easier in general.
 	// Initializations need to be put in their own scope
 
-	EOS_EResult eosResult;
+	EOS_EResult eosResult = EOS_EResult::EOS_Success;
 	FString setting;
 
 	// NumPublicConnections
@@ -323,15 +344,23 @@ void FOnlineSessionEpic::CreateSessionModificationHandle(FOnlineSessionSettings 
 		setting = TEXT("NumPublicConnections");
 		FVariantData data = FVariantData();
 		data.SetValue(NewSessionSettings.NumPublicConnections);
-		EOS_SessionModification_AddAttributeOptions attributeOptions =
-			CreateCustomAttrHandle(
-				setting
-				, data
-				, EOS_ESessionAttributeAdvertisementType::EOS_SAAT_Advertise
-			);
 
-		eosResult = EOS_SessionModification_AddAttribute(ModificationHandle, &attributeOptions);
-		if (eosResult != EOS_EResult::EOS_Success)
+		EOS_Sessions_AttributeData attrData = CreateEOSAttributeData(setting, data, Error);
+		if (Error.IsEmpty())
+		{
+			EOS_SessionModification_AddAttributeOptions attrOpts = {
+			   EOS_SESSIONMODIFICATION_ADDATTRIBUTE_API_LATEST,
+			   &attrData,
+			   EOS_ESessionAttributeAdvertisementType::EOS_SAAT_Advertise
+			};
+
+			eosResult = EOS_SessionModification_AddAttribute(ModificationHandle, &attrOpts);
+			if (eosResult != EOS_EResult::EOS_Success)
+			{
+				goto handleError;
+			}
+		}
+		else
 		{
 			goto handleError;
 		}
@@ -339,18 +368,26 @@ void FOnlineSessionEpic::CreateSessionModificationHandle(FOnlineSessionSettings 
 
 	// NumPrivateConnections
 	{
-		setting = TEXT("NumPublicConnections");
+		setting = TEXT("NumPrivateConnections");
 		FVariantData data = FVariantData();
 		data.SetValue(NewSessionSettings.NumPrivateConnections);
-		EOS_SessionModification_AddAttributeOptions attributeOptions =
-			CreateCustomAttrHandle(
-				setting
-				, data
-				, EOS_ESessionAttributeAdvertisementType::EOS_SAAT_Advertise
-			);
 
-		eosResult = EOS_SessionModification_AddAttribute(ModificationHandle, &attributeOptions);
-		if (eosResult != EOS_EResult::EOS_Success)
+		EOS_Sessions_AttributeData attrData = CreateEOSAttributeData(setting, data, Error);
+		if (Error.IsEmpty())
+		{
+			EOS_SessionModification_AddAttributeOptions attrOpts = {
+			   EOS_SESSIONMODIFICATION_ADDATTRIBUTE_API_LATEST,
+			   &attrData,
+			   EOS_ESessionAttributeAdvertisementType::EOS_SAAT_Advertise
+			};
+
+			eosResult = EOS_SessionModification_AddAttribute(ModificationHandle, &attrOpts);
+			if (eosResult != EOS_EResult::EOS_Success)
+			{
+				goto handleError;
+			}
+		}
+		else
 		{
 			goto handleError;
 		}
@@ -361,15 +398,23 @@ void FOnlineSessionEpic::CreateSessionModificationHandle(FOnlineSessionSettings 
 		setting = TEXT("bUsesPresence");
 		FVariantData data = FVariantData();
 		data.SetValue(NewSessionSettings.bShouldAdvertise);
-		EOS_SessionModification_AddAttributeOptions attributeOptions =
-			CreateCustomAttrHandle(
-				setting
-				, data
-				, EOS_ESessionAttributeAdvertisementType::EOS_SAAT_Advertise
-			);
 
-		eosResult = EOS_SessionModification_AddAttribute(ModificationHandle, &attributeOptions);
-		if (eosResult != EOS_EResult::EOS_Success)
+		EOS_Sessions_AttributeData attrData = CreateEOSAttributeData(setting, data, Error);
+		if (Error.IsEmpty())
+		{
+			EOS_SessionModification_AddAttributeOptions attrOpts = {
+			   EOS_SESSIONMODIFICATION_ADDATTRIBUTE_API_LATEST,
+			   &attrData,
+			   EOS_ESessionAttributeAdvertisementType::EOS_SAAT_Advertise
+			};
+
+			eosResult = EOS_SessionModification_AddAttribute(ModificationHandle, &attrOpts);
+			if (eosResult != EOS_EResult::EOS_Success)
+			{
+				goto handleError;
+			}
+		}
+		else
 		{
 			goto handleError;
 		}
@@ -394,15 +439,23 @@ void FOnlineSessionEpic::CreateSessionModificationHandle(FOnlineSessionSettings 
 		setting = TEXT("bIsLANMatch");
 		FVariantData data = FVariantData();
 		data.SetValue(NewSessionSettings.bIsLANMatch);
-		EOS_SessionModification_AddAttributeOptions attributeOptions =
-			CreateCustomAttrHandle(
-				setting
-				, data
-				, EOS_ESessionAttributeAdvertisementType::EOS_SAAT_Advertise
-			);
 
-		eosResult = EOS_SessionModification_AddAttribute(ModificationHandle, &attributeOptions);
-		if (eosResult != EOS_EResult::EOS_Success)
+		EOS_Sessions_AttributeData attrData = CreateEOSAttributeData(setting, data, Error);
+		if (Error.IsEmpty())
+		{
+			EOS_SessionModification_AddAttributeOptions attrOpts = {
+			   EOS_SESSIONMODIFICATION_ADDATTRIBUTE_API_LATEST,
+			   &attrData,
+			   EOS_ESessionAttributeAdvertisementType::EOS_SAAT_Advertise
+			};
+
+			eosResult = EOS_SessionModification_AddAttribute(ModificationHandle, &attrOpts);
+			if (eosResult != EOS_EResult::EOS_Success)
+			{
+				goto handleError;
+			}
+		}
+		else
 		{
 			goto handleError;
 		}
@@ -413,15 +466,23 @@ void FOnlineSessionEpic::CreateSessionModificationHandle(FOnlineSessionSettings 
 		setting = TEXT("bIsDedicated");
 		FVariantData data = FVariantData();
 		data.SetValue(NewSessionSettings.bIsDedicated);
-		EOS_SessionModification_AddAttributeOptions attributeOptions =
-			CreateCustomAttrHandle(
-				setting
-				, data
-				, EOS_ESessionAttributeAdvertisementType::EOS_SAAT_Advertise
-			);
 
-		eosResult = EOS_SessionModification_AddAttribute(ModificationHandle, &attributeOptions);
-		if (eosResult != EOS_EResult::EOS_Success)
+		EOS_Sessions_AttributeData attrData = CreateEOSAttributeData(setting, data, Error);
+		if (Error.IsEmpty())
+		{
+			EOS_SessionModification_AddAttributeOptions attrOpts = {
+			   EOS_SESSIONMODIFICATION_ADDATTRIBUTE_API_LATEST,
+			   &attrData,
+			   EOS_ESessionAttributeAdvertisementType::EOS_SAAT_Advertise
+			};
+
+			eosResult = EOS_SessionModification_AddAttribute(ModificationHandle, &attrOpts);
+			if (eosResult != EOS_EResult::EOS_Success)
+			{
+				goto handleError;
+			}
+		}
+		else
 		{
 			goto handleError;
 		}
@@ -432,15 +493,23 @@ void FOnlineSessionEpic::CreateSessionModificationHandle(FOnlineSessionSettings 
 		setting = TEXT("bUsesStats");
 		FVariantData data = FVariantData();
 		data.SetValue(NewSessionSettings.bUsesStats);
-		EOS_SessionModification_AddAttributeOptions attributeOptions =
-			CreateCustomAttrHandle(
-				setting
-				, data
-				, EOS_ESessionAttributeAdvertisementType::EOS_SAAT_Advertise
-			);
 
-		eosResult = EOS_SessionModification_AddAttribute(ModificationHandle, &attributeOptions);
-		if (eosResult != EOS_EResult::EOS_Success)
+		EOS_Sessions_AttributeData attrData = CreateEOSAttributeData(setting, data, Error);
+		if (Error.IsEmpty())
+		{
+			EOS_SessionModification_AddAttributeOptions attrOpts = {
+			   EOS_SESSIONMODIFICATION_ADDATTRIBUTE_API_LATEST,
+			   &attrData,
+			   EOS_ESessionAttributeAdvertisementType::EOS_SAAT_Advertise
+			};
+
+			eosResult = EOS_SessionModification_AddAttribute(ModificationHandle, &attrOpts);
+			if (eosResult != EOS_EResult::EOS_Success)
+			{
+				goto handleError;
+			}
+		}
+		else
 		{
 			goto handleError;
 		}
@@ -451,15 +520,23 @@ void FOnlineSessionEpic::CreateSessionModificationHandle(FOnlineSessionSettings 
 		setting = TEXT("bAllowInvites");
 		FVariantData data = FVariantData();
 		data.SetValue(NewSessionSettings.bAllowInvites);
-		EOS_SessionModification_AddAttributeOptions attributeOptions =
-			CreateCustomAttrHandle(
-				setting
-				, data
-				, EOS_ESessionAttributeAdvertisementType::EOS_SAAT_Advertise
-			);
 
-		eosResult = EOS_SessionModification_AddAttribute(ModificationHandle, &attributeOptions);
-		if (eosResult != EOS_EResult::EOS_Success)
+		EOS_Sessions_AttributeData attrData = CreateEOSAttributeData(setting, data, Error);
+		if (Error.IsEmpty())
+		{
+			EOS_SessionModification_AddAttributeOptions attrOpts = {
+			   EOS_SESSIONMODIFICATION_ADDATTRIBUTE_API_LATEST,
+			   &attrData,
+			   EOS_ESessionAttributeAdvertisementType::EOS_SAAT_Advertise
+			};
+
+			eosResult = EOS_SessionModification_AddAttribute(ModificationHandle, &attrOpts);
+			if (eosResult != EOS_EResult::EOS_Success)
+			{
+				goto handleError;
+			}
+		}
+		else
 		{
 			goto handleError;
 		}
@@ -497,15 +574,23 @@ void FOnlineSessionEpic::CreateSessionModificationHandle(FOnlineSessionSettings 
 		setting = TEXT("bAntiCheatProtected");
 		FVariantData data = FVariantData();
 		data.SetValue(NewSessionSettings.bAntiCheatProtected);
-		EOS_SessionModification_AddAttributeOptions attributeOptions =
-			CreateCustomAttrHandle(
-				setting
-				, data
-				, EOS_ESessionAttributeAdvertisementType::EOS_SAAT_Advertise
-			);
 
-		eosResult = EOS_SessionModification_AddAttribute(ModificationHandle, &attributeOptions);
-		if (eosResult != EOS_EResult::EOS_Success)
+		EOS_Sessions_AttributeData attrData = CreateEOSAttributeData(setting, data, Error);
+		if (Error.IsEmpty())
+		{
+			EOS_SessionModification_AddAttributeOptions attrOpts = {
+			   EOS_SESSIONMODIFICATION_ADDATTRIBUTE_API_LATEST,
+			   &attrData,
+			   EOS_ESessionAttributeAdvertisementType::EOS_SAAT_Advertise
+			};
+
+			eosResult = EOS_SessionModification_AddAttribute(ModificationHandle, &attrOpts);
+			if (eosResult != EOS_EResult::EOS_Success)
+			{
+				goto handleError;
+			}
+		}
+		else
 		{
 			goto handleError;
 		}
@@ -516,15 +601,23 @@ void FOnlineSessionEpic::CreateSessionModificationHandle(FOnlineSessionSettings 
 		setting = TEXT("BuildUniqueId");
 		FVariantData data = FVariantData();
 		data.SetValue(NewSessionSettings.BuildUniqueId);
-		EOS_SessionModification_AddAttributeOptions attributeOptions =
-			CreateCustomAttrHandle(
-				setting
-				, data
-				, EOS_ESessionAttributeAdvertisementType::EOS_SAAT_Advertise
-			);
 
-		eosResult = EOS_SessionModification_AddAttribute(ModificationHandle, &attributeOptions);
-		if (eosResult != EOS_EResult::EOS_Success)
+		EOS_Sessions_AttributeData attrData = CreateEOSAttributeData(setting, data, Error);
+		if (Error.IsEmpty())
+		{
+			EOS_SessionModification_AddAttributeOptions attrOpts = {
+			   EOS_SESSIONMODIFICATION_ADDATTRIBUTE_API_LATEST,
+			   &attrData,
+			   EOS_ESessionAttributeAdvertisementType::EOS_SAAT_Advertise
+			};
+
+			eosResult = EOS_SessionModification_AddAttribute(ModificationHandle, &attrOpts);
+			if (eosResult != EOS_EResult::EOS_Success)
+			{
+				goto handleError;
+			}
+		}
+		else
 		{
 			goto handleError;
 		}
@@ -545,15 +638,22 @@ void FOnlineSessionEpic::CreateSessionModificationHandle(FOnlineSessionSettings 
 				advertisementType = EOS_ESessionAttributeAdvertisementType::EOS_SAAT_Advertise;
 			}
 
-			EOS_SessionModification_AddAttributeOptions attributeOptions =
-				CreateCustomAttrHandle(
-					setting
-					, s.Value.Data
-					, advertisementType
-				);
+			EOS_Sessions_AttributeData attrData = CreateEOSAttributeData(setting, s.Value.Data, Error);
+			if (Error.IsEmpty())
+			{
+				EOS_SessionModification_AddAttributeOptions attrOpts = {
+				   EOS_SESSIONMODIFICATION_ADDATTRIBUTE_API_LATEST,
+				   &attrData,
+				   advertisementType
+				};
 
-			eosResult = EOS_SessionModification_AddAttribute(ModificationHandle, &attributeOptions);
-			if (eosResult != EOS_EResult::EOS_Success)
+				eosResult = EOS_SessionModification_AddAttribute(ModificationHandle, &attrOpts);
+				if (eosResult != EOS_EResult::EOS_Success)
+				{
+					goto handleError;
+				}
+			}
+			else
 			{
 				goto handleError;
 			}
@@ -577,15 +677,16 @@ void FOnlineSessionEpic::CreateSessionModificationHandle(FOnlineSessionSettings 
 
 handleError:
 	// If there's an error, assign it to Error and default the ModificationHandle
-	Error = FString::Printf(TEXT("Cannot update setting: %s - Error Code: %s"), *setting, *UTF8_TO_TCHAR(EOS_EResult_ToString(eosResult)));
+	Error = FString::Printf(TEXT("Cannot update setting: %s - Error Code: %s"), *setting, UTF8_TO_TCHAR(EOS_EResult_ToString(eosResult)));
 	ModificationHandle = EOS_HSessionModification();
 }
-
 
 FNamedOnlineSession FOnlineSessionEpic::ActiveSessionToNamedSession(EOS_ActiveSession_Info const* ActiveSession, bool IsHosting)
 {
 	FString sessionName = UTF8_TO_TCHAR(ActiveSession->SessionName);
-	TSharedRef<FUniqueNetId> localUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::ProductUserIDToString(ActiveSession->LocalUserId));
+
+	// Create a new local user if from a PUID
+	TSharedRef<FUniqueNetId> localUserId = MakeShared<FUniqueNetIdEpic>(UTF8_TO_TCHAR(ActiveSession->LocalUserId));
 
 	FOnlineSession session = SessionDetailsToSessionOnlineSession(ActiveSession->SessionDetails);
 
@@ -672,7 +773,7 @@ void FOnlineSessionEpic::OnEOSCreateSessionComplete(const EOS_Sessions_UpdateSes
 
 	if (ResultCode != EOS_EResult::EOS_Success)
 	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("Update Session failed. Error Code: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(ResultCode)));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Update Session failed. Error Code: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(ResultCode)));
 		thisPtr->RemoveNamedSession(sessionName);
 		thisPtr->TriggerOnCreateSessionCompleteDelegates(sessionName, false);
 		return;
@@ -730,7 +831,7 @@ void FOnlineSessionEpic::OnEOSStartSessionComplete(const EOS_Sessions_StartSessi
 	EOS_EResult result = Data->ResultCode;
 	if (result != EOS_EResult::EOS_Success)
 	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't start session. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't start session. Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
 		thisPtr->TriggerOnStartSessionCompleteDelegates(sessionName, false);
 		return;
 	}
@@ -765,7 +866,7 @@ void FOnlineSessionEpic::OnEOSUpdateSessionComplete(const EOS_Sessions_UpdateSes
 			// Revert local only changes
 			session->SessionSettings = oldSettings;
 		}
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Failed to update session - Error Code: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(ResultCode)));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Failed to update session - Error Code: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(ResultCode)));
 		thisPtr->TriggerOnCreateSessionCompleteDelegates(sessionName, false);
 		return;
 	}
@@ -789,7 +890,7 @@ void FOnlineSessionEpic::OnEOSEndSessionComplete(const EOS_Sessions_EndSessionCa
 	EOS_EResult result = Data->ResultCode;
 	if (result != EOS_EResult::EOS_Success)
 	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't end session. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't end session. Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
 		thisPtr->TriggerOnEndSessionCompleteDelegates(sessionName, false);
 		return;
 	}
@@ -819,7 +920,7 @@ void FOnlineSessionEpic::OnEOSDestroySessionComplete(const EOS_Sessions_DestroyS
 	EOS_EResult result = Data->ResultCode;
 	if (result != EOS_EResult::EOS_Success)
 	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't destroy session. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't destroy session. Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
 		thisPtr->TriggerOnDestroySessionCompleteDelegates(sessionName, false);
 		return;
 	}
@@ -897,7 +998,7 @@ void FOnlineSessionEpic::OnEOSFindSessionComplete(const EOS_SessionSearch_FindCa
 						}
 						else
 						{
-							error = FString::Printf(TEXT("[EOS SDK] Couldn't copy session info.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+							error = FString::Printf(TEXT("[EOS SDK] Couldn't copy session info.\r\n    Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
 						}
 
 						// Release the prevously allocated memory for the session info;
@@ -905,7 +1006,7 @@ void FOnlineSessionEpic::OnEOSFindSessionComplete(const EOS_SessionSearch_FindCa
 					}
 					else
 					{
-						error = FString::Printf(TEXT("[EOS SDK] Couldn't get session details handle.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+						error = FString::Printf(TEXT("[EOS SDK] Couldn't get session details handle.\r\n    Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
 					}
 				}
 			}
@@ -919,7 +1020,7 @@ void FOnlineSessionEpic::OnEOSFindSessionComplete(const EOS_SessionSearch_FindCa
 		}
 		else
 		{
-			error = FString::Printf(TEXT("[EOS SDK] Couldn't find session. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+			error = FString::Printf(TEXT("[EOS SDK] Couldn't find session. Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
 		}
 	}
 	else
@@ -948,7 +1049,7 @@ void FOnlineSessionEpic::OnEOSJoinSessionComplete(const EOS_Sessions_JoinSession
 	{
 		thisPtr->RemoveNamedSession(sessionName);
 
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
 		thisPtr->TriggerOnJoinSessionCompleteDelegates(sessionName, EOnJoinSessionCompleteResult::UnknownError);
 		return;
 	}
@@ -1031,7 +1132,7 @@ void FOnlineSessionEpic::OnEOSFindFriendSessionComplete(const EOS_SessionSearch_
 					}
 					else
 					{
-						error = FString::Printf(TEXT("[EOS SDK] Couldn't copy session info.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+						error = FString::Printf(TEXT("[EOS SDK] Couldn't copy session info.\r\n    Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
 					}
 
 					// Release the prevously allocated memory for the session info;
@@ -1039,7 +1140,7 @@ void FOnlineSessionEpic::OnEOSFindFriendSessionComplete(const EOS_SessionSearch_
 				}
 				else
 				{
-					error = FString::Printf(TEXT("[EOS SDK] Couldn't get session details handle.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+					error = FString::Printf(TEXT("[EOS SDK] Couldn't get session details handle.\r\n    Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
 				}
 			}
 
@@ -1052,7 +1153,7 @@ void FOnlineSessionEpic::OnEOSFindFriendSessionComplete(const EOS_SessionSearch_
 	}
 	else
 	{
-		error = FString::Printf(TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+		error = FString::Printf(TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
 	}
 
 	// Report an error if there was any
@@ -1073,7 +1174,7 @@ void FOnlineSessionEpic::OnEOSSendSessionInviteToFriendsComplete(const EOS_Sessi
 
 	if (Data->ResultCode != EOS_EResult::EOS_Success)
 	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Session invite(s) couldn't be sent to remote.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Session invite(s) couldn't be sent to remote.\r\n    Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
 	}
 	else
 	{
@@ -1120,7 +1221,7 @@ void FOnlineSessionEpic::OnEOSRegisterPlayersComplete(const EOS_Sessions_Registe
 			}
 		}
 
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
 		thisPtr->TriggerOnRegisterPlayersCompleteDelegates(sessionName, TArray<TSharedRef<const FUniqueNetId>>(), false);
 		return;
 	}
@@ -1167,7 +1268,7 @@ void FOnlineSessionEpic::OnEOSUnRegisterPlayersComplete(const EOS_Sessions_Unreg
 			}
 		}
 
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Couldn't find session.\r\n    Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(Data->ResultCode)));
 		thisPtr->TriggerOnUnregisterPlayersCompleteDelegates(sessionName, TArray<TSharedRef<const FUniqueNetId>>(), false);
 		return;
 	}
@@ -1181,10 +1282,10 @@ void FOnlineSessionEpic::OnEOSSessionInviteReceived(const EOS_Sessions_SessionIn
 	checkf(thisPtr, TEXT("%s called. But \"this\" is missing"), *FString(__FUNCTION__));
 
 	// User that received the invite
-	TSharedRef<FUniqueNetId const> localUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::ProductUserIDToString(Data->LocalUserId));
+	TSharedRef<FUniqueNetId const> localUserId = MakeShared<FUniqueNetIdEpic>(UTF8_TO_TCHAR(Data->LocalUserId));
 
 	// User that sent the invite
-	TSharedRef<FUniqueNetId const> fromUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::ProductUserIDToString(Data->TargetUserId));
+	TSharedRef<FUniqueNetId const> fromUserId = MakeShared<FUniqueNetIdEpic>(UTF8_TO_TCHAR(Data->TargetUserId));
 
 	EOS_Sessions_CopySessionHandleByInviteIdOptions copySessionHandleByInviteIdOptions = {
 		EOS_SESSIONS_COPYSESSIONHANDLEBYINVITEID_API_LATEST,
@@ -1224,7 +1325,7 @@ void FOnlineSessionEpic::OnEOSSessionInviteReceived(const EOS_Sessions_SessionIn
 	}
 	else
 	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Error copying session handle by invite.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(eosResult)));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Error copying session handle by invite.\r\n    Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(eosResult)));
 	}
 
 	EOS_SessionDetails_Release(sessionDetailsHandle);
@@ -1236,10 +1337,10 @@ void FOnlineSessionEpic::OnEOSSessionInviteAccepted(const EOS_Sessions_SessionIn
 	checkf(thisPtr, TEXT("%s called. But \"this\" is missing"), *FString(__FUNCTION__));
 
 	// User that received the invite
-	TSharedRef<FUniqueNetId const> localUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::ProductUserIDToString(Data->LocalUserId));
+	TSharedRef<FUniqueNetId const> localUserId = MakeShared<FUniqueNetIdEpic>(UTF8_TO_TCHAR(Data->LocalUserId));
 
 	// User that sent the invite
-	TSharedRef<FUniqueNetId const> fromUserId = MakeShared<FUniqueNetIdEpic>(FIdentityUtilities::ProductUserIDToString(Data->TargetUserId));
+	TSharedRef<FUniqueNetId const> fromUserId = MakeShared<FUniqueNetIdEpic>(UTF8_TO_TCHAR(Data->TargetUserId));
 
 
 	EOS_HSessionDetails sessionDetailsHandle = {};
@@ -1280,7 +1381,7 @@ void FOnlineSessionEpic::OnEOSSessionInviteAccepted(const EOS_Sessions_SessionIn
 	}
 	else
 	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Error copying session handle by invite.\r\n    Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(eosResult)));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("[EOS SDK] Error copying session handle by invite.\r\n    Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(eosResult)));
 	}
 
 	EOS_SessionDetails_Release(sessionDetailsHandle);
@@ -1315,7 +1416,6 @@ FOnlineSessionEpic::FOnlineSessionEpic(FOnlineSubsystemEpic* InSubsystem)
 		EOS_SESSIONS_ADDNOTIFYSESSIONINVITEACCEPTED_API_LATEST
 	};
 	this->sessionInviteAcceptedCallbackHandle = EOS_Sessions_AddNotifySessionInviteAccepted(hSessions, &nofitySessionInviteAcceptedOptions, this, &FOnlineSessionEpic::OnEOSSessionInviteAccepted);
-
 }
 
 FOnlineSessionEpic::~FOnlineSessionEpic()
@@ -1422,7 +1522,7 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 			session->NumOpenPublicConnections = NewSessionSettings.NumPublicConnections;
 
 			session->HostingPlayerNum = INDEX_NONE; // HostingPlayernNum is going to be deprecated. Don't use it here
-			session->LocalOwnerId = MakeShareable(&HostingPlayerId);
+			session->LocalOwnerId = HostingPlayerId.AsShared();
 			session->bHosting = true; // A person creating a session is always hosting
 
 			IOnlineIdentityPtr identityPtr = this->Subsystem->GetIdentityInterface();
@@ -1437,31 +1537,31 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 
 			session->SessionSettings.BuildUniqueId = GetBuildUniqueId();
 
-			// Register the current player as local player in the session
-			this->RegisterLocalPlayer(HostingPlayerId, SessionName, nullptr);
 			result = ONLINE_IO_PENDING;
 
-
 			// Interface with EOS
-			FString bucketId;
+			FString bucketId = TEXT("0");
 			if (!NewSessionSettings.Get(TEXT("BucketId"), bucketId))
 			{
-				UE_LOG_ONLINE_SESSION(Log, TEXT("No BucketId specified"));
+				UE_LOG_ONLINE_SESSION(Log, TEXT("No BucketId specified. Using default of \"0\""));
 			}
 
-			EOS_Sessions_CreateSessionModificationOptions opts = {
+
+			EOS_Sessions_CreateSessionModificationOptions createSessionOptions = {
 				EOS_SESSIONS_CREATESESSIONMODIFICATION_API_LATEST,
 				TCHAR_TO_UTF8(*SessionName.ToString()),
 				TCHAR_TO_UTF8(*bucketId),
-				NewSessionSettings.NumPublicConnections + NewSessionSettings.NumPrivateConnections
+				NewSessionSettings.NumPublicConnections + NewSessionSettings.NumPrivateConnections,
+				((FUniqueNetIdEpic)HostingPlayerId).ToProdcutUserId(),
+				session->SessionSettings.bUsesPresence
 			};
 
 			// Create a new - local - session handle
-			EOS_HSessionModification sessionModificationHandle = {};
-			EOS_EResult eosResult = EOS_Sessions_CreateSessionModification(this->sessionsHandle, &opts, &sessionModificationHandle);
+			EOS_HSessionModification modificationHandle = nullptr;
+			EOS_EResult eosResult = EOS_Sessions_CreateSessionModification(this->sessionsHandle, &createSessionOptions, &modificationHandle);
 			if (eosResult == EOS_EResult::EOS_Success)
 			{
-				this->CreateSessionModificationHandle(NewSessionSettings, sessionModificationHandle, err);
+				this->CreateSessionModificationHandle(NewSessionSettings, modificationHandle, err);
 				if (err.IsEmpty())
 				{
 					// Modify the local session with the modified session options
@@ -1469,21 +1569,27 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 						EOS_SESSIONS_UPDATESESSIONMODIFICATION_API_LATEST,
 						TCHAR_TO_UTF8(*SessionName.ToString())
 					};
-					eosResult = EOS_Sessions_UpdateSessionModification(this->sessionsHandle, &sessionModificationOptions, &sessionModificationHandle);
+					eosResult = EOS_Sessions_UpdateSessionModification(this->sessionsHandle, &sessionModificationOptions, &modificationHandle);
 					if (eosResult == EOS_EResult::EOS_Success)
 					{
 						// Update the remote session
-						EOS_Sessions_UpdateSessionOptions updateSessionOptions = {};
-						updateSessionOptions.ApiVersion = EOS_SESSIONS_UPDATESESSION_API_LATEST;
-						updateSessionOptions.SessionModificationHandle = sessionModificationHandle;
-
+						EOS_Sessions_UpdateSessionOptions updateSessionOptions = {
+							EOS_SESSIONS_UPDATESESSION_API_LATEST,
+							modificationHandle
+						};
 						EOS_Sessions_UpdateSession(this->sessionsHandle, &updateSessionOptions, this, &FOnlineSessionEpic::OnEOSCreateSessionComplete);
+
 						result = ONLINE_IO_PENDING;
 					}
 					else
 					{
 						char const* resultStr = EOS_EResult_ToString(eosResult);
-						err = FString::Printf(TEXT("[EOS SDK] Error modifying session options - Error Code: %s"), resultStr);
+						err = FString::Printf(TEXT("[EOS SDK] Error modifying session options - Error Code: %s"), UTF8_TO_TCHAR(resultStr));
+
+						// We failed in creating a new session, so we need to clean up the one we created
+						this->RemoveNamedSession(SessionName);
+
+						result = ONLINE_FAIL;
 					}
 				}
 			}
@@ -1494,7 +1600,7 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 			}
 
 			// No matter the update result, release the memory for the SessionModification handle
-			EOS_SessionModification_Release(sessionModificationHandle);
+			EOS_SessionModification_Release(modificationHandle);
 		}
 	}
 
@@ -1777,7 +1883,8 @@ bool FOnlineSessionEpic::FindSessions(const FUniqueNetId& SearchingPlayerId, con
 	uint32 result = ONLINE_FAIL;
 	SearchSettings->SearchState = EOnlineAsyncTaskState::NotStarted;
 
-	if (SearchingPlayerId.IsValid())
+	FUniqueNetIdEpic const epicNetId = (FUniqueNetIdEpic)SearchingPlayerId;
+	if (epicNetId.IsEpicAccountIdValid())
 	{
 		if (SearchSettings->bIsLanQuery)
 		{
@@ -1796,7 +1903,7 @@ bool FOnlineSessionEpic::FindSessions(const FUniqueNetId& SearchingPlayerId, con
 			if (eosResult == EOS_EResult::EOS_Success)
 			{
 				UpdateSessionSearchParameters(SearchSettings, sessionSearchHandle, error);
-				if (error.IsEmpty()) // Only proceeed if there was no error
+				if (error.IsEmpty()) // Only proceeded if there was no error
 				{
 					// Locally store the session search so it can be accessed later
 					double searchCreationTime = FDateTime::UtcNow().ToUnixTimestamp();
@@ -1806,7 +1913,7 @@ bool FOnlineSessionEpic::FindSessions(const FUniqueNetId& SearchingPlayerId, con
 
 					EOS_SessionSearch_FindOptions findOptions = {
 						EOS_SESSIONSEARCH_FIND_API_LATEST,
-						FIdentityUtilities::ProductUserIDFromString(SearchingPlayerId.ToString())
+						epicNetId.ToProdcutUserId()
 					};
 					FFindSessionsAdditionalData* additionalData = new FFindSessionsAdditionalData{
 						this,
@@ -1839,7 +1946,7 @@ bool FOnlineSessionEpic::FindSessions(const FUniqueNetId& SearchingPlayerId, con
 	}
 	else
 	{
-		error = TEXT("Invalid SearchingPlayerId");
+		error = TEXT("SearchingPlayerId is not a valid EpicAccountId");
 	}
 
 	if (result != ONLINE_IO_PENDING)
@@ -1858,7 +1965,7 @@ bool FOnlineSessionEpic::FindSessionById(const FUniqueNetId& SearchingUserId, co
 	// of the current session searches or by using EOS_SessionSearch_SetSessionId.
 	// A way to make this work could be to assume that searched sessions are `GameSession`s only (bad)
 	// Or to only use the locally registered named sessions (also bad)
-	UE_LOG_ONLINE_SESSION(Warning, TEXT("FindSessionById not supported (yet)."));
+	UE_LOG_ONLINE_SESSION(Warning, TEXT("FindSessionById not supported by the EOS SDK(yet)."));
 	return false;
 
 	//FString error;
@@ -2044,10 +2151,13 @@ bool FOnlineSessionEpic::FindFriendSession(int32 LocalUserNum, const FUniqueNetI
 }
 bool FOnlineSessionEpic::FindFriendSession(const FUniqueNetId& LocalUserId, const FUniqueNetId& Friend)
 {
+	unimplemented();
+
 	FString error;
 	uint32 result = ONLINE_FAIL;
 
-	if (LocalUserId.IsValid())
+	FUniqueNetIdEpic const epicNetId = (FUniqueNetIdEpic)LocalUserId;
+	if (epicNetId.IsEpicAccountIdValid())
 	{
 		if (Friend.IsValid())
 		{
@@ -2065,14 +2175,14 @@ bool FOnlineSessionEpic::FindFriendSession(const FUniqueNetId& LocalUserId, cons
 			// Set the session search to only search for a user
 			EOS_SessionSearch_SetTargetUserIdOptions targetUserIdOptions = {
 				EOS_SESSIONSEARCH_SETTARGETUSERID_API_LATEST,
-				FIdentityUtilities::ProductUserIDFromString(Friend.ToString())
+				epicNetId.ToProdcutUserId()
 			};
 			EOS_SessionSearch_SetTargetUserId(sessionSearchHandle, &targetUserIdOptions);
 
 			// Create the session search itself and execute it
 			EOS_SessionSearch_FindOptions findOptions = {
 				EOS_SESSIONSEARCH_FIND_API_LATEST,
-				FIdentityUtilities::ProductUserIDFromString(LocalUserId.ToString())
+				NULL
 			};
 			FFindFriendSessionAdditionalData additionalData = {
 				this,
@@ -2152,17 +2262,21 @@ bool FOnlineSessionEpic::SendSessionInviteToFriends(const FUniqueNetId& LocalUse
 	FString error;
 	uint32 result = ONLINE_FAIL;
 
-	if (LocalUserId.IsValid())
+	FUniqueNetIdEpic const epicNetId = (FUniqueNetIdEpic)LocalUserId;
+	if (epicNetId.IsEpicAccountIdValid())
 	{
 		if (this->IsPlayerInSession(SessionName, LocalUserId))
 		{
-			for (auto f : Friends)
+			for (int32 i = 0; i < Friends.Num(); ++i)
 			{
+				TSharedRef<FUniqueNetId const> friendNetId = Friends[i];
+				TSharedRef<FUniqueNetIdEpic const> friendEpicNetId = StaticCastSharedRef<FUniqueNetIdEpic const>(friendNetId);
+
 				EOS_Sessions_SendInviteOptions sendInviteOptions = {
 					EOS_SESSIONS_SENDINVITE_API_LATEST,
 					TCHAR_TO_UTF8(*SessionName.ToString()),
-					FIdentityUtilities::ProductUserIDFromString(LocalUserId.ToString()),
-					FIdentityUtilities::ProductUserIDFromString(f->ToString())
+					epicNetId.ToProdcutUserId(),
+					friendEpicNetId->ToProdcutUserId()
 				};
 
 				EOS_Sessions_SendInvite(this->sessionsHandle, &sendInviteOptions, this, &FOnlineSessionEpic::OnEOSSendSessionInviteToFriendsComplete);
@@ -2273,12 +2387,15 @@ bool FOnlineSessionEpic::RegisterPlayers(FName SessionName, const TArray< TShare
 		EOS_ProductUserId* userIdArr = (EOS_ProductUserId*)malloc(Players.Num() * sizeof(EOS_ProductUserId));
 		for (int32 i = 0; i < Players.Num(); ++i)
 		{
-			const TSharedRef<const FUniqueNetId>& playerId = Players[i];
+			TSharedRef<FUniqueNetId const> playerId = Players[i];
 			FUniqueNetIdMatcher PlayerMatch(*playerId);
 			if (Session->RegisteredPlayers.IndexOfByPredicate(PlayerMatch) == INDEX_NONE)
 			{
 				Session->RegisteredPlayers.Add(playerId);
 				successfullyRegisteredPlayers.Add(playerId);
+
+				TSharedRef<FUniqueNetIdEpic const> epicNetId = StaticCastSharedRef<FUniqueNetIdEpic const>(playerId);
+				userIdArr[i] = epicNetId->ToProdcutUserId();
 
 				// update number of open connections
 				if (Session->NumOpenPublicConnections > 0)
@@ -2289,9 +2406,6 @@ bool FOnlineSessionEpic::RegisterPlayers(FName SessionName, const TArray< TShare
 				{
 					Session->NumOpenPrivateConnections--;
 				}
-
-				EOS_ProductUserId userId = FIdentityUtilities::ProductUserIDFromString(playerId->ToString());
-				userIdArr[i] = userId;
 			}
 			else
 			{
@@ -2348,7 +2462,7 @@ bool FOnlineSessionEpic::UnregisterPlayers(FName SessionName, const TArray< TSha
 
 		for (int32 i = 0; i < Players.Num(); ++i)
 		{
-			const TSharedRef<const FUniqueNetId>& playerId = Players[i];
+			TSharedRef<const FUniqueNetId> const playerId = Players[i];
 
 			FUniqueNetIdMatcher PlayerMatch(*playerId);
 			if (session->RegisteredPlayers.IndexOfByPredicate(PlayerMatch) != INDEX_NONE)
@@ -2366,8 +2480,8 @@ bool FOnlineSessionEpic::UnregisterPlayers(FName SessionName, const TArray< TSha
 					session->NumOpenPrivateConnections += 1;
 				}
 
-				EOS_ProductUserId userId = FIdentityUtilities::ProductUserIDFromString(playerId->ToString());
-				productUserIdArr[i] = userId;
+				TSharedRef<FUniqueNetIdEpic const> epicNetId = StaticCastSharedRef<FUniqueNetIdEpic const>(playerId);
+				productUserIdArr[i] = epicNetId->ToProdcutUserId();
 			}
 			else
 			{

@@ -46,6 +46,33 @@ ClientCredentialsSecret = <ClientCredentialsSecret>
 This plugin is used like any other OnlineSubsystem Plugin already existing. This means, that most of the time you won't need to directly interface with the system directly, but can let the engine classes handle the calls.
 If you need to directly access the OnlineSubsystem you should get it via the static helper methods in `Online.h`. These helper methods make sure the correct subsystem instance is retrieved (multiple can exist in the editor, and things like logins are tied to a specific instance). Outside of C++ there exists multiple asynchronous blueprint nodes in the _OnlineSubsystemUtils_ plugin. In most cases there is no need to access the online subsystem via `IOnlineSubsystem::Get()`.
 
+### Identity Interface
+The identity interface is the central hub for access management. It provides the ability to login and logout a user, check their login status and get their player ids.
+This plugin supports two login flows: One, an *Open Id Connect* (Connect) compliant, as well as Epics own account system (EAS) login flow. With this there are some things a user has to consider when logging in a user.
+User credentials are passed to the system via the `FOnlineAccountCredentials` class. This class has a `Type` field, which is used to distingush between EAS and Connect.
+To switch between the two, the `Type` field has the format `{FlowType}:{LoginType}` where the `FlowType` is either "EAS" or "CONNECT" and `LoginType` one of the following:
+
+|       EAS      |    Connect    |
+| -------------- | ------------- |
+| Password       | Steam         |
+| ExchangeCode   | PSN           |
+| PersistentAuth | XBL           |
+| DeviceCode     | Discord       |
+| Developer      | GOG           |
+| RefreshToken   | Nintendo_Id   |
+| AccountPortal  | Nintentod_NSA |
+|                | Uplay         |
+|                | OpenId        |
+|                | DeviceId      |
+|                | Apple         |
+
+While connect also supports EAS as `LoginType`, this is implicitly assumed by this plugin when using the EAS login flow.
+
+`FOnlineAccountCredentials` class has two additional fields, `Id` and `Token`. When using "CONNECT" login flow the `Token` field stores the access token, while the `Id` field holds additional data, that is needed for the Nintendo and Apple login types.
+When using "EAS" as login flow, consult the "OnlineIdentityInterface.h" file to see which field maps to which.
+
+
 ## Implemented Interfaces
 * Identity
 * Sessions
+* UserInfo

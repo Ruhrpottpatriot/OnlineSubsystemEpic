@@ -4,17 +4,39 @@
 #include "OnlineSubsystemTypes.h"
 #include "Interfaces/OnlineIdentityInterface.h"
 #include "OnlineSubsystemEpicTypes.h"
-#include "eos_auth_types.h"
+#include "eos_sdk.h"
 
 class FOnlineSubsystemEpic;
 
 class FOnlineIdentityInterfaceEpic
 	: public IOnlineIdentity
 {
-public:
-	virtual ~FOnlineIdentityInterfaceEpic() = default;
+	FOnlineSubsystemEpic* subsystemEpic;
 
-	FOnlineIdentityInterfaceEpic(FOnlineSubsystemEpic * inSubsystem);
+	EOS_HConnect connectHandle;
+
+	EOS_HAuth authHandle;
+
+	EOS_NotificationId notifyLoginStatusChangedId;
+
+	EOS_NotificationId notifyAuthExpiration;
+
+	FOnlineIdentityInterfaceEpic() = delete;
+
+	static void EOS_Connect_OnLoginComplete(EOS_Connect_LoginCallbackInfo const* Data);
+	static void EOS_Connect_OnAuthExpiration(EOS_Connect_AuthExpirationCallbackInfo const* Data);
+	static void EOS_Connect_OnLoginStatusChanged(EOS_Connect_LoginStatusChangedCallbackInfo const* Data);
+	static void EOS_Auth_OnLoginComplete(EOS_Auth_LoginCallbackInfo const* Data);
+	static void EOS_Auth_OnLogoutComplete(const EOS_Auth_LogoutCallbackInfo* Data);
+
+	TSharedPtr<FUserOnlineAccount> OnlineUserAcccountFromPUID(EOS_ProductUserId const & PUID) const;
+	ELoginStatus::Type EOSLoginStatusToUELoginStatus(EOS_ELoginStatus LoginStatus);
+
+
+public:
+	virtual ~FOnlineIdentityInterfaceEpic();
+
+	FOnlineIdentityInterfaceEpic(FOnlineSubsystemEpic* inSubsystem);
 
 	virtual bool Login(int32 LocalUserNum, const FOnlineAccountCredentials& AccountCredentials) override;
 	bool AutoLogin(int32 LocalUserNum) override;
@@ -33,17 +55,4 @@ public:
 	void GetUserPrivilege(const FUniqueNetId& LocalUserId, EUserPrivileges::Type Privilege, const FOnGetUserPrivilegeCompleteDelegate& Delegate) override;
 	bool Logout(int32 LocalUserNum) override;
 	void RevokeAuthToken(const FUniqueNetId& LocalUserId, const FOnRevokeAuthTokenCompleteDelegate& Delegate) override;
-
-private:
-	FOnlineIdentityInterfaceEpic() = delete;
-
-	FOnlineSubsystemEpic* subsystemEpic;
-
-	/** Ids mapped to locally registered users */
-	TUniqueNetIdMap<TSharedRef<FUserOnlineAccountEpic>> userAccounts;
-
-	static void LoginCompleteCallbackFunc(const EOS_Auth_LoginCallbackInfo* Data);
-	static void LogoutCompleteCallbackFunc(const EOS_Auth_LogoutCallbackInfo* Data);
-
-	EOS_AuthHandle* GetEOSAuthHandle();
 };
