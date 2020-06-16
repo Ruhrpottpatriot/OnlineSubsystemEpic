@@ -60,7 +60,7 @@ To switch between the two, the `Type` field has the format `{FlowType}:{LoginTyp
 | DeviceCode     | Discord       |
 | Developer      | GOG           |
 | RefreshToken   | Nintendo_Id   |
-| AccountPorta   | Nintentod_NSA |
+| AccountPortal  | Nintentod_NSA |
 |                | Uplay         |
 |                | OpenId        |
 |                | DeviceId      |
@@ -75,3 +75,4 @@ When using "EAS" as login flow, consult the "OnlineIdentityInterface.h" file to 
 ## Implemented Interfaces
 * Identity
 * Sessions
+* UserInfo
