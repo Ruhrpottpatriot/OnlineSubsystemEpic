@@ -387,7 +387,6 @@ void FOnlineSessionEpic::CreateSessionModificationHandle(FOnlineSessionSettings 
 	// NumPrivateConnections
 	{
 		setting = TEXT("NumPrivateConnections");
-		FVariantData data = FVariantData();
 		data.SetValue(NewSessionSettings.NumPrivateConnections);
 
 		EOS_Sessions_AttributeData attrData = CreateEOSAttributeData(setting, data, Error);

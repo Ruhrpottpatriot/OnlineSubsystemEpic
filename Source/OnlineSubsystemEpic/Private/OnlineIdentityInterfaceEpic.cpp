@@ -344,7 +344,7 @@ bool FOnlineIdentityInterfaceEpic::Login(int32 LocalUserNum, const FOnlineAccoun
 				// Create credentials
 				EOS_Auth_Credentials credentials = {};
 				credentials.ApiVersion = EOS_AUTH_CREDENTIALS_API_LATEST;
-				ELoginType const loginType = GetEnumValueFromString<ELoginType>("ELoginType", right);
+				ELoginType const loginType = FUtils::GetEnumValueFromString<ELoginType>("ELoginType", right);
 				char const* idPtr = TCHAR_TO_ANSI(*AccountCredentials.Id);
 				char const* tokenPtr = TCHAR_TO_ANSI(*AccountCredentials.Token);
 
@@ -415,54 +415,11 @@ bool FOnlineIdentityInterfaceEpic::Login(int32 LocalUserNum, const FOnlineAccoun
 		}
 		else if (left.Equals(TEXT("CONNECT"), ESearchCase::IgnoreCase))
 		{
-			EOS_EExternalCredentialType externalType = EOS_EExternalCredentialType::EOS_ECT_EPIC;
-			if (right.Equals(TEXT("steam"), ESearchCase::IgnoreCase))
-			{
-				externalType = EOS_EExternalCredentialType::EOS_ECT_STEAM_APP_TICKET;
-			}
-			else if (right.Equals(TEXT("psn"), ESearchCase::IgnoreCase))
-			{
-				externalType = EOS_EExternalCredentialType::EOS_ECT_PSN_ID_TOKEN;
-			}
-			else if (right.Equals(TEXT("xbl"), ESearchCase::IgnoreCase))
-			{
-				externalType = EOS_EExternalCredentialType::EOS_ECT_XBL_XSTS_TOKEN;
-			}
-			else if (right.Equals(TEXT("discord"), ESearchCase::IgnoreCase))
-			{
-				externalType = EOS_EExternalCredentialType::EOS_ECT_DISCORD_ACCESS_TOKEN;
-			}
-			else if (right.Equals(TEXT("gog"), ESearchCase::IgnoreCase))
-			{
-				externalType = EOS_EExternalCredentialType::EOS_ECT_GOG_SESSION_TICKET;
-			}
-			else if (right.Equals(TEXT("nintendo_id"), ESearchCase::IgnoreCase))
-			{
-				externalType = EOS_EExternalCredentialType::EOS_ECT_NINTENDO_ID_TOKEN;
-			}
-			else if (right.Equals(TEXT("nintendo_nsa"), ESearchCase::IgnoreCase))
-			{
-				externalType = EOS_EExternalCredentialType::EOS_ECT_NINTENDO_NSA_ID_TOKEN;
-			}
-			else if (right.Equals(TEXT("uplay"), ESearchCase::IgnoreCase))
-			{
-				externalType = EOS_EExternalCredentialType::EOS_ECT_UPLAY_ACCESS_TOKEN;
-			}
-			else if (right.Equals(TEXT("openid"), ESearchCase::IgnoreCase))
-			{
-				externalType = EOS_EExternalCredentialType::EOS_ECT_OPENID_ACCESS_TOKEN;
-			}
-			else if (right.Equals(TEXT("device"), ESearchCase::IgnoreCase))
-			{
-				externalType = EOS_EExternalCredentialType::EOS_ECT_DEVICEID_ACCESS_TOKEN;
-			}
-			else if (right.Equals(TEXT("apple"), ESearchCase::IgnoreCase))
-			{
-				externalType = EOS_EExternalCredentialType::EOS_ECT_APPLE_ID_TOKEN;
-			}
+			TPair< EOS_EExternalCredentialType, bool > externalTypeTuple = FUtils::ExternalCredentialsTypeFromString(right);
+			EOS_EExternalCredentialType externalType = externalTypeTuple.Get<0>();
 
 			// Make sure we have a valid connect type
-			if (externalType != EOS_EExternalCredentialType::EOS_ECT_EPIC)
+			if (externalTypeTuple.Get<1>())
 			{
 				EOS_Connect_Credentials connectCrendentials = {
 					   EOS_CONNECT_CREDENTIALS_API_LATEST,
@@ -536,7 +493,7 @@ bool FOnlineIdentityInterfaceEpic::Login(int32 LocalUserNum, const FOnlineAccoun
 bool FOnlineIdentityInterfaceEpic::AutoLogin(int32 LocalUserNum)
 {
 	FOnlineAccountCredentials credentials;
-	credentials.Type = GetEnumValueAsString<ELoginType>("ELoginType", ELoginType::PersistentAuth);
+	credentials.Type = FUtils::GetEnumValueAsString<ELoginType>("ELoginType", ELoginType::PersistentAuth);
 
 	return Login(LocalUserNum, credentials);
 }

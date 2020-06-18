@@ -69,11 +69,6 @@ private:
 	bool GetConnectStringFromSessionInfo(TSharedPtr<FOnlineSessionInfoEpic>& SessionInfo, FString& ConnectInfo, int32 PortOverride = 0);
 
 	/**
-	 * Creates the AddAttributeOptions struct
-	 */
-	//EOS_SessionModification_AddAttributeOptions CreateCustomAttrHandle(FString attributeName, FVariantData data, EOS_ESessionAttributeAdvertisementType advertisementType);
-
-	/**
 	 * Creates EOS Attribute data from UE4s variant data
 	 * @param attributeName - The name for the data.
 	 * @param variantData - The variable data itself
@@ -82,18 +77,6 @@ private:
 	 * @returns - True if the creation was successful, false otherwise
 	*/
 	EOS_Sessions_AttributeData CreateEOSAttributeData(FString const attributeName, FVariantData const variantData, FString& error);
-
-	/**
-	 * Creates EOS Attribute data from UE4s variant data
-	 * @param attributeName - The name for the data.
-	 * @param variantData - The variable data itself
-	 * @outAttributeData - The EOS AttributeData populated with the variant data
-	 * @error - The error message if the creation was unsuccessful
-	 * @returns - True if the creation was successful, false otherwise
-	*/
-	EOS_Sessions_AttributeData CreateEOSAttributeData(FString const attributeName, FVariantData const variantData, FString& error);
-
-	void UpdateSessionSearchParameters(TSharedRef<FOnlineSessionSearch> const& sessionSearchPtr, EOS_HSessionSearch const eosSessionSearch, FString& error);
 
 	/** Convert the EOS session details into an online session */
 	FOnlineSession SessionDetailsToSessionOnlineSession(EOS_SessionDetails_Info const* SessionDetails);

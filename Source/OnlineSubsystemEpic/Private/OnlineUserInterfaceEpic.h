@@ -23,6 +23,13 @@ private:
 
 	EOS_HUserInfo userInfoHandle;
 
+	/** A list of all user ids for which the SDK has cached user information. */
+	TArray<EOS_EpicAccountId> queriedUserIdsCache;
+
+
+
+
+
 	/**
 	 * Concatenates multiple error strings into one single error string.
 	 * @param ErrorStrings - The errors to concatenate
@@ -44,8 +51,6 @@ private:
 	 */
 	TMap<double, TTuple<FExternalIdQueryOptions, TArray<FString>, TArray<bool>, TArray<FString>>> externalIdMappingsQueries;
 
-	/** A list of all user ids for which the SDK has cached user information. */
-	TArray<TSharedRef<FUniqueNetId const>> queriedUserIds;
 
 	/**
 	 * A list of all cached id mappings.

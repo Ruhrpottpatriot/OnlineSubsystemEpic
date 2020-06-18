@@ -29,9 +29,8 @@ class FOnlineIdentityInterfaceEpic
 	static void EOS_Auth_OnLoginComplete(EOS_Auth_LoginCallbackInfo const* Data);
 	static void EOS_Auth_OnLogoutComplete(const EOS_Auth_LogoutCallbackInfo* Data);
 
-	TSharedPtr<FUserOnlineAccount> OnlineUserAcccountFromPUID(EOS_ProductUserId const & PUID) const;
+	TSharedPtr<FUserOnlineAccount> OnlineUserAcccountFromPUID(EOS_ProductUserId const& PUID) const;
 	ELoginStatus::Type EOSLoginStatusToUELoginStatus(EOS_ELoginStatus LoginStatus);
-
 
 public:
 	virtual ~FOnlineIdentityInterfaceEpic();

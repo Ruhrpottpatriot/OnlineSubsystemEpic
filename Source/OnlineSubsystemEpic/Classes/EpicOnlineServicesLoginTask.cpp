@@ -86,7 +86,7 @@ UEpicOnlineServicesLoginTask* UEpicOnlineServicesLoginTask::TryLogin(ELoginType 
 
 	task->setDelegate(identityInterface);
 
-	task->Credentials.Type = GetEnumValueAsString<ELoginType>("ELoginType", loginType);
+	task->Credentials.Type = FUtils::GetEnumValueAsString<ELoginType>("ELoginType", loginType);
 
 	switch (loginType)
 	{
