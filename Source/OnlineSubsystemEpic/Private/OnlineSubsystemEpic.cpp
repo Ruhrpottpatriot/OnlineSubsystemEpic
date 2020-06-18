@@ -210,6 +210,115 @@ bool FOnlineSubsystemEpic::Init()
 		hasInvalidParams = true;
 	}
 
+	FString countryCode;
+	char* countryCodeC = nullptr;
+	if (GConfig->GetString(
+		TEXT("OnlineSubsystemEpic"),
+		TEXT("CountryCode"),
+		countryCode,
+		GEngineIni))
+	{
+		countryCodeC = TCHAR_TO_UTF8(*countryCode);
+	}
+	else
+	{
+		countryCodeC = nullptr;
+	}
+
+	FString localeCode;
+	char* localeCodeC = nullptr;
+	if (GConfig->GetString(
+		TEXT("OnlineSubsystemEpic"),
+		TEXT("LocaleCode"),
+		localeCode,
+		GEngineIni))
+	{
+		localeCodeC = TCHAR_TO_UTF8(*countryCode);
+	}
+	else
+	{
+		localeCodeC = nullptr;
+	}
+
+	FString encryptionKey;
+	char* encryptionKeyC = nullptr;
+	if (GConfig->GetString(
+		TEXT("OnlineSubsystemEpic"),
+		TEXT("EncryptionKey"),
+		encryptionKey,
+		GEngineIni))
+	{
+		if (encryptionKey.Len() != 64)
+		{
+			UE_LOG_ONLINE(Warning, TEXT("Got encryption key, but its length wasn't 64 characters."));
+			hasInvalidParams = true;
+		}
+		else
+		{
+			encryptionKeyC = TCHAR_TO_UTF8(*encryptionKey);
+		}
+	}
+	else
+	{
+		encryptionKeyC = nullptr;
+	}
+
+	bool isServer = false;
+	if (!GConfig->GetBool(
+		TEXT("OnlineSubsystemEpic"),
+		TEXT("IsServer"),
+		isServer,
+		GEngineIni))
+	{
+		UE_LOG_ONLINE(Verbose, TEXT("Couldn't retrive whether the SDK is a server or not. Defaulting to false."));
+	}
+
+	FString cacheDirectory;
+	char const* cacheDirectoryC = nullptr;
+	if (GConfig->GetString(TEXT("OnlineSubsystemEpic"), TEXT("CacheDirectory"), cacheDirectory, GEngineIni)
+		|| cacheDirectory.Len() == 0)
+	{
+		UE_LOG_ONLINE(Warning, TEXT("Got no cache directory, defaulting to %s"), *cacheDirectory);
+		cacheDirectoryC = FUtils::GetTempDirectory();
+	}
+	else
+	{
+		cacheDirectoryC = TCHAR_TO_UTF8(*cacheDirectory);
+	}
+
+	uint64 platformFlags = 0;
+#if UE_EDITOR
+	// The platform overlay causes rendering artifacts in the editor,
+	// this flag ensures it is not loaded in the editor or PIE
+	platformFlags |= EOS_PF_LOADING_IN_EDITOR;
+#else
+	platformFlags |= 0;
+#endif
+
+	bool disableOverlay = false;
+	if (GConfig->GetBool(TEXT("OnlineSubsystemEpic"), TEXT("DisableOverlay"), disableOverlay, GEngineIni))
+	{
+		if (disableOverlay)
+		{
+			platformFlags |= EOS_PF_DISABLE_OVERLAY;
+		}
+	}
+
+	bool disableSocialOverlay = false;
+	if (GConfig->GetBool(TEXT("OnlineSubsystemEpic"), TEXT("DisableSocialOverlay"), disableOverlay, GEngineIni))
+	{
+		if (disableSocialOverlay)
+		{
+			platformFlags |= EOS_PF_DISABLE_SOCIAL_OVERLAY;
+		}
+	}
+
+	double tickBudget = 0;
+	if (!GConfig->GetDouble(TEXT("OnlineSubsystemEpic"), TEXT("TickBudget"), tickBudget, GEngineIni))
+	{
+		UE_LOG_ONLINE(Verbose, TEXT("No tick budget set, defaulting to 0"));
+	}
+
 	if (hasInvalidParams)
 	{
 		return false;
@@ -217,28 +326,25 @@ bool FOnlineSubsystemEpic::Init()
 
 
 	// Create platform instance
-	EOS_Platform_Options PlatformOptions = {};
-	PlatformOptions.ApiVersion = EOS_PLATFORM_OPTIONS_API_LATEST;
-	PlatformOptions.Reserved = nullptr;
-	PlatformOptions.ProductId = TCHAR_TO_UTF8(*productId);
-	PlatformOptions.SandboxId = TCHAR_TO_UTF8(*sandboxId);
-	PlatformOptions.ClientCredentials.ClientId = TCHAR_TO_UTF8(*clientId);
-	PlatformOptions.ClientCredentials.ClientSecret = TCHAR_TO_UTF8(*clientSecret);
-	PlatformOptions.bIsServer = EOS_FALSE;
-	static std::string EncryptionKey(64, '1');
-	PlatformOptions.EncryptionKey = EncryptionKey.c_str();
-	PlatformOptions.OverrideCountryCode = nullptr;
-	PlatformOptions.OverrideLocaleCode = nullptr;
-	PlatformOptions.DeploymentId = TCHAR_TO_UTF8(*deploymentId);
-#if UE_EDITOR
-	// The platform overlay causes rendering artifacts in the editor,
-	// this flag ensures it is not loaded in the editor or PIE
-	PlatformOptions.Flags = EOS_PF_LOADING_IN_EDITOR;
-#else
-	PlatformOptions.Flags = 0;
-#endif
-	PlatformOptions.CacheDirectory = FUtils::GetTempDirectory();
-
+	EOS_Platform_ClientCredentials clientCredentials = {
+		TCHAR_TO_UTF8(*clientId),
+		TCHAR_TO_UTF8(*clientSecret)
+	};
+	EOS_Platform_Options PlatformOptions = {
+		EOS_PLATFORM_OPTIONS_API_LATEST,
+		nullptr,					// MUST be nulled
+		TCHAR_TO_UTF8(*productId),	// Required
+		TCHAR_TO_UTF8(*sandboxId),	// Required
+		clientCredentials,			// Required
+		isServer,
+		encryptionKeyC,
+		countryCodeC,
+		localeCodeC,
+		TCHAR_TO_UTF8(*deploymentId), // Required
+		platformFlags,
+		cacheDirectoryC,
+		tickBudget
+	};
 	this->PlatformHandle = EOS_Platform_Create(&PlatformOptions);
 	if (!this->PlatformHandle)
 	{

@@ -95,10 +95,10 @@ void FOnlineSubsystemEpicModule::StartupModule()
 	LibraryPath = FPaths::Combine(*BaseDir, TEXT("Source/ThirdParty/OnlineSubsystemEpicLibrary/Bin/EOSSDK-Win32-Shipping.dll"));
 #else
 	LibraryPath = FPaths::Combine(*BaseDir, TEXT("Source/ThirdParty/OnlineSubsystemEpicLibrary/Bin/EOSSDK-Win64-Shipping.dll"));
-#endif
+#endif // PLATFORM_WINDOWS
 #elif PLATFORM_MAC
 	LibraryPath = FPaths::Combine(*BaseDir, TEXT("Source/ThirdParty/OnlineSubsystemEpicLibrary/Bin/libEOSSDK-Mac-Shipping.dylib"));
-#endif // PLATFORM_WINDOWS
+#endif // PLATFORM_MAC
 
 	EpicOnlineServiceSDKLibraryHandle = !LibraryPath.IsEmpty() ? FPlatformProcess::GetDllHandle(*LibraryPath) : nullptr;
 	checkf(EpicOnlineServiceSDKLibraryHandle, TEXT("Failed to load Epic online service library, please make sure SDK binaries are installed at the correct location"));

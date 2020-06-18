@@ -9,12 +9,51 @@ The plugin is coded against a specific version of the EOS SDK. While Epic promis
 |     0.0.2      |    1.6.0    |
 |     0.0.1      |    1.6.0    |
 
+
+## Implemented Interfaces
+Use this section to see which functions of the EOS SDK are already implemented. For some interfaces it might be, that they are not completely mapped to the SDK functions, either because the SDK doesn't support the functionality, or the OSS doesn't. There are three symbols, you can use to check if the interface meets your expectations:
+* :heavy_check_mark: - The interface is completely implemented and works as the OSS documentations describes.
+* :warning: - Parts of the interface are implemented. See the notes field for additional information
+* :x: - The interface isn't implemented
+
+Currently there exists 36 interfaces in the online subsystem, of which N are publicly available. These interfaces and their implementation status are
+
+|  Subsystem Interface  | Implementation Status |       Additional Notes       |
+| --------------------- | --------------------- | ---------------------------- |
+| OnlineSession         |       :warning:       | See [Known Limitations](KnownLimitations.md) |
+| OnlineFriends         |         :x:           |
+| OnlineParty           |         :x:           |
+| OnlineGroups          |         :x:           |
+| OnlineSharedCloud     |         :x:           |
+| OnlineUserCloud       |         :x:           |
+| OnlineEntitlements    |         :x:           |
+| OnlineLeaderboards    |         :x:           |
+| OnlineVoice           |         :x:           |
+| OnlineExternalUI      |         :x:           |
+| OnlineTime            |         :x:           |
+| OnlineIdentity        |       :warning:       | See [Known Limitations](KnownLimitations.md) |
+| OnlineTitleFile       |         :x:           |
+| OnlineStore           |         :x:           |
+| OnlineStoreV2         |         :x:           |
+| OnlinePurchase        |         :x:           |
+| OnlineEvents          |         :x:           |
+| OnlineAchievements    |         :x:           |
+| OnlineSharing         |         :x:           |
+| OnlineUser            |       :warning:       | See [Known Limitations](KnownLimitations.md) |
+| OnlineMessage         |         :x:           |
+| OnlinePresence        |         :x:           |
+| OnlineChat            |         :x:           |
+| OnlineStats           |         :x:           |
+| OnlineTurnBased       |         :x:           |
+| OnlineTournament      |         :x:           |
+
+
 ## Installation
 1. Clone the repository into your Projects _Plugins_ directory.
 2. Download the EOS C++ SDK from the Developer Portal
 3. Drop the _Bin_, _Include_ and _Lib_ from inside the SDK folder into _Source\ThirdParty\OnlineSubsystemEpicLibrary_
 
-To make the SDK initialize as intended a few properties have to be set. To no hardcode them in code they are set inside two .ini files, which can easily be changed without a recompile. Keep in mind, that these properties contain sensitive information and shoulnd't be made public. Therefore it's best to keep it out of source control. Later versions might include different retrieval mechanisms.
+To make the SDK initialize as intended a few properties have to be set. As not to hardcode them, they are set inside two .ini files, which can easily be changed without a recompile. Keep in mind, that some of these properties contain sensitive information and **mustn't** be made public. Therefore it's best to keep it out of source control. Later versions might include different retrieval mechanisms.
 
 DefaultGame.ini
 ```ini
@@ -39,8 +78,34 @@ DeploymentId = <DeploymentId>
 ClientCredentialsId = <ClientCredentialsId>
 ; Client secret for accessing the set of permissions
 ClientCredentialsSecret = <ClientCredentialsSecret>
+
 ```
 
+Additionally the SDK supports a a few optional settings for further customization:
+DefaultEngine.ini
+```ini
+; Overrides the internal country code, max 4 characters in length.
+CountryCode = <ISO639LanguageCode>
+; Overrides the locale used by the SDK, max 9 characters in length
+LocaleCode = <ISO639LanguageCode>
+; Encryption key, 64 hex characters long. Used only by player data storage
+EncryptionKey = <Custom64CharacterLongEncryptionKey>
+; Marks this instance as a server.
+IsServer = <true>/<false>
+; Sets the directory used for SDK side caching. The path is created if missing
+CacheDirectory = <AbsoluteCachePath>
+; A budget, measured in milliseconds, for ticking tasks to do their work.
+; When the budget is met or exceeded (or if no work available), the tasks will return.
+; This allows the SDK to amortize the cost of work across multiple frames in the event that a lot of work is queued for processing.
+; Zero is interpreted as "perform all available work"
+TickBudget = <DurationInMs>
+; Indicates the SDK should skip initialization of the overlay, used by the in-app purchase flow and social overlay.
+; Implied by LoadingInEditor
+DisableOverlay = <true>/<false>
+; Indicates the SDK should skip initialization of the social overlay.
+; Implied by DisableOverlay
+DisableSocialOverlay = <true>/<false>
+```
 
 ## Usage
 This plugin is used like any other OnlineSubsystem Plugin already existing. This means, that most of the time you won't need to directly interface with the system directly, but can let the engine classes handle the calls.
@@ -71,8 +136,3 @@ While connect also supports EAS as `LoginType`, this is implicitly assumed by th
 `FOnlineAccountCredentials` class has two additional fields, `Id` and `Token`. When using "CONNECT" login flow the `Token` field stores the access token, while the `Id` field holds additional data, that is needed for the Nintendo and Apple login types.
 When using "EAS" as login flow, consult the "OnlineIdentityInterface.h" file to see which field maps to which.
 
-
-## Implemented Interfaces
-* Identity
-* Sessions
-* UserInfo
