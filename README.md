@@ -85,7 +85,7 @@ Additionally the SDK supports a a few optional settings for further customizatio
 DefaultEngine.ini
 ```ini
 ; Overrides the internal country code, max 4 characters in length.
-CountryCode = <ISO639LanguageCode>
+CountryCode = <ISO3166CountryCode>
 ; Overrides the locale used by the SDK, max 9 characters in length
 LocaleCode = <ISO639LanguageCode>
 ; Encryption key, 64 hex characters long. Used only by player data storage
