@@ -91,8 +91,6 @@ CountryCode = <ISO3166CountryCode>
 LocaleCode = <ISO639LanguageCode>
 ; Encryption key, 64 hex characters long. Used only by player data storage
 EncryptionKey = <Custom64CharacterLongEncryptionKey>
-; Marks this instance as a server.
-IsServer = <true>/<false>
 ; Sets the directory used for SDK side caching. The path is created if missing
 CacheDirectory = <AbsoluteCachePath>
 ; A budget, measured in milliseconds, for ticking tasks to do their work.

@@ -50,6 +50,8 @@ public:
 
 	virtual bool Tick(float DeltaTime) override;
 
+	
+
 PACKAGE_SCOPE:
 
 	/** Only the factory makes instances */

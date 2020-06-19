@@ -262,17 +262,7 @@ bool FOnlineSubsystemEpic::Init()
 	{
 		encryptionKeyC = nullptr;
 	}
-
-	bool isServer = false;
-	if (!GConfig->GetBool(
-		TEXT("OnlineSubsystemEpic"),
-		TEXT("IsServer"),
-		isServer,
-		GEngineIni))
-	{
-		UE_LOG_ONLINE(Verbose, TEXT("Couldn't retrive whether the SDK is a server or not. Defaulting to false."));
-	}
-
+	
 	FString cacheDirectory;
 	char const* cacheDirectoryC = nullptr;
 	if (GConfig->GetString(TEXT("OnlineSubsystemEpic"), TEXT("CacheDirectory"), cacheDirectory, GEngineIni)
@@ -350,7 +340,7 @@ bool FOnlineSubsystemEpic::Init()
 		TCHAR_TO_UTF8(*productId),	// Required
 		TCHAR_TO_UTF8(*sandboxId),	// Required
 		clientCredentials,			// Required
-		isServer,
+		this->IsServer(),
 		encryptionKeyC,
 		countryCodeC,
 		localeCodeC,
@@ -416,6 +406,8 @@ FText FOnlineSubsystemEpic::GetOnlineServiceName() const
 
 bool FOnlineSubsystemEpic::Tick(float DeltaTime)
 {
+	FOnlineSubsystemImpl::Tick(DeltaTime);
+
 	if (this->PlatformHandle)
 	{
 		EOS_Platform_Tick(this->PlatformHandle);
