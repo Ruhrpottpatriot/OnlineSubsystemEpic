@@ -9,6 +9,7 @@
 using FOnlineIdentityEpicPtr = TSharedPtr<class FOnlineIdentityInterfaceEpic, ESPMode::ThreadSafe>;
 using FOnlineSessionEpicPtr = TSharedPtr<class FOnlineSessionEpic, ESPMode::ThreadSafe>;
 using FOnlineUserEpicPtr = TSharedPtr<class FOnlineUserEpic, ESPMode::ThreadSafe>;
+using FOnlinePresenceEpicPtr = TSharedPtr<class FOnlinePresenceEpic, ESPMode::ThreadSafe>;
 
 class ONLINESUBSYSTEMEPIC_API FOnlineSubsystemEpic
 	: public FOnlineSubsystemImpl
@@ -62,6 +63,7 @@ PACKAGE_SCOPE:
 		, IsInit(false)
 		, PlatformHandle(nullptr)
 		, IdentityInterface(nullptr)
+		, PresenceInterface(nullptr)
 		, devToolPort(9999)
 	{}
 
@@ -76,6 +78,8 @@ PACKAGE_SCOPE:
 	FOnlineSessionEpicPtr SessionInterface;
 
 	FOnlineUserEpicPtr UserInterface;
+
+	FOnlinePresenceEpicPtr PresenceInterface;
 
 	int32 devToolPort;
 };

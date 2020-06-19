@@ -112,7 +112,7 @@ IOnlineMessagePtr FOnlineSubsystemEpic::GetMessageInterface() const
 
 IOnlinePresencePtr FOnlineSubsystemEpic::GetPresenceInterface() const
 {
-	return nullptr;
+	return this->PresenceInterface;
 }
 
 IOnlineChatPtr FOnlineSubsystemEpic::GetChatInterface() const
@@ -359,6 +359,7 @@ bool FOnlineSubsystemEpic::Init()
 	this->IdentityInterface = MakeShareable(new FOnlineIdentityInterfaceEpic(this));
 	this->SessionInterface = MakeShareable(new FOnlineSessionEpic(this));
 	this->UserInterface = MakeShareable(new FOnlineUserEpic(this));
+	this->PresenceInterface = MakeShared<FOnlinePresenceEpic, ESPMode::ThreadSafe>(this);
 
 	this->IsInit = true;
 	return true;
@@ -381,6 +382,7 @@ bool FOnlineSubsystemEpic::Shutdown()
 	DESTRUCT_INTERFACE(IdentityInterface);
 	DESTRUCT_INTERFACE(SessionInterface);
 	DESTRUCT_INTERFACE(UserInterface);
+	DESTRUCT_INTERFACE(this->PresenceInterface);
 
 #undef DESTRUCT_INTERFACE
 
