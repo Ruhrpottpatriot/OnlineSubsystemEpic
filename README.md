@@ -16,7 +16,7 @@ Use this section to see which functions of the EOS SDK are already implemented. 
 * :warning: - Parts of the interface are implemented. See the notes field for additional information
 * :x: - The interface isn't implemented
 
-Currently there exists 36 interfaces in the online subsystem, of which N are publicly available. These interfaces and their implementation status are
+Currently there exists 36 interfaces in the online subsystem, of which 26 are publicly available. These interfaces and their implementation status are
 
 |  Subsystem Interface  | Implementation Status |       Additional Notes       |
 | --------------------- | --------------------- | ---------------------------- |
