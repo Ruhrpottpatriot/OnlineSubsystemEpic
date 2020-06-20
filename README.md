@@ -4,10 +4,11 @@ An unofficial integration of the Epic Online Systems SDK with Unreal Engine 4's 
 ### Currently Supported Versions
 The plugin is coded against a specific version of the EOS SDK. While Epic promises to deliver a stable ABI, it's best to use the Plugin with the SDK version it was coded against
 
-| Plugin Version | SDK Version |
-| -------------- |------------ |
-|     0.0.2      |    1.6.0    |
-|     0.0.1      |    1.6.0    |
+|   Plugin Version   | SDK Version |
+| ------------------ |------------ |
+| 0.0.3 (unreleased) |    1.6.2    |
+|       0.0.2        |    1.6.0    |
+|       0.0.1        |    1.6.0    |
 
 
 ## Implemented Interfaces
