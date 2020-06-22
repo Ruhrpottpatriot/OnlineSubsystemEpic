@@ -1501,7 +1501,8 @@ void FOnlineSessionEpic::Tick(float DeltaTime)
 
 TSharedPtr<const FUniqueNetId> FOnlineSessionEpic::CreateSessionIdFromString(const FString& SessionIdStr)
 {
-	return MakeShared<FUniqueNetIdEpic>(SessionIdStr);
+	// This is a deliberate choice as a session has nothing to do with a user's PUID or EAID
+	return MakeShared<FUniqueNetIdString>(SessionIdStr);
 }
 
 bool FOnlineSessionEpic::CreateSession(int32 HostingPlayerNum, FName SessionName, const FOnlineSessionSettings& NewSessionSettings)

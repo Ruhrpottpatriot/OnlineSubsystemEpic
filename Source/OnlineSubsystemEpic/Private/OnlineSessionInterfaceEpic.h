@@ -98,8 +98,6 @@ PACKAGE_SCOPE:
 	/** Array of sessions currently available on the local machine. Might not be in sync with remote */
 	TArray<FNamedOnlineSession> Sessions;
 
-	//TMap<double, TSharedRef<FOnlineSessionSearch>> CurrentSessionSearches;
-
 	/**
 	 * Array of session searches.
 	 * @Key - The time in UTC the session search was created.
