@@ -135,7 +135,7 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 	// is equal to the number of total queries the error message will be created and the completion delegate triggered
 
 	// Lock the following section to make sure the amount of completed queries doesn't change mid way.
-	FScopeLock ScopeLock(&thisPtr->UserQueryLock);
+	thisPtr->UserQueryLock.Lock();
 
 	// Auto used below to increase readability
 	auto query = thisPtr->userQueries.Find(additionalData->StartTime);
@@ -158,7 +158,7 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 		}
 	}
 
-	ScopeLock.Unlock();
+	thisPtr->UserQueryLock.Unlock();
 
 	// If all queries are done, log the result of the function
 	if (doneQueries == userIds.Num())
