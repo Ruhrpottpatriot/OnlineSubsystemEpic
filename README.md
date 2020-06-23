@@ -4,10 +4,11 @@ An unofficial integration of the Epic Online Systems SDK with Unreal Engine 4's 
 ### Currently Supported Versions
 The plugin is coded against a specific version of the EOS SDK. While Epic promises to deliver a stable ABI, it's best to use the Plugin with the SDK version it was coded against
 
-| Plugin Version | SDK Version |
-| -------------- |------------ |
-|     0.0.2      |    1.6.0    |
-|     0.0.1      |    1.6.0    |
+|   Plugin Version   | SDK Version |
+| ------------------ |------------ |
+| 0.0.3 (unreleased) |    1.6.2    |
+|       0.0.2        |    1.6.0    |
+|       0.0.1        |    1.6.0    |
 
 
 ## Implemented Interfaces
@@ -16,7 +17,7 @@ Use this section to see which functions of the EOS SDK are already implemented. 
 * :warning: - Parts of the interface are implemented. See the notes field for additional information
 * :x: - The interface isn't implemented
 
-Currently there exists 36 interfaces in the online subsystem, of which N are publicly available. These interfaces and their implementation status are
+Currently there exists 36 interfaces in the online subsystem, of which 26 are publicly available. These interfaces and their implementation status are
 
 |  Subsystem Interface  | Implementation Status |       Additional Notes       |
 | --------------------- | --------------------- | ---------------------------- |
@@ -85,7 +86,7 @@ Additionally the SDK supports a a few optional settings for further customizatio
 DefaultEngine.ini
 ```ini
 ; Overrides the internal country code, max 4 characters in length.
-CountryCode = <ISO639LanguageCode>
+CountryCode = <ISO3166CountryCode>
 ; Overrides the locale used by the SDK, max 9 characters in length
 LocaleCode = <ISO639LanguageCode>
 ; Encryption key, 64 hex characters long. Used only by player data storage
