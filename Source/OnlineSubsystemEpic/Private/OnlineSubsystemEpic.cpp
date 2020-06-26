@@ -391,14 +391,28 @@ bool FOnlineSubsystemEpic::Shutdown()
 
 FString FOnlineSubsystemEpic::GetAppId() const
 {
-	FString productId;
+	// The AppId is a combination of the Projects id and a version in the form of:
+	// {ProductId}::{ProductVersion}
+	// This guarantees a unique identifier for a given product and version.
+	// They however differ from the SDKs product id!
+
+	FString projectId;
 	GConfig->GetString(
-		TEXT("OnlineSubsystemEpic"),
-		TEXT("ProductId"),
-		productId,
-		GEngineIni
+		TEXT("/Script/EngineSettings.GeneralProjectSettings"),
+		TEXT("ProjectId"),
+		projectId,
+		GGameIni
 	);
-	return productId;
+
+	FString projectVersion;
+	GConfig->GetString(
+		TEXT("/Script/EngineSettings.GeneralProjectSettings"),
+		TEXT("ProjectVersion"),
+		projectVersion,
+		GGameIni
+	);
+
+	return FString::Printf(TEXT("%s::%s"), *projectId, *projectVersion);
 }
 
 FText FOnlineSubsystemEpic::GetOnlineServiceName() const
