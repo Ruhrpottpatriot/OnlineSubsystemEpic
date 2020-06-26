@@ -746,7 +746,7 @@ TSharedPtr<FUserOnlineAccount> FOnlineIdentityInterfaceEpic::OnlineUserAcccountF
 	}
 
 	userAccount->SetUserAttribute(USER_ATTR_DISPLAYNAME, UTF8_TO_TCHAR(externalAccountInfo->DisplayName));
-	userAccount->SetUserLocalAttribute(USER_ATTR_LAST_LOGIN_TIME, FString::Printf(TEXT("%d"), externalAccountInfo->LastLoginTime));
+	userAccount->SetUserAttribute(USER_ATTR_LAST_LOGIN_TIME, FString::Printf(TEXT("%d"), externalAccountInfo->LastLoginTime));
 
 	EOS_Connect_ExternalAccountInfo_Release(externalAccountInfo);
 
