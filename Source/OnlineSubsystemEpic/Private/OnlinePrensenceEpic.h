@@ -15,8 +15,10 @@ private:
 
 	EOS_NotificationId OnPresenceChangedHandle;
 
+	static void EOS_QueryPresenceComplete(EOS_Presence_QueryPresenceCallbackInfo const* data);
 	static void EOS_OnPresenceChanged(EOS_Presence_PresenceChangedCallbackInfo const* data);
 	static void EOS_SetPresenceComplete(EOS_Presence_SetPresenceCallbackInfo const* data);
+	static void EOS_QueryExternalAccountMappingsForPresenceComplete(EOS_Connect_QueryExternalAccountMappingsCallbackInfo const* data);
 
 	EOnlinePresenceState::Type EOSPresenceStateToUEPresenceState(EOS_Presence_EStatus status) const;
 
