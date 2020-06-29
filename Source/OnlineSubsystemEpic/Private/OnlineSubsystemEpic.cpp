@@ -343,7 +343,7 @@ bool FOnlineSubsystemEpic::Init()
 		TCHAR_TO_UTF8(*deploymentId), // Required
 		platformFlags,
 		cacheDirectoryC,
-		tickBudget
+		static_cast<uint32_t>(tickBudget + 0.5)
 	};
 	this->PlatformHandle = EOS_Platform_Create(&PlatformOptions);
 	if (!this->PlatformHandle)

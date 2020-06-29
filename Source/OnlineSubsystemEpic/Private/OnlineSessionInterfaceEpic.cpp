@@ -1569,7 +1569,7 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 				EOS_SESSIONS_CREATESESSIONMODIFICATION_API_LATEST,
 				TCHAR_TO_UTF8(*SessionName.ToString()),
 				TCHAR_TO_UTF8(*bucketId),
-				NewSessionSettings.NumPublicConnections + NewSessionSettings.NumPrivateConnections,
+				static_cast<uint32_t>(NewSessionSettings.NumPublicConnections + NewSessionSettings.NumPrivateConnections),
 				((FUniqueNetIdEpic)HostingPlayerId).ToProdcutUserId(),
 				session->SessionSettings.bUsesPresence
 			};
@@ -1917,7 +1917,7 @@ bool FOnlineSessionEpic::FindSessions(const FUniqueNetId& SearchingPlayerId, con
 		{
 			EOS_Sessions_CreateSessionSearchOptions sessionSearchOpts = {
 				EOS_SESSIONS_CREATESESSIONSEARCH_API_LATEST,
-				SearchSettings->MaxSearchResults
+				static_cast<uint32_t>(SearchSettings->MaxSearchResults)
 			};
 
 			// Handle where the session search is stored
@@ -2440,7 +2440,7 @@ bool FOnlineSessionEpic::RegisterPlayers(FName SessionName, const TArray< TShare
 			EOS_SESSIONS_REGISTERPLAYERS_API_LATEST,
 			TCHAR_TO_UTF8(*SessionName.ToString()),
 			userIdArr,
-			Players.Num()
+			static_cast<uint32_t>(Players.Num())
 		};
 
 		FRegisterPlayersAdditionalData* additionalData = new FRegisterPlayersAdditionalData();
@@ -2516,7 +2516,7 @@ bool FOnlineSessionEpic::UnregisterPlayers(FName SessionName, const TArray< TSha
 			EOS_SESSIONS_REGISTERPLAYERS_API_LATEST,
 			TCHAR_TO_UTF8(*SessionName.ToString()),
 			productUserIdArr,
-			Players.Num()
+			static_cast<uint32_t>(Players.Num())
 		};
 
 		FRegisterPlayersAdditionalData* additionalData = new FRegisterPlayersAdditionalData();

@@ -59,7 +59,7 @@ public:
 	/** Create a new id from an existing PUID */
 	explicit FUniqueNetIdEpic(const EOS_ProductUserId& InUserId)
 		: Type(EPIC_SUBSYSTEM)
-		, productUserId(productUserId)
+		, productUserId(InUserId)
 		, epicAccountId(nullptr)
 	{
 	}
@@ -79,7 +79,7 @@ public:
 	 * @param Src the id to copy
 	 */
 	explicit FUniqueNetIdEpic(const FUniqueNetId& OtherId)
-		: Type(EPIC_SUBSYSTEM)
+		: Type(EPIC_SUBSYSTEM), epicAccountId(nullptr)
 	{
 		FString idString = OtherId.ToString();
 		check(!idString.IsEmpty());
