@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/tree/HEAD)
+
+[Full Changelog](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/compare/v0.3_Presence...HEAD)
+
+**Implemented enhancements:**
+
+- DevAuthTool should have the address customizable [\#23](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/issues/23)
+- Make address of DevAuthTool customizable [\#24](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/pull/24) ([Ruhrpottpatriot](https://github.com/Ruhrpottpatriot))
+
 ## [v0.3_Presence](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/tree/v0.3_Presence) (2020-07-02)
 
 [Full Changelog](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/compare/v0.2_Sessions...v0.3_Presence)
@@ -7,6 +16,9 @@
 **Implemented enhancements:**
 
 - Make FUniqueNetIdEpic a proper type [\#7](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/issues/7)
+- Add support for EOS\_Connect [\#20](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/issues/20)
+- Change FOnlineSessionEpic::CreateSessionIdFromString to use FUniqueNetIdString [\#19](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/issues/19)
+- GetAppId should return project version [\#18](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/issues/18)
 - Add LoginType to FUniqueNetIdEpic [\#9](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/pull/9) ([Ruhrpottpatriot](https://github.com/Ruhrpottpatriot))
 
 **Fixed bugs:**
@@ -17,7 +29,6 @@
 **Merged pull requests:**
 
 - Fix compile error on linux [\#13](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/pull/13) ([Qyg0n](https://github.com/Qyg0n))
-- Implement missing storage of external id mappings [\#10](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/pull/10) ([Ruhrpottpatriot](https://github.com/Ruhrpottpatriot))
 - Adds async task blueprint nodes and fixes some bugs in the identity interface [\#5](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/pull/5) ([CNDW](https://github.com/CNDW))
 
 ## [v0.2_Sessions](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/tree/v0.2_Sessions) (2020-06-05)
@@ -28,10 +39,18 @@
 
 [Full Changelog](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/compare/8b42b9d3f047675181bf70758d49541d40deb22d...v0.1_Identity)
 
-**Merged pull requests:**
+**Implemented enhancements:**
 
+- Allow dev tool port to be set in config files [\#22](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/issues/22)
 - adds support for autologin method [\#2](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/pull/2) ([CNDW](https://github.com/CNDW))
+
+**Fixed bugs:**
+
 - Disables the platform overlay in the editor and PIE to fix editor rendering issues [\#1](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/pull/1) ([CNDW](https://github.com/CNDW))
+
+**Closed issues:**
+
+- Repository should contain a file with known limitations [\#21](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/issues/21)
 
 
 
