@@ -1,9 +1,10 @@
 ---
-name: "Bug Report"
+name: Bug Report
 about: Reports about errors or unexpected behaviour
 title: ''
-labels: ''
+labels: bug
 assignees: ''
+
 ---
 
 <!--
