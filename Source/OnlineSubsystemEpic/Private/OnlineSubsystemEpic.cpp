@@ -148,7 +148,7 @@ bool FOnlineSubsystemEpic::Init()
 	// If this isn't set, we default to 9999
 	if (!GConfig->GetString(
 		TEXT("OnlineSubsystemEpic"),
-		TEXT("DevToolPort"),
+		TEXT("DevToolAddress"),
 		this->DevToolAddress,
 		GEngineIni))
 	{
