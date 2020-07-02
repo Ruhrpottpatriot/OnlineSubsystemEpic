@@ -1,0 +1,9 @@
+#future-release=0.4
+user=Ruhrpottpatriot
+project=OnlineSubsystemEpic
+add-sections='{
+    "documentation":{
+        "prefix":"**Documentation updates:**",
+        "labels":["documentation"]
+    }
+}'
