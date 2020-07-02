@@ -64,7 +64,7 @@ PACKAGE_SCOPE:
 		, PlatformHandle(nullptr)
 		, IdentityInterface(nullptr)
 		, PresenceInterface(nullptr)
-		, devToolPort(9999)
+		, DevToolAddress(TEXT(""))
 	{}
 
 	bool IsInit;
