@@ -313,10 +313,24 @@ bool FOnlineSubsystemEpic::Init()
 		}
 	}
 
-	double tickBudget = 0;
-	if (!GConfig->GetDouble(TEXT("OnlineSubsystemEpic"), TEXT("TickBudget"), tickBudget, GEngineIni))
+	// The tick budget is set in the config as a double, not an unsigned 32-bit integer
+	// This was done because UE has no way of retrieving an unsigned type from the config
+	// and a 64 bit double has the same codomain as an unsigned 32-bit integer.
+	double tickBudgetConfig = 0;
+	uint32_t tickBudget = 0;
+	if (!GConfig->GetDouble(TEXT("OnlineSubsystemEpic"), TEXT("TickBudget"), tickBudgetConfig, GEngineIni))
 	{
 		UE_LOG_ONLINE(Verbose, TEXT("No tick budget set, defaulting to 0"));
+	}
+	else
+	{
+		// Floor the value to the next value. This is a design choice and there is no right or wrong.
+		// The reasoning is, that the user wants to use the tick budget at most and "stealing" more time
+		// might result in less time for other tasks in the program.
+		double d = FMath::FloorToDouble(tickBudgetConfig);
+
+		// Convert to uint32_t by casting
+		tickBudget = static_cast<uint32_t>(d);
 	}
 
 	if (hasInvalidParams)
@@ -343,7 +357,7 @@ bool FOnlineSubsystemEpic::Init()
 		TCHAR_TO_UTF8(*deploymentId), // Required
 		platformFlags,
 		cacheDirectoryC,
-		static_cast<uint32_t>(tickBudget + 0.5)
+		tickBudget
 	};
 	this->PlatformHandle = EOS_Platform_Create(&PlatformOptions);
 	if (!this->PlatformHandle)

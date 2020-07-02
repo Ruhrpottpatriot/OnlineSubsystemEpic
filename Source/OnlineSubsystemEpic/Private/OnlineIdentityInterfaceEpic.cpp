@@ -493,7 +493,7 @@ bool FOnlineIdentityInterfaceEpic::Login(int32 LocalUserNum, const FOnlineAccoun
 bool FOnlineIdentityInterfaceEpic::AutoLogin(int32 LocalUserNum)
 {
 	FOnlineAccountCredentials credentials;
-	credentials.Type = FString("EAS:PersistentAuth");//FUtils::GetEnumValueAsString<ELoginType>("ELoginType", ELoginType::PersistentAuth);
+	credentials.Type = FString("EAS:PersistentAuth");
 
 	return Login(LocalUserNum, credentials);
 }

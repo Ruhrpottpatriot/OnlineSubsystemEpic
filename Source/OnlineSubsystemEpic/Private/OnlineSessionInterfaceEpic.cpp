@@ -1569,7 +1569,7 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 				EOS_SESSIONS_CREATESESSIONMODIFICATION_API_LATEST,
 				TCHAR_TO_UTF8(*SessionName.ToString()),
 				TCHAR_TO_UTF8(*bucketId),
-				static_cast<uint32_t>(NewSessionSettings.NumPublicConnections + NewSessionSettings.NumPrivateConnections),
+				static_cast<uint32_t>(NewSessionSettings.NumPublicConnections),
 				((FUniqueNetIdEpic)HostingPlayerId).ToProdcutUserId(),
 				session->SessionSettings.bUsesPresence
 			};
