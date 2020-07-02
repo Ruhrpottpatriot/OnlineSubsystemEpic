@@ -146,14 +146,14 @@ bool FOnlineSubsystemEpic::Init()
 
 	// Get the Developer tool port.
 	// If this isn't set, we default to 9999
-	if (!GConfig->GetInt(
+	if (!GConfig->GetString(
 		TEXT("OnlineSubsystemEpic"),
 		TEXT("DevToolPort"),
-		this->devToolPort,
+		this->DevToolAddress,
 		GEngineIni))
 	{
-		UE_LOG_ONLINE(Verbose, TEXT("DevToolPort not set in ini, defaulting to 9999"));
-		this->devToolPort = 9999;
+		UE_LOG_ONLINE(Verbose, TEXT("DevToolAddress not set in, defaulting to 127.0.0.1:9999"));
+		this->DevToolAddress = TEXT("127.0.0.1:9999");
 	}
 
 	// Read project name and version from config files
