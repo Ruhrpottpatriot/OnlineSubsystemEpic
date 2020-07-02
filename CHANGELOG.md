@@ -1,8 +1,8 @@
 # Changelog
 
-## [v0.3](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/tree/v0.3) (2020-07-02)
+## [v0.3_Presence](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/tree/v0.3_Presence) (2020-07-02)
 
-[Full Changelog](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/compare/Sessions_0.1...v0.3)
+[Full Changelog](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/compare/v0.2_Sessions...v0.3_Presence)
 
 **Implemented enhancements:**
 
@@ -20,13 +20,13 @@
 - Implement missing storage of external id mappings [\#10](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/pull/10) ([Ruhrpottpatriot](https://github.com/Ruhrpottpatriot))
 - Adds async task blueprint nodes and fixes some bugs in the identity interface [\#5](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/pull/5) ([CNDW](https://github.com/CNDW))
 
-## [Sessions_0.1](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/tree/Sessions_0.1) (2020-06-05)
+## [v0.2_Sessions](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/tree/v0.2_Sessions) (2020-06-05)
 
-[Full Changelog](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/compare/Identity_0.1...Sessions_0.1)
+[Full Changelog](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/compare/v0.1_Identity...v0.2_Sessions)
 
-## [Identity_0.1](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/tree/Identity_0.1) (2020-05-31)
+## [v0.1_Identity](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/tree/v0.1_Identity) (2020-05-31)
 
-[Full Changelog](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/compare/8b42b9d3f047675181bf70758d49541d40deb22d...Identity_0.1)
+[Full Changelog](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/compare/8b42b9d3f047675181bf70758d49541d40deb22d...v0.1_Identity)
 
 **Merged pull requests:**
 
