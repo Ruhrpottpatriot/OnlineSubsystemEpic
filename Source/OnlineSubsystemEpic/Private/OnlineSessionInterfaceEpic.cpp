@@ -7,7 +7,6 @@
 #include "SocketSubsystem.h"
 #include "Utilities.h"
 #include "eos_auth.h"
-#include "OnlineSubsystemEpic.h"
 
 // ---------------------------------------------
 // FOnlineSessionInfoEpic definitions
@@ -1504,7 +1503,7 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 			session->bHosting = true; // A person creating a session is always hosting
 
 			IOnlineIdentityPtr identityPtr = this->Subsystem->GetIdentityInterface();
-			if (identityPtr.IsValid() || identityPtr->GetPlayerNickname(HostingPlayerId).IsEmpty())
+			if (identityPtr.IsValid())
 			{
 				session->OwningUserName = identityPtr->GetPlayerNickname(HostingPlayerId);
 			}
