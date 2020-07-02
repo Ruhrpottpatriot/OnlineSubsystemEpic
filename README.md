@@ -107,6 +107,9 @@ DisableOverlay = <true>/<false>
 ; Indicates the SDK should skip initialization of the social overlay.
 ; Implied by DisableOverlay
 DisableSocialOverlay = <true>/<false>
+; Change if the Developer Auth Tool doesn't live on the local machine
+; or the port 9999 is not available. Default: 127.0.0.1:9999
+DevToolAddress=<IPv4 or IPv6 Address>
 ```
 
 ## Usage
