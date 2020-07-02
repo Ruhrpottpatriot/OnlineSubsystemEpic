@@ -284,7 +284,15 @@ enum class ELoginType : uint8
 	RefreshToken	UMETA(DisplayName = "Refresh Token"),
 	AccountPortal	UMETA(DisplayName = "Account Portal"),
 	PersistentAuth	UMETA(DisplayName = "Persistent Auth"),
+	ExternalAuth	UMETA(DisplayName = "External Auth"),
 };
+
+UENUM()
+enum class EExternalLoginType : uint8
+{
+	Steam		UMETA(DisplayName = "Steam"),
+};
+
 
 /**
  * User attribution constants for GetUserAttribute()

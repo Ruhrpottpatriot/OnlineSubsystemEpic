@@ -295,6 +295,27 @@ FOnlineIdentityInterfaceEpic::~FOnlineIdentityInterfaceEpic()
 
 bool FOnlineIdentityInterfaceEpic::Login(int32 LocalUserNum, const FOnlineAccountCredentials& AccountCredentials)
 {
+	// The account credentials struct has the following format
+	// The "Type" field is a string that encodes the login system and login type for that system.
+	// Both parts are separated by a single ":" character. The login system must either be "EAS" or "CONNECT",
+	// while the login type is a string representation of "ELoginType" for "EAS"
+	// and "EOS_EExternalCredentialType" when using "CONNECT"
+	// The "Id" and "Token" fields encode different values depending on the login type set. 
+	// If a value in the table is marked as "N/A", no values besides the "Type" field need to be set
+	// Note: In the future this might be simplified by a helper class that allows the  fields to be set and offer validation
+	// | System    | Type                     | Mapping                                         |
+	// |-------- - | ------------------------ | ------------------------------------------------|
+	// | EAS       | Password                 | Username -> Id, Password -> Token               |
+	// |           | Exchange Code            | Exchange Code -> Id                             |
+	// |           | Device Code              | N / A                                           |
+	// |           | Developer                | Account Id -> Id                                |
+	// |           | Account Portal           | N / A                                           |
+	// |           | Persistent Auth          | N / A                                           |
+	// |           | External Auth            | External System -> Id, External Token -> Token  |
+	// | CONNECT   | Apple, Nintendo (NSA)    | Display Name -> Id                              |
+	// |           | Other                    | N / A                                           |
+
+
 	FString error;
 	bool success = false;
 
@@ -341,10 +362,15 @@ bool FOnlineIdentityInterfaceEpic::Login(int32 LocalUserNum, const FOnlineAccoun
 			// and handle login in the callback
 			else
 			{
-				// Create credentials
-				EOS_Auth_Credentials credentials = {};
-				credentials.ApiVersion = EOS_AUTH_CREDENTIALS_API_LATEST;
-				ELoginType const loginType = FUtils::GetEnumValueFromString<ELoginType>("ELoginType", right);
+				// Create credentials struct
+				EOS_Auth_Credentials credentials = {
+					EOS_AUTH_CREDENTIALS_API_LATEST
+				};
+
+				// Get which EAS login type we want to use
+				ELoginType loginType = FUtils::GetEnumValueFromString<ELoginType>(TEXT("ELoginType"), right);
+
+				// Convert the Id and Token fields to char const* for later use
 				char const* idPtr = TCHAR_TO_ANSI(*AccountCredentials.Id);
 				char const* tokenPtr = TCHAR_TO_ANSI(*AccountCredentials.Token);
 
@@ -393,9 +419,30 @@ bool FOnlineIdentityInterfaceEpic::Login(int32 LocalUserNum, const FOnlineAccoun
 					credentials.Type = EOS_ELoginCredentialType::EOS_LCT_PersistentAuth;
 					break;
 				}
+				case ELoginType::ExternalAuth:
+				{
+					// Set ther type to external and copy the token. These are always the same
+					credentials.Type = EOS_ELoginCredentialType::EOS_LCT_ExternalAuth;
+					credentials.Token = tokenPtr;
+
+					// Check which external login provider we want to use and then set the external type to the appropriate value
+					EExternalLoginType externalLoginType = FUtils::GetEnumValueFromString<EExternalLoginType>(TEXT("EExternalLoginType"), AccountCredentials.Id);
+					switch (externalLoginType)
+					{
+					case EExternalLoginType::Steam:
+					{
+						credentials.ExternalType = EOS_EExternalCredentialType::EOS_ECT_STEAM_APP_TICKET;
+						break;
+					}
+					default:
+						error = FString::Printf(TEXT("Using unsupported external login type: %s"), *AccountCredentials.Id);
+						break;
+					}
+					break;
+				}
 				default:
 				{
-					UE_LOG_ONLINE_IDENTITY(Fatal, TEXT("Login of type %s not supported"), *AccountCredentials.Type);
+					UE_LOG_ONLINE_IDENTITY(Fatal, TEXT("Login of type \"%s\" not supported"), *AccountCredentials.Type);
 					return false;
 				}
 				}
@@ -415,7 +462,8 @@ bool FOnlineIdentityInterfaceEpic::Login(int32 LocalUserNum, const FOnlineAccoun
 		}
 		else if (left.Equals(TEXT("CONNECT"), ESearchCase::IgnoreCase))
 		{
-			TPair< EOS_EExternalCredentialType, bool > externalTypeTuple = FUtils::ExternalCredentialsTypeFromString(right);
+			// Convert the right part of the type string into a EOS external credentials enum.
+			TPair<EOS_EExternalCredentialType, bool > externalTypeTuple = FUtils::ExternalCredentialsTypeFromString(right);
 			EOS_EExternalCredentialType externalType = externalTypeTuple.Get<0>();
 
 			// Make sure we have a valid connect type
@@ -456,7 +504,7 @@ bool FOnlineIdentityInterfaceEpic::Login(int32 LocalUserNum, const FOnlineAccoun
 				FLoginCompleteAdditionalData* additionalData = new FLoginCompleteAdditionalData{
 					this,
 					LocalUserNum,
-					nullptr
+					nullptr // Since this is the connect login flow, no EAID is available
 				};
 				EOS_Connect_Login(this->connectHandle, &loginOptions, additionalData, &FOnlineIdentityInterfaceEpic::EOS_Connect_OnLoginComplete);
 
