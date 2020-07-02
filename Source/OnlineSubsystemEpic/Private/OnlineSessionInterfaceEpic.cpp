@@ -7,6 +7,7 @@
 #include "SocketSubsystem.h"
 #include "Utilities.h"
 #include "eos_auth.h"
+#include "OnlineSubsystemEpic.h"
 
 // ---------------------------------------------
 // FOnlineSessionInfoEpic definitions
@@ -1544,7 +1545,7 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 			session->bHosting = true; // A person creating a session is always hosting
 
 			IOnlineIdentityPtr identityPtr = this->Subsystem->GetIdentityInterface();
-			if (identityPtr.IsValid())
+			if (identityPtr.IsValid() || identityPtr->GetPlayerNickname(HostingPlayerId).IsEmpty())
 			{
 				session->OwningUserName = identityPtr->GetPlayerNickname(HostingPlayerId);
 			}
@@ -1582,33 +1583,14 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 				this->CreateSessionModificationHandle(NewSessionSettings, modificationHandle, err);
 				if (err.IsEmpty())
 				{
-					// Modify the local session with the modified session options
-					EOS_Sessions_UpdateSessionModificationOptions sessionModificationOptions = {
-						EOS_SESSIONS_UPDATESESSIONMODIFICATION_API_LATEST,
-						TCHAR_TO_UTF8(*SessionName.ToString())
+					// Update the remote session
+					EOS_Sessions_UpdateSessionOptions updateSessionOptions = {
+						EOS_SESSIONS_UPDATESESSION_API_LATEST,
+						modificationHandle
 					};
-					eosResult = EOS_Sessions_UpdateSessionModification(this->sessionsHandle, &sessionModificationOptions, &modificationHandle);
-					if (eosResult == EOS_EResult::EOS_Success)
-					{
-						// Update the remote session
-						EOS_Sessions_UpdateSessionOptions updateSessionOptions = {
-							EOS_SESSIONS_UPDATESESSION_API_LATEST,
-							modificationHandle
-						};
-						EOS_Sessions_UpdateSession(this->sessionsHandle, &updateSessionOptions, this, &FOnlineSessionEpic::OnEOSCreateSessionComplete);
-
-						result = ONLINE_IO_PENDING;
-					}
-					else
-					{
-						char const* resultStr = EOS_EResult_ToString(eosResult);
-						err = FString::Printf(TEXT("[EOS SDK] Error modifying session options - Error Code: %s"), UTF8_TO_TCHAR(resultStr));
-
-						// We failed in creating a new session, so we need to clean up the one we created
-						this->RemoveNamedSession(SessionName);
-
-						result = ONLINE_FAIL;
-					}
+					EOS_Sessions_UpdateSession(this->sessionsHandle, &updateSessionOptions, this, &FOnlineSessionEpic::OnEOSCreateSessionComplete);
+					
+					result = ONLINE_IO_PENDING;
 				}
 			}
 			else
