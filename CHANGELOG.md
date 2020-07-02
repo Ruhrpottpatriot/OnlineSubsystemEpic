@@ -4,10 +4,13 @@
 
 [Full Changelog](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/compare/v0.3_Presence...HEAD)
 
+**Breaking changes:**
+
+- Make address of DevAuthTool customizable [\#24](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/pull/24) ([Ruhrpottpatriot](https://github.com/Ruhrpottpatriot))
+
 **Implemented enhancements:**
 
 - DevAuthTool should have the address customizable [\#23](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/issues/23)
-- Make address of DevAuthTool customizable [\#24](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/pull/24) ([Ruhrpottpatriot](https://github.com/Ruhrpottpatriot))
 
 ## [v0.3_Presence](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/tree/v0.3_Presence) (2020-07-02)
 
