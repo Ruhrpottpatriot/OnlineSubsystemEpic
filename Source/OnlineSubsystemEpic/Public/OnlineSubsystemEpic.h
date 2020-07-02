@@ -81,7 +81,7 @@ PACKAGE_SCOPE:
 
 	FOnlinePresenceEpicPtr PresenceInterface;
 
-	int32 devToolPort;
+	FString DevToolAddress;
 };
 
 

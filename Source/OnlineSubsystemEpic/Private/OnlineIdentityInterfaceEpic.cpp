@@ -399,10 +399,8 @@ bool FOnlineIdentityInterfaceEpic::Login(int32 LocalUserNum, const FOnlineAccoun
 				}
 				case ELoginType::Developer:
 				{
-					FString hostStr = FString::Printf(TEXT("127.0.0.1:%d"), this->subsystemEpic->devToolPort);
-
-					UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Logging In with Host: %s"), *hostStr);
-					credentials.Id = TCHAR_TO_ANSI(*hostStr);
+					UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Logging In with Host: %s"), *this->subsystemEpic->DevToolAddress);
+					credentials.Id = TCHAR_TO_ANSI(*this->subsystemEpic->DevToolAddress);
 					credentials.Token = idPtr;
 					credentials.Type = EOS_ELoginCredentialType::EOS_LCT_Developer;
 					break;
