@@ -99,6 +99,9 @@ CacheDirectory = <AbsoluteCachePath>
 ; When the budget is met or exceeded (or if no work available), the tasks will return.
 ; This allows the SDK to amortize the cost of work across multiple frames in the event that a lot of work is queued for processing.
 ; Zero is interpreted as "perform all available work"
+; The codomain of this variable the same as an unsigned 32-bit integer,
+; although it's represented as a double in this config, since UE4 doesn't allow
+; retrieval of unsigned 32-bit integers from code.
 TickBudget = <DurationInMs>
 ; Indicates the SDK should skip initialization of the overlay, used by the in-app purchase flow and social overlay.
 ; Implied by LoadingInEditor

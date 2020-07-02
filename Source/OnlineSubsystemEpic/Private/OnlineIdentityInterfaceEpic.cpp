@@ -464,7 +464,7 @@ bool FOnlineIdentityInterfaceEpic::Login(int32 LocalUserNum, const FOnlineAccoun
 			}
 			else
 			{
-				error == FString::Printf(TEXT("\"%s\" is not a recognized connect type"), *right);
+				error = FString::Printf(TEXT("\"%s\" is not a recognized connect type"), *right);
 			}
 		}
 		else if (left.IsEmpty() || right.IsEmpty())
@@ -493,7 +493,7 @@ bool FOnlineIdentityInterfaceEpic::Login(int32 LocalUserNum, const FOnlineAccoun
 bool FOnlineIdentityInterfaceEpic::AutoLogin(int32 LocalUserNum)
 {
 	FOnlineAccountCredentials credentials;
-	credentials.Type = FUtils::GetEnumValueAsString<ELoginType>("ELoginType", ELoginType::PersistentAuth);
+	credentials.Type = FString("EAS:PersistentAuth");
 
 	return Login(LocalUserNum, credentials);
 }
