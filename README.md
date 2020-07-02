@@ -42,7 +42,7 @@ Currently there exists 36 interfaces in the online subsystem, of which 26 are pu
 | OnlineSharing         |         :x:           |
 | OnlineUser            |       :warning:       | See [Known Limitations](KnownLimitations.md) |
 | OnlineMessage         |         :x:           |
-| OnlinePresence        |         :x:           |
+| OnlinePresence        |       :warning:       | See [Known Limitations](KnownLimitations.md) |
 | OnlineChat            |         :x:           |
 | OnlineStats           |         :x:           |
 | OnlineTurnBased       |         :x:           |
