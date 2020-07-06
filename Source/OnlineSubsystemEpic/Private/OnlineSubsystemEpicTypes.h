@@ -4,7 +4,7 @@
 #include "OnlineSubsystemEpicPackage.h"
 #include "OnlineSubsystemTypes.h"
 #include "IPAddress.h"
-#include "eos_sdk.h"
+#include "eos_common.h"
 
 #define LOGIN_TYPE_EAS TEXT("EAS")
 #define LOGIN_TYPE_CONNECT TEXT("CONNECT")
@@ -79,15 +79,38 @@ public:
 	 * @param Src the id to copy
 	 */
 	explicit FUniqueNetIdEpic(const FUniqueNetId& OtherId)
-		: Type(EPIC_SUBSYSTEM), epicAccountId(nullptr)
+		: Type(EPIC_SUBSYSTEM)
+		, epicAccountId(nullptr)
 	{
-		FString idString = OtherId.ToString();
-		check(!idString.IsEmpty());
+		if (OtherId.GetType() == EPIC_SUBSYSTEM)
+		{
+			uint8 const* bytes = OtherId.GetBytes();
 
-		EOS_ProductUserId puid = ProductUserIDFromString(idString);
-		check(EOS_ProductUserId_IsValid(puid));
+			EOS_ProductUserId puid = EOS_ProductUserId_FromString((char const*)bytes);
+			check(EOS_ProductUserId_IsValid(puid));
+			this->productUserId = puid;
 
-		this->productUserId = puid;
+			// If the size of the other id is greater than a PUID's max length
+			// we assume that OtherId has a valid EAID
+			if (OtherId.GetSize() > EOS_PRODUCTUSERID_MAX_LENGTH)
+			{
+				EOS_EpicAccountId eaid = EOS_EpicAccountId_FromString((char const*)(bytes + EOS_PRODUCTUSERID_MAX_LENGTH));
+				check(EOS_EpicAccountId_IsValid(eaid));
+				this->epicAccountId = eaid;
+			}
+		}
+		else
+		{
+			// Construct a PUID from the string representation of OtherId
+			// Only guarantees grammatical correctness
+			FString idString = OtherId.ToString();
+			check(!idString.IsEmpty());
+
+			EOS_ProductUserId puid = ProductUserIDFromString(idString);
+			check(EOS_ProductUserId_IsValid(puid));
+
+			this->productUserId = puid;
+		}
 	}
 
 	FUniqueNetIdEpic(const EOS_ProductUserId& InProductUserId, const EOS_EpicAccountId& InEpicAccountId)
@@ -111,14 +134,35 @@ public:
 
 	virtual const uint8* GetBytes() const override
 	{
-		// Only the mandatory PUID should be considered for GetBytes()
-		return (const uint8*)this->ToString().GetCharArray().GetData();
+		int32 buffLength = this->GetSize();
+		uint8* idData = new uint8[buffLength];
+		if (!idData)
+		{
+			return nullptr;
+		}
+
+		// Convert the PUID to a char array with size EOS_PRODUCTUSERID_MAX_LENGTH and store it at position 0
+		int32_t puidBufSize = EOS_PRODUCTUSERID_MAX_LENGTH;
+		char* puidData = (char*)idData;
+		EOS_EResult Result = EOS_ProductUserId_ToString(this->productUserId, puidData, &puidBufSize);
+
+		// Only take the EAID into account if it's valid
+		if (buffLength > EOS_PRODUCTUSERID_MAX_LENGTH)
+		{
+			// Convert the epic account id to a char array with EOS_EPICACCOUNTID_MAX_LENGTH length
+			// and store it at position EOS_PRODUCTUSERID_MAX_LENGTH
+			int32_t eaidBufSize = EOS_EPICACCOUNTID_MAX_LENGTH;
+			char* eaidData = (char*)(idData + EOS_PRODUCTUSERID_MAX_LENGTH);
+			Result = EOS_ProductUserId_ToString(this->productUserId, eaidData, &eaidBufSize);
+		}
+
+		return (const uint8*)idData;
 	}
 
 	virtual int32 GetSize() const override
 	{
-		// The size of the data is the size of the PUID and the size of the EAID, if the latter is valid.
-		return sizeof(this->productUserId) + (this->epicAccountId ? sizeof(this->epicAccountId) : 0);
+		// The size of the data is the maximal length of the PUID and the maximal size of the EAID, if the latter is valid.
+		return EOS_PRODUCTUSERID_MAX_LENGTH + (this->epicAccountId ? EOS_EPICACCOUNTID_MAX_LENGTH : 0);
 	}
 
 	virtual bool IsValid() const override
@@ -127,7 +171,7 @@ public:
 	}
 
 	/** Check if the underlying EpicAccountId is valid. */
-	bool IsEpicAccountIdValid() const 
+	bool IsEpicAccountIdValid() const
 	{
 		return (bool)EOS_EpicAccountId_IsValid(this->epicAccountId);
 	}
@@ -185,8 +229,8 @@ public:
 		return nullptr;
 	}
 
-	/** 
-	  * Converts the given ProductUserId to a string. 
+	/**
+	  * Converts the given ProductUserId to a string.
 	  * @param InAccountId - The PUID to convert
 	  * @returns - A string representing a valid PUId, empty otherwise.
 	  */
@@ -333,7 +377,7 @@ public:
 		: UserIdPtr(InUserIdPtr)
 	{
 	}
-		
+
 	virtual ~FUserOnlineAccountEpic() = default;
 };
 

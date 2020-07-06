@@ -1906,7 +1906,7 @@ bool FOnlineSessionEpic::FindSessions(const FUniqueNetId& SearchingPlayerId, con
 	uint32 result = ONLINE_FAIL;
 	SearchSettings->SearchState = EOnlineAsyncTaskState::NotStarted;
 
-	FUniqueNetIdEpic const epicNetId = (FUniqueNetIdEpic)SearchingPlayerId;
+	FUniqueNetIdEpic const epicNetId = static_cast<FUniqueNetIdEpic>(SearchingPlayerId);
 	if (epicNetId.IsEpicAccountIdValid())
 	{
 		if (SearchSettings->bIsLanQuery)
