@@ -1545,8 +1545,14 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 						modificationHandle
 					};
 					EOS_Sessions_UpdateSession(this->sessionsHandle, &updateSessionOptions, this, &FOnlineSessionEpic::OnEOSCreateSessionComplete);
-					
+
+					// Mark the creation operation as pending
 					result = ONLINE_IO_PENDING;
+				}
+				else
+				{
+					// We failed to create a new session, remove it from the local list
+					this->RemoveNamedSession(SessionName);
 				}
 			}
 			else
