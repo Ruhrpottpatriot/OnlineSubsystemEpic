@@ -1555,8 +1555,6 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 
 			session->SessionSettings.BuildUniqueId = GetBuildUniqueId();
 
-			result = ONLINE_IO_PENDING;
-
 			// Interface with EOS
 			FString bucketId;
 			if (!NewSessionSettings.Get(TEXT("BucketId"), bucketId))
@@ -1588,8 +1586,14 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 						modificationHandle
 					};
 					EOS_Sessions_UpdateSession(this->sessionsHandle, &updateSessionOptions, this, &FOnlineSessionEpic::OnEOSCreateSessionComplete);
-					
+
+					// Mark the creation operation as pending
 					result = ONLINE_IO_PENDING;
+				}
+				else
+				{
+					// We failed to create a new session, remove it from the local list
+					this->RemoveNamedSession(SessionName);
 				}
 			}
 			else
@@ -1597,10 +1601,8 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 				char const* resultStr = EOS_EResult_ToString(eosResult);
 				err = FString::Printf(TEXT("[EOS SDK] Error creating session - Error Code: %s"), UTF8_TO_TCHAR(resultStr));
 
-				// We failed in creating a new session, so we need to clean up the one we created
+				// We failed to create a new session, remove it from the local list
 				this->RemoveNamedSession(SessionName);
-
-				result = ONLINE_FAIL;
 			}
 
 			// No matter the update result, release the memory for the SessionModification handle
