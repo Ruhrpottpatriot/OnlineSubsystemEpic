@@ -103,7 +103,7 @@ PACKAGE_SCOPE:
 	 * @Value1 - A handle to the EOS session search. If the search isn't running, the handle will be invalid
 	 * @Value2 - The local session search settings
 	 */
-	TMap<double, TTuple<TSharedPtr<EOS_HSessionSearch>, TSharedRef<FOnlineSessionSearch>>> SessionSearches;
+	TMap<double, TTuple<EOS_HSessionSearch, TSharedRef<FOnlineSessionSearch>>> SessionSearches;
 
 	/**
 	 * Creates a new instance of the FOnlineSessionEpic class.
