@@ -98,7 +98,7 @@ void FOnlinePresenceEpic::EOS_OnPresenceChanged(EOS_Presence_PresenceChangedCall
 
 			EOS_Connect_GetExternalAccountMappingsOptions getExternalMappingOpts = {
 				EOS_CONNECT_GETEXTERNALACCOUNTMAPPINGS_API_LATEST,
-				fittingNetId->ToProdcutUserId(),
+				fittingNetId->ToProductUserId(),
 				EOS_EExternalAccountType::EOS_EAT_EPIC,
 				TCHAR_TO_UTF8(*FUniqueNetIdEpic::EpicAccountIdToString(data->PresenceUserId))
 			};
@@ -142,7 +142,7 @@ void FOnlinePresenceEpic::EOS_OnPresenceChanged(EOS_Presence_PresenceChangedCall
 				char const* ids[1] = { TCHAR_TO_UTF8(*FUniqueNetIdEpic::EpicAccountIdToString(data->PresenceUserId)) };
 				EOS_Connect_QueryExternalAccountMappingsOptions queryExternalOptions = {
 					EOS_CONNECT_QUERYEXTERNALACCOUNTMAPPINGS_API_LATEST,
-					fittingNetId->ToProdcutUserId(),
+					fittingNetId->ToProductUserId(),
 					EOS_EExternalAccountType::EOS_EAT_EPIC,
 					ids,
 					EOS_CONNECT_QUERYEXTERNALACCOUNTMAPPINGS_MAX_ACCOUNT_IDS

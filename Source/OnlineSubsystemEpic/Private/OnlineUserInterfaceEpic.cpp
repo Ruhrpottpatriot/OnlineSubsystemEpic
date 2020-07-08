@@ -110,7 +110,7 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 	EOS_EResult result = Data->ResultCode;
 	if (result != EOS_EResult::EOS_Success)
 	{
-		error = FString::Printf(TEXT("[EOS SDK] Server returned an error. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
+		error = FString::Printf(TEXT("[EOS SDK] Server returned an error. Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
 	}
 	else
 	{
@@ -148,9 +148,15 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 	TArray<bool> completedQueries = query->Get<1>();
 	TArray<FString> errors = query->Get<2>();
 
+	int32 CurrentIndex = additionalData->CurrentNumberQuery;
 	//We need to update the tuple here - otherwise we never complete the query! - Mike
-	//TODO - update the local number of queries somehow
-	completedQueries[additionalData->CurrentQueryUserIndex % thisPtr->CurrentQueryIndices[additionalData->CurrentNumberQuery]] = true;
+	if (result != EOS_EResult::EOS_Success)
+	{
+		// Change the error message so that the end user knows at which sub-query index the error occurred.
+		errors[CurrentIndex] = FString::Printf(TEXT("SubQueryId: %d, Message: %s"), CurrentIndex, *error);
+	}
+	
+	completedQueries[additionalData->CurrentQueryUserIndex] = true;
 	thisPtr->userQueries[additionalData->StartTime] = MakeTuple(userIds, completedQueries, errors);
 
 	checkf(userIds.Num() == errors.Num() && errors.Num() == completedQueries.Num(), TEXT("Amount(UserIds, completedQueries, errors) mismatch."));
@@ -159,17 +165,14 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 	int32 doneQueries = 0;
 	for (int32 i = 0; i < errors.Num(); ++i)
 	{
+		//False indicates that there has been an error since 
 		if (completedQueries[i])
 		{
-			// Change the error message so that the end user knows at which sub-query index the error occurred.
-			errors[i] = FString::Printf(TEXT("SubQueryId: %d, Message: %s"), i, *errors[i]);
 			doneQueries += 1;
 		}
 	}
 
 	thisPtr->UserQueryLock.Unlock();
-
-	error = FString::Printf(TEXT("[EOS SDK] Server returned an error. Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
 
 	// If all queries are done, log the result of the function
 	if (doneQueries == userIds.Num())
@@ -201,7 +204,7 @@ void FOnlineUserEpic::OnEOSQueryUserInfoByDisplayNameComplete(EOS_UserInfo_Query
 	{
 		EOS_Connect_GetExternalAccountMappingsOptions getExternalAccountMappingsOptions = {
 				EOS_CONNECT_GETEXTERNALACCOUNTMAPPINGS_API_LATEST,
-				additionalData->LocalUserId.ToProdcutUserId(),
+				additionalData->LocalUserId.ToProductUserId(),
 				EOS_EExternalAccountType::EOS_EAT_EPIC,
 				TCHAR_TO_UTF8(*FUniqueNetIdEpic::EpicAccountIdToString(Data->TargetUserId))
 		};
@@ -259,7 +262,7 @@ void FOnlineUserEpic::OnEOSQueryExternalIdMappingsByDisplayNameComplete(EOS_User
 		{
 			EOS_Connect_GetExternalAccountMappingsOptions getExternalAccountMappingsOptions = {
 				EOS_CONNECT_GETEXTERNALACCOUNTMAPPINGS_API_LATEST,
-				additionalData->QueryUserId->ToProdcutUserId(),
+				additionalData->QueryUserId->ToProductUserId(),
 				EOS_EExternalAccountType::EOS_EAT_EPIC,
 				TCHAR_TO_UTF8(*FUniqueNetIdEpic::EpicAccountIdToString(Data->TargetUserId))
 			};
@@ -342,7 +345,7 @@ void FOnlineUserEpic::OnEOSQueryExternalIdMappingsByDisplayNameComplete(EOS_User
 
 		EOS_Connect_GetExternalAccountMappingsOptions getExternalAccountMappingsOptions = {
 			EOS_CONNECT_GETEXTERNALACCOUNTMAPPINGS_API_LATEST,
-			additionalData->QueryUserId->ToProdcutUserId(),
+			additionalData->QueryUserId->ToProductUserId(),
 			EOS_EExternalAccountType::EOS_EAT_EPIC,
 			TCHAR_TO_UTF8(*FUniqueNetIdEpic::EpicAccountIdToString(Data->LocalUserId))
 		};
@@ -504,7 +507,7 @@ void FOnlineUserEpic::OnEOSQueryExternalIdMappingsByIdComplete(EOS_UserInfo_Quer
 
 		EOS_Connect_GetExternalAccountMappingsOptions getExternalAccountMappingsOptions = {
 			EOS_CONNECT_GETEXTERNALACCOUNTMAPPINGS_API_LATEST,
-			additionalData->QueryUserId->ToProdcutUserId(),
+			additionalData->QueryUserId->ToProductUserId(),
 			EOS_EExternalAccountType::EOS_EAT_EPIC,
 			TCHAR_TO_UTF8(*FUniqueNetIdEpic::EpicAccountIdToString(Data->LocalUserId))
 		};
@@ -656,7 +659,7 @@ bool FOnlineUserEpic::GetAllUserInfo(int32 LocalUserNum, TArray< TSharedRef<clas
 						EOS_HConnect connectHandle = EOS_Platform_GetConnectInterface(this->Subsystem->PlatformHandle);
 						EOS_Connect_GetExternalAccountMappingsOptions getExternalAccountMappingsOptions = {
 							EOS_CONNECT_GETEXTERNALACCOUNTMAPPINGS_API_LATEST,
-							localUserNetId->ToProdcutUserId(),
+							localUserNetId->ToProductUserId(),
 							EOS_EExternalAccountType::EOS_EAT_EPIC,
 							TCHAR_TO_UTF8(*FUniqueNetIdEpic::EpicAccountIdToString(eaid))
 						};

@@ -69,6 +69,7 @@ public:
 		, epicAccountId(nullptr)
 	{
 	}
+	
 
 	/**
 	 * Constructs this object with the string value of the specified net id.
@@ -111,6 +112,14 @@ public:
 
 			this->productUserId = puid;
 		}
+	}
+
+	//Used by friends and presence
+	FUniqueNetIdEpic(const EOS_EpicAccountId& InEpicAccountId)
+		: Type(EPIC_SUBSYSTEM)
+		, productUserId(nullptr)
+		, epicAccountId(InEpicAccountId)
+	{
 	}
 
 	FUniqueNetIdEpic(const EOS_ProductUserId& InProductUserId, const EOS_EpicAccountId& InEpicAccountId)
@@ -207,7 +216,7 @@ public:
 	  * Keep in mind that this returns a non owning pointer
 	  * which might become invalid at any given point.
 	  */
-	EOS_ProductUserId ToProdcutUserId() const
+	EOS_ProductUserId ToProductUserId() const
 	{
 		bool puidValid = (bool)EOS_ProductUserId_IsValid(this->productUserId);
 		check(puidValid);

@@ -11,12 +11,9 @@
 
 // FOnlineFriendEpic
 FOnlineFriendEpic::FOnlineFriendEpic(const EOS_EpicAccountId& InUserId)
-	: FriendStatus(EFriendStatus::NotFriends)
+	: UserId(new FUniqueNetIdEpic(InUserId)),
+	FriendStatus(EFriendStatus::NotFriends)
 {
-	TSharedRef<FUniqueNetIdEpic> epicNetId = MakeShared<FUniqueNetIdEpic>("");
-	epicNetId->SetEpicAccountId(InUserId);
-
-	UserId = epicNetId;
 }
 
 TSharedRef<const FUniqueNetId> FOnlineFriendEpic::GetUserId() const
@@ -103,7 +100,7 @@ bool FOnlineFriendInterfaceEpic::GetFriendsList(int32 InLocalUserNum, const FStr
 bool FOnlineFriendInterfaceEpic::ReadFriendsList(int32 InLocalUserNum, const FString& ListName,
 	const FOnReadFriendsListComplete& Delegate)
 {
-	return false;
+	//return false;
 	
 	UE_LOG_ONLINE_FRIEND(Log, TEXT("%s: calling friend query."), __FUNCTIONW__);
 
@@ -282,8 +279,10 @@ void FOnlineFriendInterfaceEpic::OnEOSQueryFriendsComplete(EOS_Friends_QueryFrie
 				StatusOptions.TargetUserId = FriendUserId;
 
 				EOS_EFriendsStatus FriendStatus = EOS_Friends_GetStatus(ThisPtr->GetFriendsHandle(), &StatusOptions);
-				
+
 				// Add to list
+				//TSharedPtr<FOnlineFriendEpic> FriendPtr = MakeShareable(new FOnlineFriendEpic(FriendUserId));
+				//TSharedRef<FUniqueNetIdEpic const> epicNetId = StaticCastSharedRef<FUniqueNetIdEpic const>(FriendPtr.Get().AsShared());
 				TSharedRef<FOnlineFriendEpic> Friend(new FOnlineFriendEpic(FriendUserId));
 				
 				FriendsList.Friends.Add(Friend);
@@ -298,7 +297,7 @@ void FOnlineFriendInterfaceEpic::OnEOSQueryFriendsComplete(EOS_Friends_QueryFrie
 
 		//Query the array of friends
 		ThisPtr->Subsystem->GetUserInterface()->QueryUserInfo(ThisPtr->LocalUserNum, UserIds);
-		//TODO - Do a Finalize call where I can actually set the names of the friends
+		//TODO - Possibly do a Finalize call through a QueryAsyncTask call
 	}
 	else {
 		UE_LOG_ONLINE_FRIEND(Error, TEXT("%s asynchronous call was not successful!"), __FUNCTIONW__);

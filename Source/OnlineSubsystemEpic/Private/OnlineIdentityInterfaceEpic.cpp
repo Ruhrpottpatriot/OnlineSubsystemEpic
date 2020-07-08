@@ -580,7 +580,7 @@ TArray<TSharedPtr<FUserOnlineAccount>> FOnlineIdentityInterfaceEpic::GetAllUserA
 TSharedPtr<FUserOnlineAccount> FOnlineIdentityInterfaceEpic::GetUserAccount(const FUniqueNetId& UserId) const
 {
 	TSharedRef<FUniqueNetIdEpic const> epicNetId = StaticCastSharedRef<FUniqueNetIdEpic const>(UserId.AsShared());
-	EOS_ProductUserId puid = epicNetId->ToProdcutUserId();
+	EOS_ProductUserId puid = epicNetId->ToProductUserId();
 
 	return this->OnlineUserAcccountFromPUID(puid);
 }
@@ -609,7 +609,7 @@ ELoginStatus::Type FOnlineIdentityInterfaceEpic::GetLoginStatus(const FUniqueNet
 	FUniqueNetIdEpic epicUserId = (FUniqueNetIdEpic)UserId;
 	if (epicUserId.IsValid())
 	{
-		EOS_ELoginStatus loginStatus = EOS_Connect_GetLoginStatus(this->connectHandle, epicUserId.ToProdcutUserId());
+		EOS_ELoginStatus loginStatus = EOS_Connect_GetLoginStatus(this->connectHandle, epicUserId.ToProductUserId());
 		switch (loginStatus)
 		{
 		case EOS_ELoginStatus::EOS_LS_NotLoggedIn:

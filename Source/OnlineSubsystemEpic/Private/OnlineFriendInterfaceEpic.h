@@ -60,7 +60,7 @@ public:
 	}
 
 	/** User Id represented as a FUniqueNetId */
-	TSharedRef<const FUniqueNetIdEpic> UserId;
+	TSharedRef<const FUniqueNetId> UserId;
 	/** Any addition account data associated with the friend */
 	TMap<FString, FString> AccountData;
 
