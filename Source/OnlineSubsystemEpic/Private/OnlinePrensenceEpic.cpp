@@ -478,8 +478,7 @@ EOnlineCachedResult::Type FOnlinePresenceEpic::GetCachedPresence(const FUniqueNe
 				// Get the last time the querying user was online.
 				FString lastOnlineString;
 				userAcc->GetUserAttribute(USER_ATTR_LAST_LOGIN_TIME, lastOnlineString);
-				OutPresence->LastOnline = FDateTime::FromUnixTimestamp(FCString::Atoi64(*lastOnlineString));
-
+				
 				IOnlineSessionPtr sessionPtr = this->subsystem->GetSessionInterface();
 
 				// Get the session id

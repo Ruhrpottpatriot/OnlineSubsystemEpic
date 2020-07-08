@@ -318,6 +318,22 @@ public:
 	}
 };
 
+/**
+ * An enumeration of the different friendship statuses. Modified from eos_friends_types.h
+ */
+UENUM()
+enum class EFriendStatus : uint8
+{
+	/** The two accounts have no friendship status */
+	NotFriends = 0,
+	/** The local account has sent a friend invite to the other account */
+	InviteSent = 1,
+	/** The other account has sent a friend invite to the local account */
+	InviteReceived = 2,
+	/** The accounts have accepted friendship */
+	Friends = 3
+};
+
 UENUM()
 enum class ELoginType : uint8
 {
