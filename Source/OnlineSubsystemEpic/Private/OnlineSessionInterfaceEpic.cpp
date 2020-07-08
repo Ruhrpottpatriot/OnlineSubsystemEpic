@@ -242,7 +242,7 @@ bool FOnlineSessionEpic::GetConnectStringFromSessionInfo(TSharedPtr<FOnlineSessi
 }
 
 /** Takes the session search handle and populates it the session query settings */
-void FOnlineSessionEpic::UpdateSessionSearchParameters(TSharedRef<FOnlineSessionSearch> const& sessionSearchPtr, EOS_HSessionSearch const eosSessionSearch, FString& error)
+void FOnlineSessionEpic::UpdateSessionSearchParameters(TSharedRef<FOnlineSessionSearch> const& sessionSearchPtr, EOS_HSessionSearch eosSessionSearch, FString& error)
 {
 	FOnlineSearchSettings SearchSettings = sessionSearchPtr->QuerySettings;
 	for (auto param : SearchSettings.SearchParams)
@@ -1857,7 +1857,7 @@ bool FOnlineSessionEpic::FindSessions(const FUniqueNetId& SearchingPlayerId, con
 	{
 		if (SearchSettings->bIsLanQuery)
 		{
-			error = TEXT("LAN matches are not supported.");
+			error = TEXT("LAN searches are not supported.");
 		}
 		else
 		{
@@ -1867,7 +1867,7 @@ bool FOnlineSessionEpic::FindSessions(const FUniqueNetId& SearchingPlayerId, con
 			};
 
 			// Handle where the session search is stored
-			EOS_HSessionSearch sessionSearchHandle = {};
+			EOS_HSessionSearch sessionSearchHandle = nullptr;
 			EOS_EResult eosResult = EOS_Sessions_CreateSessionSearch(this->sessionsHandle, &sessionSearchOpts, &sessionSearchHandle);
 			if (eosResult == EOS_EResult::EOS_Success)
 			{
