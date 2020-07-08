@@ -3,10 +3,10 @@
 #include "CoreMinimal.h"
 #include "eos_friends.h"
 #include "OnlineIdentityInterfaceEpic.h"
+#include "OnlinePresenceInterface.h"
 #include "Interfaces/OnlineFriendsInterface.h"
 #include "OnlineSubsystemEpic/Private/OnlineSubsystemEpicTypes.h"
 #include "Interfaces/OnlineUserInterface.h"
-#include "Interfaces/OnlinePresenceInterface.h"
 
 class FOnlineSubsystemEpic;
 
@@ -101,7 +101,7 @@ protected:
 	/** list of friends */
 	struct FEpicFriendsList
 	{
-		TArray< TSharedRef<FOnlineFriendEpic> > Friends;
+		TArray<TSharedRef<FOnlineFriendEpic> > Friends;
 	};
 	/** map of local user idx to friends */
 	TMap<int32, FEpicFriendsList> FriendsLists;
@@ -163,3 +163,5 @@ private:
 	static void AcceptInviteCallback(const EOS_Friends_AcceptInviteCallbackInfo* Data);
 
 };
+
+typedef TSharedPtr<class FOnlineFriendEpic, ESPMode::ThreadSafe> FOnlineFriendsSteamPtr;

@@ -4,6 +4,7 @@
 #include "Utilities.h"
 #include "eos_userinfo.h"
 #include "eos_auth.h"
+#include "OnlineIdentityInterfaceEpic.h"
 #include "Interfaces/OnlineIdentityInterface.h"
 
 // -------------------------------------------- -
@@ -35,6 +36,9 @@ typedef struct FQueryUserInfoAdditionalData {
 	FOnlineUserEpic* OnlineUserPtr;
 	int32 LocalUserId;
 	double StartTime;
+	int32 CurrentQueryUserIndex;
+	//Count the query number we are currently on
+	int32 CurrentNumberQuery;
 } FQueryUserInfoAdditionalData;
 
 typedef struct FQueryUserIdMappingAdditionalInfo
@@ -138,11 +142,16 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 	thisPtr->UserQueryLock.Lock();
 
 	// Auto used below to increase readability
-	auto query = thisPtr->userQueries.Find(additionalData->StartTime);
-
+	TTuple<TArray<TSharedRef<FUniqueNetId const>>, TArray<bool>, TArray<FString>>* query = thisPtr->userQueries.Find(additionalData->StartTime);
+	
 	TArray<TSharedRef<FUniqueNetId const>> userIds = query->Get<0>();
 	TArray<bool> completedQueries = query->Get<1>();
 	TArray<FString> errors = query->Get<2>();
+
+	//We need to update the tuple here - otherwise we never complete the query! - Mike
+	//TODO - update the local number of queries somehow
+	completedQueries[additionalData->CurrentQueryUserIndex % thisPtr->CurrentQueryIndices[additionalData->CurrentNumberQuery]] = true;
+	thisPtr->userQueries[additionalData->StartTime] = MakeTuple(userIds, completedQueries, errors);
 
 	checkf(userIds.Num() == errors.Num() && errors.Num() == completedQueries.Num(), TEXT("Amount(UserIds, completedQueries, errors) mismatch."));
 
@@ -160,6 +169,8 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 
 	thisPtr->UserQueryLock.Unlock();
 
+	error = FString::Printf(TEXT("[EOS SDK] Server returned an error. Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
+
 	// If all queries are done, log the result of the function
 	if (doneQueries == userIds.Num())
 	{
@@ -167,6 +178,10 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 		UE_CLOG_ONLINE_USER(completeErrorString.IsEmpty(), Display, TEXT("Query user info successful."));
 		UE_CLOG_ONLINE_USER(!completeErrorString.IsEmpty(), Warning, TEXT("Query user info failed:\r\n%s"), *error);
 
+		//Just like a queue, remove the first element as we have finished that query
+		thisPtr->queriedUserIdsCache.RemoveAt(0);
+		thisPtr->CurrentQueryIndices.RemoveAt(0);
+		
 		IOnlineIdentityPtr identityPtr = thisPtr->Subsystem->GetIdentityInterface();
 		thisPtr->TriggerOnQueryUserInfoCompleteDelegates(additionalData->LocalUserId, error.IsEmpty(), userIds, completeErrorString);
 	}
@@ -555,12 +570,14 @@ bool FOnlineUserEpic::QueryUserInfo(int32 LocalUserNum, const TArray<TSharedRef<
 
 				TTuple<TArray<TSharedRef<FUniqueNetId const>>, TArray<bool>, TArray<FString>> queries = MakeTuple(UserIds, states, errors);
 				this->userQueries.Add(FDateTime::UtcNow().ToUnixTimestamp(), queries);
-
+				this->CurrentQueryIndices.Add(UserIds.Num());
+				CurrentNumberQuery = this->userQueries.Num();
+				
 				// Start the actual queries
-				for (auto id : UserIds)
+				for (int32 i = 0; i < UserIds.Num(); i++)
 				{
 					// Only do work, if the id is a valid EAID
-					TSharedRef<FUniqueNetIdEpic const> targetUserId = StaticCastSharedRef<FUniqueNetIdEpic const>(id);
+					TSharedRef<FUniqueNetIdEpic const> targetUserId = StaticCastSharedRef<FUniqueNetIdEpic const>(UserIds[i]);
 					if (targetUserId->IsEpicAccountIdValid())
 					{
 						EOS_UserInfo_QueryUserInfoOptions queryUserInfoOptions = {
@@ -571,8 +588,10 @@ bool FOnlineUserEpic::QueryUserInfo(int32 LocalUserNum, const TArray<TSharedRef<
 						FQueryUserInfoAdditionalData* additionalData = new FQueryUserInfoAdditionalData{
 							this,
 							LocalUserNum,
-							startTime
+							startTime,
+							i
 						};
+
 						EOS_UserInfo_QueryUserInfo(this->userInfoHandle, &queryUserInfoOptions, additionalData, &FOnlineUserEpic::OnEOSQueryUserInfoComplete);
 
 						result = ONLINE_IO_PENDING;
@@ -661,7 +680,7 @@ bool FOnlineUserEpic::GetAllUserInfo(int32 LocalUserNum, TArray< TSharedRef<clas
 					}
 					else
 					{
-						UE_LOG_ONLINE_USER(Display, TEXT("[EOS SDK] Couldn't get cached user data. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
+						UE_LOG_ONLINE_USER(Display, TEXT("[EOS SDK] Couldn't get cached user data. Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
 					}
 				}
 				else
@@ -737,7 +756,8 @@ TSharedPtr<FOnlineUser> FOnlineUserEpic::GetUserInfo(int32 LocalUserNum, const c
 				}
 				else
 				{
-					error = FString::Printf(TEXT("[EOS SDK] Couldn't get cached user data. Error: %s"), *UTF8_TO_TCHAR(EOS_EResult_ToString(result)));
+					FString ResultString = UTF8_TO_TCHAR(EOS_EResult_ToString(result));
+					error = FString::Printf(TEXT("[EOS SDK] Couldn't get cached user data. Error: %s"), *ResultString);
 				}
 
 				// Release the user info memory

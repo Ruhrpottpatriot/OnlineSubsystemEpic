@@ -99,9 +99,12 @@ bool FOnlineFriendInterfaceEpic::GetFriendsList(int32 InLocalUserNum, const FStr
 	return bResult;
 }
 
+//TODO - Call upon an asynchronous task for this as there could be numerous queries needed
 bool FOnlineFriendInterfaceEpic::ReadFriendsList(int32 InLocalUserNum, const FString& ListName,
 	const FOnReadFriendsListComplete& Delegate)
 {
+	return false;
+	
 	UE_LOG_ONLINE_FRIEND(Log, TEXT("%s: calling friend query."), __FUNCTIONW__);
 
 	if (!this->Subsystem || !this->Subsystem->GetIdentityInterface()) {
@@ -253,11 +256,13 @@ void FOnlineFriendInterfaceEpic::OnEOSQueryFriendsComplete(EOS_Friends_QueryFrie
 		
 		int32_t FriendsCount = EOS_Friends_GetFriendsCount(ThisPtr->GetFriendsHandle(), &Options);
 
+		UE_LOG_ONLINE_FRIEND(Log, TEXT("%s number of friends is: %d"), __FUNCTIONW__, FriendsCount);
+
+		
 		FOnlineFriendInterfaceEpic::FEpicFriendsList& FriendsList = ThisPtr->FriendsLists.FindOrAdd(ThisPtr->LocalUserNum);
 		//Pre-Size array for minimum re-allocs
 		FriendsList.Friends.Empty(FriendsCount);
 
-		
 		EOS_Friends_GetFriendAtIndexOptions IndexOptions;
 		IndexOptions.ApiVersion = EOS_FRIENDS_GETFRIENDATINDEX_API_LATEST;
 		IndexOptions.LocalUserId = Data->LocalUserId;
@@ -280,7 +285,7 @@ void FOnlineFriendInterfaceEpic::OnEOSQueryFriendsComplete(EOS_Friends_QueryFrie
 				
 				// Add to list
 				TSharedRef<FOnlineFriendEpic> Friend(new FOnlineFriendEpic(FriendUserId));
-
+				
 				FriendsList.Friends.Add(Friend);
 				//NOTE: We only get the actual info from the account IDs
 				Friend->AccountData.Add(TEXT("nickname"), "Pending...");

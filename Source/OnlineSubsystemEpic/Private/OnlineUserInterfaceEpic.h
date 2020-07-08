@@ -14,7 +14,7 @@ class FOnlineUserEpic
 private:
 	/** Hidden on purpose */
 	FOnlineUserEpic()
-		: Subsystem(nullptr)
+		: Subsystem(nullptr), CurrentNumberQuery(0)
 	{
 	}
 
@@ -25,7 +25,11 @@ private:
 
 	/** A list of all user ids for which the SDK has cached user information. */
 	TArray<EOS_EpicAccountId> queriedUserIdsCache;
-
+	//This is the query index that we are at per above query cache^
+	TArray<int32> CurrentQueryIndices;
+	//Count the query number we are currently on
+	int32 CurrentNumberQuery;
+	
 	/**
 	 * Concatenates multiple error strings into one single error string.
 	 * @param ErrorStrings - The errors to concatenate
