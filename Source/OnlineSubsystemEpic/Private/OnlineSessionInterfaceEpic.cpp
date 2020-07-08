@@ -919,21 +919,21 @@ void FOnlineSessionEpic::OnEOSFindSessionComplete(const EOS_SessionSearch_FindCa
 
 	FString error;
 
-	TTuple<TSharedPtr<EOS_HSessionSearch>, TSharedRef<FOnlineSessionSearch>>* currentSearch = thisPtr->SessionSearches.Find(searchStartTime);
+	TTuple<EOS_HSessionSearch, TSharedRef<FOnlineSessionSearch>>* currentSearch = thisPtr->SessionSearches.Find(searchStartTime);
 	if (currentSearch)
 	{
 		EOS_EResult eosResult = Data->ResultCode;
 		if (eosResult == EOS_EResult::EOS_Success)
 		{
 			TSharedRef<FOnlineSessionSearch> searchRef = currentSearch->Value;
-			TSharedPtr<EOS_HSessionSearch> searchHandle = currentSearch->Key;
+			EOS_HSessionSearch searchHandle = currentSearch->Key;
 			checkf(searchHandle, TEXT("%s called, but the EOS session search handle is invalid"), *FString(__FUNCTION__));
 
 			// Get how many results we got
 			EOS_SessionSearch_GetSearchResultCountOptions searchResultCountOptions = {
 				EOS_SESSIONSEARCH_GETSEARCHRESULTCOUNT_API_LATEST
 			};
-			uint32 resultCount = EOS_SessionSearch_GetSearchResultCount(*searchHandle, &searchResultCountOptions);
+			uint32 resultCount = EOS_SessionSearch_GetSearchResultCount(searchHandle, &searchResultCountOptions);
 
 			if (resultCount > 0)
 			{
@@ -944,7 +944,7 @@ void FOnlineSessionEpic::OnEOSFindSessionComplete(const EOS_SessionSearch_FindCa
 						i
 					};
 					EOS_HSessionDetails sessionDetailsHandle;
-					eosResult = EOS_SessionSearch_CopySearchResultByIndex(*searchHandle, &copySearchResultsByIndex, &sessionDetailsHandle);
+					eosResult = EOS_SessionSearch_CopySearchResultByIndex(searchHandle, &copySearchResultsByIndex, &sessionDetailsHandle);
 					if (eosResult == EOS_EResult::EOS_Success)
 					{
 						// Allocate space for the session infos
@@ -956,7 +956,7 @@ void FOnlineSessionEpic::OnEOSFindSessionComplete(const EOS_SessionSearch_FindCa
 						};
 						eosResult = EOS_SessionDetails_CopyInfo(sessionDetailsHandle, &copyInfoOptions, &eosSessionInfo);
 						if (eosResult == EOS_EResult::EOS_Success)
-						{						
+						{
 							// Create a new search result.
 							// Ping is set to -1, as we have no way of retrieving it for now
 							FOnlineSessionSearchResult searchResult;
@@ -987,7 +987,7 @@ void FOnlineSessionEpic::OnEOSFindSessionComplete(const EOS_SessionSearch_FindCa
 				UE_LOG_ONLINE_SESSION(Display, TEXT("No sessions found"));
 			}
 
-			EOS_SessionSearch_Release(*searchHandle);
+			EOS_SessionSearch_Release(searchHandle);
 			searchRef->SearchState = EOnlineAsyncTaskState::Done;
 		}
 		else
@@ -1059,7 +1059,7 @@ void FOnlineSessionEpic::OnEOSFindFriendSessionComplete(const EOS_SessionSearch_
 	if (eosResult == EOS_EResult::EOS_Success)
 	{
 		// Retrieve the EOS session search handle and the local session search, into which we're going to write the results.
-		TSharedPtr<EOS_HSessionSearch> sessionSearchHandle = thisPtr->SessionSearches.Find(searchCreationTime)->Key;
+		EOS_HSessionSearch sessionSearchHandle = thisPtr->SessionSearches.Find(searchCreationTime)->Key;
 		checkf(sessionSearchHandle, TEXT("%s called, but the EOS session search handle is invalid"), *FString(__FUNCTION__));
 
 		TSharedRef<FOnlineSessionSearch> localSessionSearch = thisPtr->SessionSearches.Find(searchCreationTime)->Value;
@@ -1068,7 +1068,7 @@ void FOnlineSessionEpic::OnEOSFindFriendSessionComplete(const EOS_SessionSearch_
 		EOS_SessionSearch_GetSearchResultCountOptions searchResultCountOptions = {
 			EOS_SESSIONSEARCH_GETSEARCHRESULTCOUNT_API_LATEST
 		};
-		uint32 resultCount = EOS_SessionSearch_GetSearchResultCount(*sessionSearchHandle, &searchResultCountOptions);
+		uint32 resultCount = EOS_SessionSearch_GetSearchResultCount(sessionSearchHandle, &searchResultCountOptions);
 		if (resultCount > 0)
 		{
 			for (uint32 i = 0; i < resultCount; ++i)
@@ -1078,7 +1078,7 @@ void FOnlineSessionEpic::OnEOSFindFriendSessionComplete(const EOS_SessionSearch_
 					i
 				};
 				EOS_HSessionDetails sessionDetailsHandle;
-				eosResult = EOS_SessionSearch_CopySearchResultByIndex(*sessionSearchHandle, &copySearchResultsByIndex, &sessionDetailsHandle);
+				eosResult = EOS_SessionSearch_CopySearchResultByIndex(sessionSearchHandle, &copySearchResultsByIndex, &sessionDetailsHandle);
 				if (eosResult == EOS_EResult::EOS_Success)
 				{
 					// Allocate space for the session infos
@@ -1544,7 +1544,7 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 						EOS_SESSIONS_UPDATESESSION_API_LATEST,
 						modificationHandle
 					};
-					FCreateSessionAdditionalData* addionalData = new FCreateSessionAdditionalData {
+					FCreateSessionAdditionalData* addionalData = new FCreateSessionAdditionalData{
 						this,
 						HostingPlayerId.AsShared()
 					};
@@ -1880,6 +1880,17 @@ bool FOnlineSessionEpic::FindSessions(const FUniqueNetId& SearchingPlayerId, con
 					// Mark the search as in progress
 					SearchSettings->SearchState = EOnlineAsyncTaskState::InProgress;
 
+					// Create pointer to a local, default session search object so the user can later access it
+					TSharedRef<FOnlineSessionSearch> sessionSearch = MakeShared<FOnlineSessionSearch>();
+
+					// Mark the session as in progress
+					sessionSearch->SearchState = EOnlineAsyncTaskState::InProgress;
+
+					// Store the EOS session search handle and the local session search object
+					TTuple<EOS_HSessionSearch, TSharedRef<FOnlineSessionSearch>> value(sessionSearchHandle, sessionSearch);
+					this->SessionSearches.Add(searchCreationTime, value);
+
+
 					EOS_SessionSearch_FindOptions findOptions = {
 						EOS_SESSIONSEARCH_FIND_API_LATEST,
 						epicNetId.ToProductUserId()
@@ -1890,18 +1901,6 @@ bool FOnlineSessionEpic::FindSessions(const FUniqueNetId& SearchingPlayerId, con
 					};
 					EOS_SessionSearch_Find(sessionSearchHandle, &findOptions, additionalData, &FOnlineSessionEpic::OnEOSFindSessionComplete);
 
-					// Convert the raw session search ptr into a shared one
-					TSharedRef<EOS_HSessionSearch> sessionSearchRef = MakeShareable(&sessionSearchHandle);
-
-					// Create pointer to a local, default session search object so the user can later access it
-					TSharedRef<FOnlineSessionSearch> sessionSearch = MakeShared<FOnlineSessionSearch>();
-
-					// Mark the session as in progress
-					sessionSearch->SearchState = EOnlineAsyncTaskState::InProgress;
-
-					// Store the EOS session search handle and the local session search object
-					TTuple<TSharedPtr<EOS_HSessionSearch>, TSharedRef<FOnlineSessionSearch>> value(sessionSearchRef, sessionSearch);
-					this->SessionSearches.Add(searchCreationTime, value);
 
 					// Mark the operation as pending
 					result = ONLINE_IO_PENDING;
@@ -2160,9 +2159,6 @@ bool FOnlineSessionEpic::FindFriendSession(const FUniqueNetId& LocalUserId, cons
 			};
 			EOS_SessionSearch_Find(sessionSearchHandle, &findOptions, &additionalData, &FOnlineSessionEpic::OnEOSFindFriendSessionComplete);
 
-			// Convert the raw session search ptr into a shared one
-			TSharedRef<EOS_HSessionSearch> sessionSearchRef = MakeShareable(&sessionSearchHandle);
-
 			// Create pointer to a local, default session search object so the user can later access it
 			TSharedRef<FOnlineSessionSearch> sessionSearch = MakeShared<FOnlineSessionSearch>();
 
@@ -2170,7 +2166,7 @@ bool FOnlineSessionEpic::FindFriendSession(const FUniqueNetId& LocalUserId, cons
 			sessionSearch->SearchState = EOnlineAsyncTaskState::InProgress;
 
 			// Store the EOS session search handle and the local session search object
-			TTuple<TSharedPtr<EOS_HSessionSearch>, TSharedRef<FOnlineSessionSearch>> value(sessionSearchRef, sessionSearch);
+			TTuple<EOS_HSessionSearch, TSharedRef<FOnlineSessionSearch>> value(sessionSearchHandle, sessionSearch);
 			this->SessionSearches.Add(searchCreationTime, value);
 
 			// Mark the operation as pending
