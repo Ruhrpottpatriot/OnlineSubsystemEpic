@@ -408,7 +408,7 @@ PACKAGE_SCOPE:
 	TSharedPtr<class FInternetAddr> HostAddr;
 
 	/** Unique Id for this session */
-	TSharedPtr<FUniqueNetId> SessionId;
+	TSharedPtr<FUniqueNetId const> SessionId;
 
 public:
 
