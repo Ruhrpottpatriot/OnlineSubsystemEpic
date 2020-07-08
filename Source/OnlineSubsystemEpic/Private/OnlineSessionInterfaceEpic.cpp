@@ -1544,7 +1544,7 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 						EOS_SESSIONS_UPDATESESSION_API_LATEST,
 						modificationHandle
 					};
-					FCreateSessionAdditionalData* addionalData = new FCreateSessionAdditionalData{
+					FCreateSessionAdditionalData* addionalData = new FCreateSessionAdditionalData {
 						this,
 						HostingPlayerId.AsShared()
 					};
