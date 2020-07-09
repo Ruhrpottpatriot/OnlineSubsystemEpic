@@ -156,16 +156,17 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 		errors[CurrentIndex] = FString::Printf(TEXT("SubQueryId: %d, Message: %s"), CurrentIndex, *error);
 	}
 	
+	//regardless if there is an error or not for this index, we have completed a query
+	//we will simply move on to the next one
 	completedQueries[additionalData->CurrentQueryUserIndex] = true;
-	thisPtr->userQueries[additionalData->StartTime] = MakeTuple(userIds, completedQueries, errors);
-
 	checkf(userIds.Num() == errors.Num() && errors.Num() == completedQueries.Num(), TEXT("Amount(UserIds, completedQueries, errors) mismatch."));
-
+	thisPtr->userQueries[additionalData->StartTime] = MakeTuple(userIds, completedQueries, errors);
+	
 	// Count the number of completed queries
 	int32 doneQueries = 0;
-	for (int32 i = 0; i < errors.Num(); ++i)
+	for (int32 i = 0; i < completedQueries.Num(); ++i)
 	{
-		//False indicates that there has been an error since 
+		//we are done if all queries have been completed in some fort
 		if (completedQueries[i])
 		{
 			doneQueries += 1;
@@ -732,6 +733,10 @@ TSharedPtr<FOnlineUser> FOnlineUserEpic::GetUserInfo(int32 LocalUserNum, const c
 		{
 			FUniqueNetIdEpic const epicUserId = static_cast<FUniqueNetIdEpic const>(UserId);
 
+			//TSharedPtr<FUniqueNetIdEpic> epicUserId = MakeShareable(new FUniqueNetIdEpic(UserId));
+			UE_LOG_ONLINE_USER(Log, TEXT("Local: %s:%s"), __FUNCTIONW__, *localUserId->ToDebugString());
+			UE_LOG_ONLINE_USER(Log, TEXT("Target: %s:%s"), __FUNCTIONW__, *epicUserId.ToDebugString());
+			
 			if (epicUserId.IsEpicAccountIdValid())
 			{
 				EOS_UserInfo* userInfo = nullptr;
@@ -749,13 +754,15 @@ TSharedPtr<FOnlineUser> FOnlineUserEpic::GetUserInfo(int32 LocalUserNum, const c
 					FString country = UTF8_TO_TCHAR(userInfo->Country);
 					FString displayName = UTF8_TO_TCHAR(userInfo->DisplayName);
 					FString preferredLanguage = UTF8_TO_TCHAR(userInfo->PreferredLanguage);
-					FString nickname = UTF8_TO_TCHAR(userInfo->Nickname);
+					FString nickname = FString(UTF8_TO_TCHAR(userInfo->Nickname));
 
 					localUser = MakeShared<FUserOnlineAccountEpic>(UserId.AsShared());
 					localUser->SetUserAttribute(USER_ATTR_COUNTRY, country);
 					localUser->SetUserAttribute(USER_ATTR_DISPLAYNAME, displayName);
 					localUser->SetUserAttribute(USER_ATTR_PREFERRED_LANGUAGE, preferredLanguage);
 					localUser->SetUserLocalAttribute(USER_ATTR_PREFERRED_DISPLAYNAME, nickname);
+
+					UE_LOG_ONLINE_USER(Log, TEXT("User name is: %s"), *displayName);
 				}
 				else
 				{

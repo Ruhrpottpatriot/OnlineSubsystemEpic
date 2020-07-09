@@ -162,7 +162,7 @@ public:
 			// and store it at position EOS_PRODUCTUSERID_MAX_LENGTH
 			int32_t eaidBufSize = EOS_EPICACCOUNTID_MAX_LENGTH;
 			char* eaidData = (char*)(idData + EOS_PRODUCTUSERID_MAX_LENGTH);
-			Result = EOS_ProductUserId_ToString(this->productUserId, eaidData, &eaidBufSize);
+			Result = EOS_EpicAccountId_ToString(this->epicAccountId, eaidData, &eaidBufSize);
 		}
 
 		return (const uint8*)idData;

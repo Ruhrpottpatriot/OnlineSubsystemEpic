@@ -100,8 +100,6 @@ bool FOnlineFriendInterfaceEpic::GetFriendsList(int32 InLocalUserNum, const FStr
 bool FOnlineFriendInterfaceEpic::ReadFriendsList(int32 InLocalUserNum, const FString& ListName,
 	const FOnReadFriendsListComplete& Delegate)
 {
-	//return false;
-	
 	UE_LOG_ONLINE_FRIEND(Log, TEXT("%s: calling friend query."), __FUNCTIONW__);
 
 	if (!this->Subsystem || !this->Subsystem->GetIdentityInterface()) {
@@ -140,6 +138,8 @@ bool FOnlineFriendInterfaceEpic::ReadFriendsList(int32 InLocalUserNum, const FSt
 void FOnlineFriendInterfaceEpic::HandleQueryUserInfoComplete(int32 InLocalUserNum, bool bWasSuccessful, const TArray< TSharedRef<const FUniqueNetId> >& Ids, const FString& Test)
 {
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, "Got into this callback");
+	UE_LOG(LogTemp, Log, TEXT("Query user callback result: %d with number of ids: %d"), bWasSuccessful, Ids.Num());
+
 	
 	IOnlineUserPtr UserInterfacePtr = this->Subsystem->GetUserInterface();
 
@@ -147,7 +147,7 @@ void FOnlineFriendInterfaceEpic::HandleQueryUserInfoComplete(int32 InLocalUserNu
 		for (int32 UserIdx = 0; UserIdx < Ids.Num(); UserIdx++)
 		{
 			TSharedRef<FOnlineFriendEpic> CurrentFriend = FriendsLists[InLocalUserNum].Friends[UserIdx];
-			CurrentFriend->AccountData[TEXT("nickname")] = UserInterfacePtr->GetUserInfo(InLocalUserNum, Ids[UserIdx].Get())->GetDisplayName();
+			//CurrentFriend->AccountData[TEXT("nickname")] = UserInterfacePtr->GetUserInfo(InLocalUserNum, Ids[UserIdx].Get())->GetDisplayName();
 
 			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Name is: " + CurrentFriend->AccountData[TEXT("nickname")]);
 		}
