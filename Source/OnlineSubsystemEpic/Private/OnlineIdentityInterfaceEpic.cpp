@@ -108,6 +108,12 @@ typedef struct FLoginCompleteAdditionalData
 	EOS_EpicAccountId EpicAccountId;
 } FAuthLoginCompleteAdditionalData;
 
+typedef struct FCreateUserAdditionalData
+{
+	FOnlineIdentityInterfaceEpic* IdentityInterface;
+	int32 LocalUserNum;
+} FCreateUserAdditionalData;
+
 // -----------------------------
 // EOS Callbacks
 // -----------------------------
@@ -168,7 +174,7 @@ void FOnlineIdentityInterfaceEpic::EOS_Auth_OnLoginComplete(EOS_Auth_LoginCallba
 	if (!error.IsEmpty())
 	{
 		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("Epic Account Service Login failed. Message:\r\n    %s"), *error);
-		thisPtr->TriggerOnLoginCompleteDelegates(0, false, FUniqueNetIdEpic(), error);
+		thisPtr->TriggerOnLoginCompleteDelegates(INDEX_NONE, false, FUniqueNetIdEpic(), error);
 	}
 
 	delete(additionalData);
@@ -188,16 +194,26 @@ void FOnlineIdentityInterfaceEpic::EOS_Connect_OnLoginComplete(EOS_Connect_Login
 	EOS_EResult eosResult = Data->ResultCode;
 	if (eosResult == EOS_EResult::EOS_Success)
 	{
+		if (Data->ContinuanceToken)
+		{
+			// ToDo: Implementing linking user accounts needs some changes
+			// to the FUniqueNetIdEpic type
+		}
+
 		userId = FUniqueNetIdEpic(Data->LocalUserId, additionalData->EpicAccountId);
-		UE_LOG_ONLINE_IDENTITY(Display, TEXT("Finished logging in user \"%s\""), UTF8_TO_TCHAR(Data
-			->LocalUserId));
+		UE_LOG_ONLINE_IDENTITY(Display, TEXT("Finished logging in user \"%s\""), UTF8_TO_TCHAR(Data->LocalUserId));
 	}
 	else if (eosResult == EOS_EResult::EOS_InvalidUser)
 	{
 		if (Data->ContinuanceToken)
 		{
-			// ToDo: Find a way to let the user either create or link a user account.
-			error = TEXT("[EOS SDK] Got invalid user, but a contiuance token.");
+			// Getting a continuance token implies the login has failed, however we want to give the caller
+			// the ability to restart the login with the continuance token.
+			// Thus we create an FUniqueNetIdString from the token and return it to the caller with a failed
+			// login indication.
+			UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Got invalid user and contiuance token."));
+			FUniqueNetIdString continuanceToken = FUniqueNetIdString(UTF8_TO_TCHAR(Data->ContinuanceToken));
+			thisPtr->TriggerOnLoginCompleteDelegates(additionalData->LocalUserNum, false, continuanceToken, TEXT(""));
 		}
 		else
 		{
@@ -266,6 +282,31 @@ void FOnlineIdentityInterfaceEpic::EOS_Auth_OnLogoutComplete(const EOS_Auth_Logo
 	UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Logout Complete - User: %s"), *localUser);
 }
 
+void FOnlineIdentityInterfaceEpic::EOS_Connect_OnUserCreated(EOS_Connect_CreateUserCallbackInfo const* Data)
+{
+	FCreateUserAdditionalData* additionalData = static_cast<FCreateUserAdditionalData*>(Data->ClientData);
+	FOnlineIdentityInterfaceEpic* thisPtr = additionalData->IdentityInterface;
+	check(thisPtr);
+
+	if (Data->ResultCode != EOS_EResult::EOS_Success)
+	{
+		char const* resultStr = EOS_EResult_ToString(Data->ResultCode);
+		FString error = FString::Printf(TEXT("[EOS SDK] Create User Failed - Result : %s"), UTF8_TO_TCHAR(Data->LocalUserId), resultStr);
+		thisPtr->TriggerOnLoginCompleteDelegates(additionalData->LocalUserNum, false, FUniqueNetIdEpic(), error);
+		return;
+	}
+	
+	// Creating a user always means we're not using an epic account
+	FUniqueNetIdEpic userId = FUniqueNetIdEpic(Data->LocalUserId);
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("Finished creating user \"%s\""), UTF8_TO_TCHAR(Data->LocalUserId));
+
+	thisPtr->TriggerOnLoginCompleteDelegates(additionalData->LocalUserNum, true, userId, TEXT(""));
+}
+
+void FOnlineIdentityInterfaceEpic::EOS_Connect_OnAccountLinked(EOS_Connect_LinkAccountCallbackInfo const* Data)
+{
+	// ToDo: Implement a way to notify the user that an account was linked
+}
 
 //-------------------------------
 // FOnlineIdentityInterfaceEpic
@@ -460,57 +501,90 @@ bool FOnlineIdentityInterfaceEpic::Login(int32 LocalUserNum, const FOnlineAccoun
 		}
 		else if (left.Equals(TEXT("CONNECT"), ESearchCase::IgnoreCase))
 		{
-			// Convert the right part of the type string into a EOS external credentials enum.
-			TPair<EOS_EExternalCredentialType, bool > externalTypeTuple = FUtils::ExternalCredentialsTypeFromString(right);
-			EOS_EExternalCredentialType externalType = externalTypeTuple.Get<0>();
-
-			// Make sure we have a valid connect type
-			if (externalTypeTuple.Get<1>())
+			if (right.Equals(TEXT("Continuance"), ESearchCase::IgnoreCase))
 			{
-				EOS_Connect_Credentials connectCrendentials = {
-					   EOS_CONNECT_CREDENTIALS_API_LATEST,
-					   TCHAR_TO_UTF8(*AccountCredentials.Token),
-					   externalType
-				};
+				unimplemented();
 
-				// We need to check which external credentials type is used,
-				// as Apple and Nintendo require additional data.
-				EOS_Connect_LoginOptions loginOptions;
-				if (externalType == EOS_EExternalCredentialType::EOS_ECT_APPLE_ID_TOKEN
-					|| externalType == EOS_EExternalCredentialType::EOS_ECT_NINTENDO_ID_TOKEN
-					|| externalType == EOS_EExternalCredentialType::EOS_ECT_NINTENDO_NSA_ID_TOKEN)
-				{
-					EOS_Connect_UserLoginInfo loginInfo = {
-						EOS_CONNECT_USERLOGININFO_API_LATEST,
-						TCHAR_TO_UTF8(*AccountCredentials.Id)
-					};
-					loginOptions = {
-					   EOS_CONNECT_LOGIN_API_LATEST,
-					   &connectCrendentials,
-					   &loginInfo
-					};
-				}
-				else
-				{
-					loginOptions = {
-					   EOS_CONNECT_LOGIN_API_LATEST,
-					   &connectCrendentials,
-					   nullptr
-					};
-				}
+				//EOS_Connect_CreateUserOptions createUserOptions = {
+				//	EOS_CONNECT_CREATEUSER_API_LATEST,
+				//	TCHAR_TO_UTF8(*AccountCredentials.Token)
+				//};
+				//FCreateUserAdditionalData* additionalData = new FCreateUserAdditionalData{
+				//	this,
+				//	LocalUserNum
+				//};
+				//EOS_Connect_CreateUser(this->connectHandle, &createUserOptions, this, &FOnlineIdentityInterfaceEpic::EOS_Connect_OnUserCreated);
+			}
+			else if (right.Equals(TEXT("Link"), ESearchCase::IgnoreCase))
+			{
+				unimplemented();
+				//EOS_ProductUserId puid = FUniqueNetIdEpic::ProductUserIDFromString(AccountCredentials.Id);
 
-				FLoginCompleteAdditionalData* additionalData = new FLoginCompleteAdditionalData{
-					this,
-					LocalUserNum,
-					nullptr // Since this is the connect login flow, no EAID is available
-				};
-				EOS_Connect_Login(this->connectHandle, &loginOptions, additionalData, &FOnlineIdentityInterfaceEpic::EOS_Connect_OnLoginComplete);
-
-				success = true;
+				//EOS_Connect_LinkAccountOptions linkAccountOptions = {
+				//	EOS_CONNECT_LINKACCOUNT_API_LATEST,
+				//	puid,
+				//	TCHAR_TO_UTF8(*AccountCredentials.Token)
+				//};
+				//FCreateUserAdditionalData* additionalData = new FCreateUserAdditionalData{
+				//	this,
+				//	LocalUserNum
+				//};
+				//EOS_Connect_LinkAccount(this->connectHandle, &linkAccountOptions, additionalData, &FOnlineIdentityInterfaceEpic::EOS_Connect_OnAccountLinked);
 			}
 			else
 			{
-				error = FString::Printf(TEXT("\"%s\" is not a recognized connect type"), *right);
+				// Convert the right part of the type string into a EOS external credentials enum.
+				TPair<EOS_EExternalCredentialType, bool > externalTypeTuple = FUtils::ExternalCredentialsTypeFromString(right);
+				EOS_EExternalCredentialType externalType = externalTypeTuple.Get<0>();
+
+				// Make sure we have a valid connect type
+				if (externalTypeTuple.Get<1>())
+				{
+					EOS_Connect_Credentials connectCrendentials = {
+						   EOS_CONNECT_CREDENTIALS_API_LATEST,
+						   TCHAR_TO_UTF8(*AccountCredentials.Token),
+						   externalType
+					};
+
+					// We need to check which external credentials type is used,
+					// as Apple and Nintendo require additional data.
+					EOS_Connect_LoginOptions loginOptions;
+					if (externalType == EOS_EExternalCredentialType::EOS_ECT_APPLE_ID_TOKEN
+						|| externalType == EOS_EExternalCredentialType::EOS_ECT_NINTENDO_ID_TOKEN
+						|| externalType == EOS_EExternalCredentialType::EOS_ECT_NINTENDO_NSA_ID_TOKEN)
+					{
+						EOS_Connect_UserLoginInfo loginInfo = {
+							EOS_CONNECT_USERLOGININFO_API_LATEST,
+							TCHAR_TO_UTF8(*AccountCredentials.Id)
+						};
+						loginOptions = {
+						   EOS_CONNECT_LOGIN_API_LATEST,
+						   &connectCrendentials,
+						   &loginInfo
+						};
+					}
+					else
+					{
+						loginOptions = {
+						   EOS_CONNECT_LOGIN_API_LATEST,
+						   &connectCrendentials,
+						   nullptr
+						};
+					}
+
+					FLoginCompleteAdditionalData* additionalData = new FLoginCompleteAdditionalData{
+						this,
+						LocalUserNum,
+						nullptr // Since this is the connect login flow, no EAID is available
+					};
+					EOS_Connect_Login(this->connectHandle, &loginOptions, additionalData, &FOnlineIdentityInterfaceEpic::EOS_Connect_OnLoginComplete);
+
+					success = true;
+				}
+				else
+				{
+					error = FString::Printf(TEXT("\"%s\" is not a recognized connect type"), *right);
+				}
 			}
 		}
 		else if (left.IsEmpty() || right.IsEmpty())
