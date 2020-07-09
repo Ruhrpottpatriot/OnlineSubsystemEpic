@@ -7,3 +7,4 @@
 * OnlineUser::GetUserInfo() retrieves the preferred nickname for the requested user properly, but the underlying user type doesn't store it just yet.
 * Using the Identity interface with connect and the user account doesn't exist, the login will fail completely as there's currently no possibility to use continuance tokens in OSS.
 * The asynchronous login blueprint node doesn't support the changed identity interface. A fix is planned for version 0.3.
+* Friends interface AcceptInvite/RejectInvite/SendInvite has functions made in the FriendsInterface, but the SDK does not support them yet. - Mike

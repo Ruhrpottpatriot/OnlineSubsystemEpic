@@ -1,3 +1,5 @@
+//Copyright (c) MikhailSorokin
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -67,10 +69,7 @@ public:
 	/** Friend status that can be used for blueprints */
 	EFriendStatus FriendStatus;
 	
-	//TODO -
 	/* Full presence information including platform type, application, status, rich text. */
-	/*
-		FOnlineUserPresence Presence;*/
 	FOnlineUserPresence Presence;
 };
 
@@ -79,7 +78,7 @@ class FOnlineFriendInterfaceEpic : public IOnlineFriends
 
 public:
 	FOnlineFriendInterfaceEpic() : Subsystem(nullptr),
-	                               friendsHandle(nullptr), LocalUserNum(0)
+	                               friendsHandle(nullptr)
 	{
 	}
 
@@ -98,7 +97,7 @@ protected:
 	
 	EOS_HFriends friendsHandle;
 
-	/** list of friends */
+	/** List of friends */
 	struct FEpicFriendsList
 	{
 		TArray<TSharedRef<FOnlineFriendEpic> > Friends;
@@ -112,31 +111,30 @@ protected:
 	FDelegateHandle OnQueryUserInfoCompleteDelegateHandle;
 
 public:
-	int32 LocalUserNum;
-
 	bool GetFriendsList(int32 InLocalUserNum, const FString& ListName,
 		TArray<TSharedRef<FOnlineFriend>>& OutFriends) override;
 
 	bool ReadFriendsList(int32 InLocalUserNum, const FString& ListName,
 		const FOnReadFriendsListComplete& Delegate) override;
 	void HandleQueryUserInfoComplete(int32 InLocalUserNum, bool bWasSuccessful, const TArray<TSharedRef<const FUniqueNetId>>& Ids, const FString& Test);
-	void Tick(float DeltaTime);
 
 public:
 
+	virtual void Tick(float DeltaTime);
+
 	EOS_HFriends FORCEINLINE GetFriendsHandle() { return friendsHandle;  }
-	
-	bool DeleteFriendsList(int32 InLocalUserNum, const FString& ListName,
-	                       const FOnDeleteFriendsListComplete& Delegate) override;
 
-	bool SendInvite(int32 InLocalUserNum, const FUniqueNetId& FriendId, const FString& ListName,
+	bool DeleteFriendsList(int32 InLocalUserNum, const FString& ListName, 
+		const FOnDeleteFriendsListComplete& Delegate) override;
+
+	/* =============== Invite functions for friends ================== */
+	bool SendInvite(int32 InLocalUserNum, const FUniqueNetId& FriendId, const FString& ListName, 
 		const FOnSendInviteComplete& Delegate) override;
-
 	bool AcceptInvite(int32 InLocalUserNum, const FUniqueNetId& FriendId, const FString& ListName,
-	                  const FOnAcceptInviteComplete& Delegate) override;
-
+	                 const FOnAcceptInviteComplete& Delegate) override;
 	bool RejectInvite(int32 InLocalUserNum, const FUniqueNetId& FriendId, const FString& ListName) override;
 
+	//Friend modifiable functions
 	void SetFriendAlias(int32 InLocalUserNum, const FUniqueNetId& FriendId, const FString& ListName, const FString& Alias,
 	                    const FOnSetFriendAliasComplete& Delegate) override;
 	bool DeleteFriend(int32 InLocalUserNum, const FUniqueNetId& FriendId, const FString& ListName) override;

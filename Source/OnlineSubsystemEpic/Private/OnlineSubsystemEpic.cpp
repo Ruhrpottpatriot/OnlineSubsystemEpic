@@ -442,5 +442,10 @@ bool FOnlineSubsystemEpic::Tick(float DeltaTime)
 		this->UserInterface->Tick(DeltaTime);
 	}
 
+	if (this->FriendsInterface)
+	{
+		this->FriendsInterface->Tick(DeltaTime);
+	}
+
 	return true;
 }
