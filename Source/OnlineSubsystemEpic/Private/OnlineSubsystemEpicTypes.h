@@ -114,7 +114,7 @@ public:
 		}
 	}
 
-	//Used by friends and presence
+	//Used by friends and presence because they only give you account ids
 	FUniqueNetIdEpic(const EOS_EpicAccountId& InEpicAccountId)
 		: Type(EPIC_SUBSYSTEM)
 		, productUserId(nullptr)
