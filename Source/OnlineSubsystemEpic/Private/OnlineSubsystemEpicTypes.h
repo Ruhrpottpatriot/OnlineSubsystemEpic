@@ -216,7 +216,7 @@ public:
 	  * Keep in mind that this returns a non owning pointer
 	  * which might become invalid at any given point.
 	  */
-	EOS_ProductUserId ToProductUserId() const
+	EOS_ProductUserId ToProdcutUserId() const
 	{
 		bool puidValid = (bool)EOS_ProductUserId_IsValid(this->productUserId);
 		check(puidValid);

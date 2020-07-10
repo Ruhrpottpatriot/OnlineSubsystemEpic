@@ -203,7 +203,7 @@ void FOnlineUserEpic::OnEOSQueryUserInfoByDisplayNameComplete(EOS_UserInfo_Query
 	{
 		EOS_Connect_GetExternalAccountMappingsOptions getExternalAccountMappingsOptions = {
 				EOS_CONNECT_GETEXTERNALACCOUNTMAPPINGS_API_LATEST,
-				additionalData->LocalUserId.ToProductUserId(),
+				additionalData->LocalUserId.ToProdcutUserId(),
 				EOS_EExternalAccountType::EOS_EAT_EPIC,
 				TCHAR_TO_UTF8(*FUniqueNetIdEpic::EpicAccountIdToString(Data->TargetUserId))
 		};
@@ -261,7 +261,7 @@ void FOnlineUserEpic::OnEOSQueryExternalIdMappingsByDisplayNameComplete(EOS_User
 		{
 			EOS_Connect_GetExternalAccountMappingsOptions getExternalAccountMappingsOptions = {
 				EOS_CONNECT_GETEXTERNALACCOUNTMAPPINGS_API_LATEST,
-				additionalData->QueryUserId->ToProductUserId(),
+				additionalData->QueryUserId->ToProdcutUserId(),
 				EOS_EExternalAccountType::EOS_EAT_EPIC,
 				TCHAR_TO_UTF8(*FUniqueNetIdEpic::EpicAccountIdToString(Data->TargetUserId))
 			};
@@ -344,7 +344,7 @@ void FOnlineUserEpic::OnEOSQueryExternalIdMappingsByDisplayNameComplete(EOS_User
 
 		EOS_Connect_GetExternalAccountMappingsOptions getExternalAccountMappingsOptions = {
 			EOS_CONNECT_GETEXTERNALACCOUNTMAPPINGS_API_LATEST,
-			additionalData->QueryUserId->ToProductUserId(),
+			additionalData->QueryUserId->ToProdcutUserId(),
 			EOS_EExternalAccountType::EOS_EAT_EPIC,
 			TCHAR_TO_UTF8(*FUniqueNetIdEpic::EpicAccountIdToString(Data->LocalUserId))
 		};
@@ -506,7 +506,7 @@ void FOnlineUserEpic::OnEOSQueryExternalIdMappingsByIdComplete(EOS_UserInfo_Quer
 
 		EOS_Connect_GetExternalAccountMappingsOptions getExternalAccountMappingsOptions = {
 			EOS_CONNECT_GETEXTERNALACCOUNTMAPPINGS_API_LATEST,
-			additionalData->QueryUserId->ToProductUserId(),
+			additionalData->QueryUserId->ToProdcutUserId(),
 			EOS_EExternalAccountType::EOS_EAT_EPIC,
 			TCHAR_TO_UTF8(*FUniqueNetIdEpic::EpicAccountIdToString(Data->LocalUserId))
 		};
@@ -656,7 +656,7 @@ bool FOnlineUserEpic::GetAllUserInfo(int32 LocalUserNum, TArray< TSharedRef<clas
 						EOS_HConnect connectHandle = EOS_Platform_GetConnectInterface(this->Subsystem->PlatformHandle);
 						EOS_Connect_GetExternalAccountMappingsOptions getExternalAccountMappingsOptions = {
 							EOS_CONNECT_GETEXTERNALACCOUNTMAPPINGS_API_LATEST,
-							localUserNetId->ToProductUserId(),
+							localUserNetId->ToProdcutUserId(),
 							EOS_EExternalAccountType::EOS_EAT_EPIC,
 							TCHAR_TO_UTF8(*FUniqueNetIdEpic::EpicAccountIdToString(eaid))
 						};
