@@ -382,8 +382,8 @@ bool FOnlineSubsystemEpic::Shutdown()
 	DESTRUCT_INTERFACE(IdentityInterface);
 	DESTRUCT_INTERFACE(SessionInterface);
 	DESTRUCT_INTERFACE(UserInterface);
-	DESTRUCT_INTERFACE(PresenceInterface);
-	
+	DESTRUCT_INTERFACE(this->PresenceInterface);
+
 #undef DESTRUCT_INTERFACE
 
 	return true;

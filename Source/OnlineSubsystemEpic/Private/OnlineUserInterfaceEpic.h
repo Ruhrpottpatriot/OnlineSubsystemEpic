@@ -47,7 +47,6 @@ private:
 	 */
 	TMap<double, TTuple<FExternalIdQueryOptions, TArray<FString>, TArray<bool>, TArray<FString>>> externalIdMappingsQueries;
 
-
 	/**
 	 * A list of all cached id mappings.
 	 * @note - This is necessary as the EOS SDK wants a local user id 

@@ -141,7 +141,7 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 	thisPtr->UserQueryLock.Lock();
 
 	// Auto used below to increase readability
-	TTuple<TArray<TSharedRef<FUniqueNetId const>>, TArray<bool>, TArray<FString>>* query = thisPtr->userQueries.Find(additionalData->StartTime);
+	auto query = thisPtr->userQueries.Find(additionalData->StartTime);
 	
 	TArray<TSharedRef<FUniqueNetId const>> userIds = query->Get<0>();
 	TArray<bool> completedQueries = query->Get<1>();
@@ -729,8 +729,8 @@ TSharedPtr<FOnlineUser> FOnlineUserEpic::GetUserInfo(int32 LocalUserNum, const c
 		{
 			FUniqueNetIdEpic const epicUserId = static_cast<FUniqueNetIdEpic const>(UserId);
 
-			UE_LOG_ONLINE_USER(Log, TEXT("Local: %s:%s"), __FUNCTIONW__, *localUserId->ToDebugString());
-			UE_LOG_ONLINE_USER(Log, TEXT("Target: %s:%s"), __FUNCTIONW__, *epicUserId.ToDebugString());
+			UE_LOG_ONLINE_USER(Log, TEXT("%hs: Local ID : %s"), __FUNCTION__, *localUserId->ToDebugString());
+			UE_LOG_ONLINE_USER(Log, TEXT("%hs: Target ID: %s"), __FUNCTION__, *epicUserId.ToDebugString());
 			
 			if (epicUserId.IsEpicAccountIdValid())
 			{

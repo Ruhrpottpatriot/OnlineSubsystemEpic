@@ -1,7 +1,6 @@
 #include "OnlinePrensenceEpic.h"
 #include "eos_presence.h"
 #include "OnlineSubsystemEpicTypes.h"
-
 #include "eos_connect.h"
 #include "eos_userinfo.h"
 #include "eos_sessions.h"
@@ -481,6 +480,8 @@ EOnlineCachedResult::Type FOnlinePresenceEpic::GetCachedPresence(const FUniqueNe
 				// Get the last time the querying user was online.
 				FString lastOnlineString;
 				userAcc->GetUserAttribute(USER_ATTR_LAST_LOGIN_TIME, lastOnlineString);
+				//NOTE: The variable below does not exist in the FOnlinePresenceStruct struct - Mike
+				//OutPresence->LastOnline = FDateTime::FromUnixTimestamp(FCString::Atoi64(*lastOnlineString));
 				
 				IOnlineSessionPtr sessionPtr = this->subsystem->GetSessionInterface();
 

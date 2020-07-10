@@ -63,13 +63,13 @@ public:
 		, epicAccountId(nullptr)
 	{
 	}
+	
 	explicit FUniqueNetIdEpic(EOS_ProductUserId&& InUserId)
 		: Type(EPIC_SUBSYSTEM)
 		, productUserId(MoveTemp(InUserId))
 		, epicAccountId(nullptr)
 	{
 	}
-	
 
 	/**
 	 * Constructs this object with the string value of the specified net id.
@@ -334,13 +334,13 @@ UENUM()
 enum class EFriendStatus : uint8
 {
 	/** The two accounts have no friendship status */
-	NotFriends = 0,
+	NotFriends		UMETA(DisplayName = "Not Friends"),
 	/** The local account has sent a friend invite to the other account */
-	InviteSent = 1,
+	InviteSent		UMETA(DisplayName = "Invite Sent"),
 	/** The other account has sent a friend invite to the local account */
-	InviteReceived = 2,
+	InviteReceived	UMETA(DisplayName = "Invite Received"),
 	/** The accounts have accepted friendship */
-	Friends = 3
+	Friends			UMETA(DisplayNAme = "Friends")
 };
 
 UENUM()
