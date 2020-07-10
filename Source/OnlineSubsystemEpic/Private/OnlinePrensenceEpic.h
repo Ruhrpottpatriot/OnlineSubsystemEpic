@@ -4,6 +4,7 @@
 #include "Interfaces/OnlinePresenceInterface.h"
 #include "OnlineSubsystemEpic.h"
 #include "eos_sdk.h"
+#include "OnlineSubsystemEpicTypes.h"
 
 class FOnlinePresenceEpic
 	: public IOnlinePresence
@@ -13,7 +14,8 @@ private:
 
 	EOS_HPresence presenceHandle;
 
-	EOS_NotificationId OnPresenceChangedHandle;
+	//We want to keep track of presence notifications for every new person we add to friend or meet in sessions
+	TMap<FUniqueNetIdEpic, EOS_NotificationId> PresenceNotifications;
 
 	static void EOS_QueryPresenceComplete(EOS_Presence_QueryPresenceCallbackInfo const* data);
 	static void EOS_OnPresenceChanged(EOS_Presence_PresenceChangedCallbackInfo const* data);
@@ -35,6 +37,13 @@ public:
 	virtual EOnlineCachedResult::Type GetCachedPresence(const FUniqueNetId& User, TSharedPtr<FOnlineUserPresence>& OutPresence) override;
 
 	virtual EOnlineCachedResult::Type GetCachedPresenceForApp(const FUniqueNetId& LocalUserId, const FUniqueNetId& User, const FString& AppId, TSharedPtr<FOnlineUserPresence>& OutPresence) override;
+
+	/*
+	 * Custom function made to have a way to unsubscribe to presence updates if one chooses to do so
+	 *
+	 * @param TagetUserId removing presence query for this person
+	 */
+	virtual void RemovePresenceQuery(const FUniqueNetId& TargetUserId);
 };
 
 typedef TSharedPtr<class FOnlinePresenceEpic, ESPMode::ThreadSafe> FOnlinePresenceEpicPtr;

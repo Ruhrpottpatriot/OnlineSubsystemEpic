@@ -71,6 +71,8 @@ public:
 	
 	/* Full presence information including platform type, application, status, rich text. */
 	FOnlineUserPresence Presence;
+
+	virtual void FORCEINLINE SetPresence(FOnlineUserPresence InPresence) { Presence = InPresence; }
 };
 
 class FOnlineFriendInterfaceEpic : public IOnlineFriends
@@ -96,6 +98,7 @@ protected:
 	FOnlineSubsystemEpic* Subsystem;
 	
 	EOS_HFriends friendsHandle;
+	FOnReadFriendsListComplete ReadFriendsListDelegate;
 
 	/** List of friends */
 	struct FEpicFriendsList
@@ -116,7 +119,7 @@ public:
 
 	bool ReadFriendsList(int32 InLocalUserNum, const FString& ListName,
 		const FOnReadFriendsListComplete& Delegate) override;
-	void HandleQueryUserInfoComplete(int32 InLocalUserNum, bool bWasSuccessful, const TArray<TSharedRef<const FUniqueNetId>>& Ids, const FString& Test);
+	void HandleQueryUserInfoComplete(int32 InLocalUserNum, bool bWasSuccessful, const TArray<TSharedRef<const FUniqueNetId>>& Ids, const FString& Error);
 
 public:
 

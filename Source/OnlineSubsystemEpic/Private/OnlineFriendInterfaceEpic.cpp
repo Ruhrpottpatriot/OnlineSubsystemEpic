@@ -138,7 +138,8 @@ bool FOnlineFriendInterfaceEpic::ReadFriendsList(int32 InLocalUserNum, const FSt
 			friendsHandle,
 			InLocalUserNum
 		};
-		
+
+		ReadFriendsListDelegate = Delegate;
 		EOS_Friends_QueryFriends(this->friendsHandle, &Options, UserData, &FOnlineFriendInterfaceEpic::OnEOSQueryFriendsComplete);
 	}
 	else
@@ -149,7 +150,7 @@ bool FOnlineFriendInterfaceEpic::ReadFriendsList(int32 InLocalUserNum, const FSt
 	return result == ONLINE_SUCCESS || result == ONLINE_IO_PENDING;
 }
 
-void FOnlineFriendInterfaceEpic::HandleQueryUserInfoComplete(int32 InLocalUserNum, bool bWasSuccessful, const TArray< TSharedRef<const FUniqueNetId> >& Ids, const FString& Test)
+void FOnlineFriendInterfaceEpic::HandleQueryUserInfoComplete(int32 InLocalUserNum, bool bWasSuccessful, const TArray< TSharedRef<const FUniqueNetId> >& Ids, const FString& Error)
 {
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, "Got into this callback");
 	UE_LOG(LogTemp, Log, TEXT("Query user callback result: %d with number of ids: %d"), bWasSuccessful, Ids.Num());
@@ -307,13 +308,35 @@ void FOnlineFriendInterfaceEpic::OnEOSQueryFriendsComplete(EOS_Friends_QueryFrie
 
 				UserIds.Add(Friend->UserId);
 				Friend->FriendStatus = (EFriendStatus)FriendStatus;
+				
+				auto completeFunc = [ThisPtr](const class FUniqueNetId& UserId, const bool bWasSuccessful)
+				{
+					TSharedPtr<FOnlineFriend> OnlineAccount = ThisPtr->OnlineFriendPtr->GetFriend(ThisPtr->LocalPlayerNum, FUniqueNetIdEpic(UserId), "Default");
 
+					IOnlinePresencePtr FriendPresencePtr = ThisPtr->OnlineFriendPtr->Subsystem->GetPresenceInterface();
+					TSharedPtr<FOnlineUserPresence> UserPresence;
+					FriendPresencePtr->GetCachedPresence(UserId, UserPresence);
+					FOnlineFriendEpic* OnlineFriendEpic = static_cast<FOnlineFriendEpic*>(OnlineAccount.Get());
+					OnlineFriendEpic->SetPresence(*UserPresence.Get());
+
+					//TODO - I have to have both the presence and read functions complete at the same time to query 
+					/*if (ThisPtr->OnlineFriendPtr->ReadFriendsListDelegate.IsBound() && bWasSuccessful) {
+						ThisPtr->OnlineFriendPtr->ReadFriendsListDelegate.ExecuteIfBound(ThisPtr->LocalPlayerNum, true, "Default", "");
+					}
+					else
+					{
+						ThisPtr->OnlineFriendPtr->ReadFriendsListDelegate.ExecuteIfBound(ThisPtr->LocalPlayerNum, false, "Default", FString::Printf(TEXT("Could perform a query, but could not isolate out delegates.")));
+					}*/
+
+				};
+				ThisPtr->OnlineFriendPtr->Subsystem->GetPresenceInterface()->QueryPresence(Friend->UserId.Get(), IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateLambda(completeFunc));
 			}
 		}
 
 		//Query the array of friends
 		//TODO - Possibly improve later and do a Finalize call through a QueryAsyncTask call
 		ThisPtr->OnlineFriendPtr->Subsystem->GetUserInterface()->QueryUserInfo(ThisPtr->LocalPlayerNum, UserIds);
+
 	}
 	else {
 		UE_LOG_ONLINE_FRIEND(Error, TEXT("%s asynchronous call was not successful!"), __FUNCTIONW__);

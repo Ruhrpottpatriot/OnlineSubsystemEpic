@@ -104,23 +104,26 @@ void FOnlinePresenceEpic::EOS_OnPresenceChanged(EOS_Presence_PresenceChangedCall
 			EOS_ProductUserId targetPUID = EOS_Connect_GetExternalAccountMapping(connectHandle, &getExternalMappingOpts);
 
 			// After receiving a valid PUID, we can get the cached presence for it
-			// Should the cached presence not exist, we then update the cache and tigger the delegate after that.
+			// Should the cached presence not exist, we then update the cache and trigger the delegate after that.
 			if (EOS_ProductUserId_IsValid(targetPUID))
 			{
 				FUniqueNetIdEpic targetEpicNetId(targetPUID, data->PresenceUserId);
 
 				TSharedPtr<FOnlineUserPresence> targetPresence;
-				EOnlineCachedResult::Type cacheResult = THIS->GetCachedPresence(targetEpicNetId, targetPresence);
-				if (cacheResult == EOnlineCachedResult::Success)
+				//Using this map can be our "cache result that we do in house"
+				if (THIS->PresenceNotifications.Contains(targetEpicNetId))
 				{
 					THIS->TriggerOnPresenceReceivedDelegates(*fittingNetId, targetPresence.ToSharedRef());
 				}
 				else
 				{
+					//The thinking below here is wrong, it should just return an error, you don't want to add unnecessary queries
+					UE_LOG_ONLINE_PRESENCE(Error, TEXT("Presence for this user doesn't exist."));
+					
 					// If the user, that got his presence updated is not in the cache, we need to query them
-					// Usually this shouldn't happen, but we never know.
+					// Usually this shouldn't happen, but we never know. TODO - Why shouldn't it happen? you always need to query before retrieving presence information
 					// Using a lambda here makes the code more readable
-					auto completeFunc = [THIS](const class FUniqueNetId& UserId, const bool bWasSuccessful)
+					/*auto completeFunc = [THIS](const class FUniqueNetId& UserId, const bool bWasSuccessful)
 					{
 						TSharedPtr<FOnlineUserPresence> queriedPresence;
 						EOnlineCachedResult::Type cacheResult = THIS->GetCachedPresence(UserId, queriedPresence);
@@ -132,8 +135,9 @@ void FOnlinePresenceEpic::EOS_OnPresenceChanged(EOS_Presence_PresenceChangedCall
 						{
 							UE_LOG_ONLINE_PRESENCE(Warning, TEXT("Recieved presence update, but couldn't retrive user presence information."));
 						}
-					};
-					THIS->QueryPresence(targetEpicNetId, FOnPresenceTaskCompleteDelegate::CreateLambda(completeFunc));
+					};*/
+					//Really, the cache just doesn't exist - you just need to force it active - Mike
+					//THIS->QueryPresence(targetEpicNetId, FOnPresenceTaskCompleteDelegate::CreateLambda(completeFunc));
 				}
 			}
 			else
@@ -277,12 +281,6 @@ FOnlinePresenceEpic::FOnlinePresenceEpic(FOnlineSubsystemEpic const* InSubsystem
 	: subsystem(InSubsystem)
 {
 	this->presenceHandle = EOS_Platform_GetPresenceInterface(this->subsystem->PlatformHandle);
-
-	EOS_Presence_AddNotifyOnPresenceChangedOptions onPresenceChangedOptions = {
-		EOS_PRESENCE_ADDNOTIFYONPRESENCECHANGED_API_LATEST
-	};
-	//TODO - This is problematic - causes crash almost immediately after logging in - Mike
-	//this->OnPresenceChangedHandle = EOS_Presence_AddNotifyOnPresenceChanged(this->presenceHandle, &onPresenceChangedOptions, this, &FOnlinePresenceEpic::EOS_OnPresenceChanged);
 }
 
 void FOnlinePresenceEpic::SetPresence(const FUniqueNetId& User, const FOnlineUserPresenceStatus& Status, const FOnPresenceTaskCompleteDelegate& Delegate)
@@ -388,13 +386,30 @@ void FOnlinePresenceEpic::SetPresence(const FUniqueNetId& User, const FOnlineUse
 
 void FOnlinePresenceEpic::QueryPresence(const FUniqueNetId& User, const FOnPresenceTaskCompleteDelegate& Delegate)
 {
+
+	EOS_Presence_AddNotifyOnPresenceChangedOptions onPresenceChangedOptions = {
+		EOS_PRESENCE_ADDNOTIFYONPRESENCECHANGED_API_LATEST
+	};
+
+	EOS_NotificationId PresenceNotificationHandle = EOS_Presence_AddNotifyOnPresenceChanged(this->presenceHandle, &onPresenceChangedOptions, this, &FOnlinePresenceEpic::EOS_OnPresenceChanged);
+
+	//We add the presence status in a map for every target user that we meet through this function
+	if (!PresenceNotificationHandle)
+	{
+		UE_LOG_ONLINE_PRESENCE(Warning, TEXT("%hs: could not subscribe to presence updates."), __FUNCTION__);
+	}
+	else
+	{
+		PresenceNotifications.Add(FUniqueNetIdEpic(User), PresenceNotificationHandle);
+	}
+	
 	FUniqueNetIdEpic const& epicUser = static_cast<FUniqueNetIdEpic>(User);
 	if (epicUser.IsEpicAccountIdValid())
 	{
 		EOS_Presence_QueryPresenceOptions queryPresenceOptions = {
 			EOS_PRESENCE_QUERYPRESENCE_API_LATEST,
 			epicUser.ToEpicAccountId(),
-			epicUser.ToEpicAccountId()
+			FUniqueNetIdEpic(User).ToEpicAccountId()
 		};
 		FPresenceAdditionalData* additionalData = new FPresenceAdditionalData{
 			this,
@@ -411,17 +426,23 @@ void FOnlinePresenceEpic::QueryPresence(const FUniqueNetId& User, const FOnPrese
 
 EOnlineCachedResult::Type FOnlinePresenceEpic::GetCachedPresence(const FUniqueNetId& User, TSharedPtr<FOnlineUserPresence>& OutPresence)
 {
+	IOnlineIdentityPtr identityPtr = this->subsystem->GetIdentityInterface();
+	
 	EOnlineCachedResult::Type result = EOnlineCachedResult::NotFound;
 	FString error;
 
-	FUniqueNetIdEpic const& epicNetId = static_cast<FUniqueNetIdEpic const>(User);
-	if (epicNetId.IsEpicAccountIdValid())
+	TSharedPtr<const FUniqueNetId> LocalUserId = identityPtr->GetUniquePlayerId(0);
+	FUniqueNetIdEpic EpicLocalUserId = FUniqueNetIdEpic(*LocalUserId.Get());
+	FUniqueNetIdEpic const& TargetUserId = static_cast<FUniqueNetIdEpic const>(User);
+	if (PresenceNotifications.Contains(TargetUserId) && TargetUserId.IsEpicAccountIdValid())
 	{
+
+		// We need to put in our local id and our target id for presence queries here
 		EOS_Presence_Info* presenceInfo = nullptr;
 		EOS_Presence_CopyPresenceOptions copyPresenceOptions = {
 			EOS_PRESENCE_COPYPRESENCE_API_LATEST,
-			epicNetId.ToEpicAccountId(),
-			epicNetId.ToEpicAccountId()
+			EpicLocalUserId.ToEpicAccountId(),
+			TargetUserId.ToEpicAccountId()
 		};
 		EOS_EResult eosResult = EOS_Presence_CopyPresence(this->presenceHandle, &copyPresenceOptions, &presenceInfo);
 		if (eosResult == EOS_EResult::EOS_Success)
@@ -435,6 +456,7 @@ EOnlineCachedResult::Type FOnlinePresenceEpic::GetCachedPresence(const FUniqueNe
 			}
 
 			// ToDo: Check if there's a better way to do this
+			// This seems solid, I do something similar in Friends Interface -Mike
 			presenceStatus.Properties.Add(TEXT("ProductName"), UTF8_TO_TCHAR(presenceInfo->ProductName));
 			presenceStatus.Properties.Add(TEXT("ProductVersion"), UTF8_TO_TCHAR(presenceInfo->ProductVersion));
 			presenceStatus.Properties.Add(TEXT("Platform"), UTF8_TO_TCHAR(presenceInfo->Platform));
@@ -468,14 +490,13 @@ EOnlineCachedResult::Type FOnlinePresenceEpic::GetCachedPresence(const FUniqueNe
 			char* joinInfo = nullptr;
 			EOS_Presence_GetJoinInfoOptions getJoinInfoOptions = {
 				EOS_PRESENCE_GETJOININFO_API_LATEST,
-				epicNetId.ToEpicAccountId(),
-				epicNetId.ToEpicAccountId()
+				EpicLocalUserId.ToEpicAccountId(),
+				TargetUserId.ToEpicAccountId()
 			};
 			eosResult = EOS_Presence_GetJoinInfo(this->presenceHandle, &getJoinInfoOptions, joinInfo, &joinInfoLen);
 			if (eosResult == EOS_EResult::EOS_Success)
 			{
-				IOnlineIdentityPtr identityPtr = this->subsystem->GetIdentityInterface();
-				TSharedPtr<FUserOnlineAccount> userAcc = identityPtr->GetUserAccount(epicNetId);
+				TSharedPtr<FUserOnlineAccount> userAcc = identityPtr->GetUserAccount(TargetUserId);
 
 				// Get the last time the querying user was online.
 				FString lastOnlineString;
@@ -519,4 +540,12 @@ EOnlineCachedResult::Type FOnlinePresenceEpic::GetCachedPresenceForApp(const FUn
 {
 	UE_LOG_ONLINE_PRESENCE(Warning, TEXT("Getting presence for a user and app is not supported."));
 	return EOnlineCachedResult::NotFound;
+}
+
+void FOnlinePresenceEpic::RemovePresenceQuery(const FUniqueNetId& TargetUserId)
+{
+	if (PresenceNotifications.Contains(FUniqueNetIdEpic(TargetUserId))) {
+		EOS_Presence_RemoveNotifyOnPresenceChanged(presenceHandle, PresenceNotifications[FUniqueNetIdEpic(TargetUserId)]);
+		PresenceNotifications.Remove(FUniqueNetIdEpic(TargetUserId));
+	}
 }
