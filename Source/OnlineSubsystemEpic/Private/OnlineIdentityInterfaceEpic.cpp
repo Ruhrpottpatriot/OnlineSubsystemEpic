@@ -275,7 +275,8 @@ void FOnlineIdentityInterfaceEpic::EOS_Auth_OnLogoutComplete(const EOS_Auth_Logo
 	FOnlineIdentityInterfaceEpic* thisPtr = (FOnlineIdentityInterfaceEpic*)Data->ClientData;
 	check(thisPtr);
 
-	int32 idIdx = thisPtr->GetPlatformUserIdFromUniqueNetId(FUniqueNetIdEpic(UTF8_TO_TCHAR(Data->LocalUserId)));
+	EOS_ProductUserId puid = FUniqueNetIdEpic::ProductUserIDFromString(UTF8_TO_TCHAR(Data->LocalUserId));
+	int32 idIdx = thisPtr->GetPlatformUserIdFromUniqueNetId(FUniqueNetIdEpic(puid));
 
 	thisPtr->TriggerOnLogoutCompleteDelegates(idIdx, true);
 	FString localUser = FUniqueNetIdEpic::EpicAccountIdToString(Data->LocalUserId);
@@ -620,7 +621,8 @@ bool FOnlineIdentityInterfaceEpic::AutoLogin(int32 LocalUserNum)
 
 TSharedPtr<const FUniqueNetId> FOnlineIdentityInterfaceEpic::CreateUniquePlayerId(const FString& Str)
 {
-	return MakeShared<FUniqueNetIdEpic>(Str);
+	// This might not be useful, but we only create a new PUID from this
+	return MakeShared<FUniqueNetIdEpic>(FUniqueNetIdEpic::ProductUserIDFromString(Str));
 }
 
 TSharedPtr<const FUniqueNetId> FOnlineIdentityInterfaceEpic::CreateUniquePlayerId(uint8* Bytes, int32 Size)
@@ -652,7 +654,7 @@ TArray<TSharedPtr<FUserOnlineAccount>> FOnlineIdentityInterfaceEpic::GetAllUserA
 TSharedPtr<FUserOnlineAccount> FOnlineIdentityInterfaceEpic::GetUserAccount(const FUniqueNetId& UserId) const
 {
 	TSharedRef<FUniqueNetIdEpic const> epicNetId = StaticCastSharedRef<FUniqueNetIdEpic const>(UserId.AsShared());
-	EOS_ProductUserId puid = epicNetId->ToProdcutUserId();
+	EOS_ProductUserId puid = epicNetId->ToProductUserId();
 
 	return this->OnlineUserAcccountFromPUID(puid);
 }
@@ -679,9 +681,9 @@ FString FOnlineIdentityInterfaceEpic::GetAuthType() const
 ELoginStatus::Type FOnlineIdentityInterfaceEpic::GetLoginStatus(const FUniqueNetId& UserId) const
 {
 	FUniqueNetIdEpic epicUserId = (FUniqueNetIdEpic)UserId;
-	if (epicUserId.IsValid())
+	if (epicUserId.IsProductUserIdValid())
 	{
-		EOS_ELoginStatus loginStatus = EOS_Connect_GetLoginStatus(this->connectHandle, epicUserId.ToProdcutUserId());
+		EOS_ELoginStatus loginStatus = EOS_Connect_GetLoginStatus(this->connectHandle, epicUserId.ToProductUserId());
 		switch (loginStatus)
 		{
 		case EOS_ELoginStatus::EOS_LS_NotLoggedIn:
@@ -765,15 +767,13 @@ bool FOnlineIdentityInterfaceEpic::Logout(int32 LocalUserNum)
 	FString error;
 
 	TSharedPtr<const FUniqueNetIdEpic> id = StaticCastSharedPtr<const FUniqueNetIdEpic>(this->GetUniquePlayerId(LocalUserNum));
-	if (id && id->IsValid())
+	if (id)
 	{
-		EOS_EpicAccountId eaid = id->ToEpicAccountId();
-		if (EOS_EpicAccountId_IsValid(eaid))
+		if (id->IsEpicAccountIdValid())
 		{
-
 			EOS_Auth_LogoutOptions logoutOpts = {
 				EOS_AUTH_LOGOUT_API_LATEST,
-				eaid
+				id->ToEpicAccountId()
 			};
 
 			EOS_EpicAccountId epicId = EOS_Auth_GetLoggedInAccountByIndex(authHandle, LocalUserNum);
