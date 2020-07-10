@@ -1,7 +1,6 @@
 #include "OnlinePrensenceEpic.h"
 #include "eos_presence.h"
 #include "OnlineSubsystemEpicTypes.h"
-
 #include "eos_connect.h"
 #include "eos_userinfo.h"
 #include "eos_sessions.h"
@@ -98,7 +97,7 @@ void FOnlinePresenceEpic::EOS_OnPresenceChanged(EOS_Presence_PresenceChangedCall
 
 			EOS_Connect_GetExternalAccountMappingsOptions getExternalMappingOpts = {
 				EOS_CONNECT_GETEXTERNALACCOUNTMAPPINGS_API_LATEST,
-				fittingNetId->ToProductUserId(),
+				fittingNetId->ToProdcutUserId(),
 				EOS_EExternalAccountType::EOS_EAT_EPIC,
 				TCHAR_TO_UTF8(*FUniqueNetIdEpic::EpicAccountIdToString(data->PresenceUserId))
 			};
@@ -142,7 +141,7 @@ void FOnlinePresenceEpic::EOS_OnPresenceChanged(EOS_Presence_PresenceChangedCall
 				char const* ids[1] = { TCHAR_TO_UTF8(*FUniqueNetIdEpic::EpicAccountIdToString(data->PresenceUserId)) };
 				EOS_Connect_QueryExternalAccountMappingsOptions queryExternalOptions = {
 					EOS_CONNECT_QUERYEXTERNALACCOUNTMAPPINGS_API_LATEST,
-					fittingNetId->ToProductUserId(),
+					fittingNetId->ToProdcutUserId(),
 					EOS_EExternalAccountType::EOS_EAT_EPIC,
 					ids,
 					EOS_CONNECT_QUERYEXTERNALACCOUNTMAPPINGS_MAX_ACCOUNT_IDS
@@ -481,7 +480,9 @@ EOnlineCachedResult::Type FOnlinePresenceEpic::GetCachedPresence(const FUniqueNe
 				// Get the last time the querying user was online.
 				FString lastOnlineString;
 				userAcc->GetUserAttribute(USER_ATTR_LAST_LOGIN_TIME, lastOnlineString);
-				
+				//NOTE: The variable below does not exist in the FOnlinePresenceStruct struct - Mike
+				//OutPresence->LastOnline = FDateTime::FromUnixTimestamp(FCString::Atoi64(*lastOnlineString));
+
 				IOnlineSessionPtr sessionPtr = this->subsystem->GetSessionInterface();
 
 				// Get the session id

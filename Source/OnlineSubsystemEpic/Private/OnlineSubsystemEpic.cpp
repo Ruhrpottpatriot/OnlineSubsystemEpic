@@ -2,9 +2,9 @@
 #include "OnlineIdentityInterfaceEpic.h"
 #include "OnlineSessionInterfaceEpic.h"
 #include "OnlineUserInterfaceEpic.h"
-#include "OnlineFriendInterfaceEpic.h"
 #include "Utilities.h"
 #include <string>
+#include "OnlineFriendInterfaceEpic.h"
 
 IOnlineSessionPtr FOnlineSubsystemEpic::GetSessionInterface() const
 {
@@ -362,7 +362,7 @@ bool FOnlineSubsystemEpic::Init()
 	this->UserInterface = MakeShareable(new FOnlineUserEpic(this));
 	this->PresenceInterface = MakeShared<FOnlinePresenceEpic, ESPMode::ThreadSafe>(this);
 	this->FriendsInterface = MakeShareable(new FOnlineFriendInterfaceEpic(this));
-	
+
 	this->IsInit = true;
 	return true;
 }
@@ -384,9 +384,9 @@ bool FOnlineSubsystemEpic::Shutdown()
 	DESTRUCT_INTERFACE(IdentityInterface);
 	DESTRUCT_INTERFACE(SessionInterface);
 	DESTRUCT_INTERFACE(UserInterface);
-	DESTRUCT_INTERFACE(PresenceInterface);
+	DESTRUCT_INTERFACE(this->PresenceInterface);
 	DESTRUCT_INTERFACE(FriendsInterface);
-
+	
 #undef DESTRUCT_INTERFACE
 
 	return true;
@@ -440,11 +440,6 @@ bool FOnlineSubsystemEpic::Tick(float DeltaTime)
 	if (this->UserInterface)
 	{
 		this->UserInterface->Tick(DeltaTime);
-	}
-
-	if (this->FriendsInterface)
-	{
-		this->FriendsInterface->Tick(DeltaTime);
 	}
 
 	return true;

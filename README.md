@@ -141,3 +141,16 @@ While connect also supports EAS as `LoginType`, this is implicitly assumed by th
 `FOnlineAccountCredentials` class has two additional fields, `Id` and `Token`. When using "CONNECT" login flow the `Token` field stores the access token, while the `Id` field holds additional data, that is needed for the Nintendo and Apple login types.
 When using "EAS" as login flow, consult the "OnlineIdentityInterface.h" file to see which field maps to which.
 
+#### Continuance Tokens
+**Note::** This is currently not supported as the EOS SDK gives no possibility to convert a continuance token to and from strings.
+
+When using the connect interface, there might not be a user to login with. The interface remedies that, that it return a continuance token with which the caller can restart the login process. This library supports this in multiple ways.
+In *C++* the OnLoginCompleteDelegate is called regardless if the task completed successful or not. If the original call completed without errors, the delegate will have set the `bWasSuccessful` parameter set to `true` and will contain the local user index, and the users unique net id. If the user doesn't exist but the login process can be restarted by using a continuance token the `bWasSuccessful` parameter is set to `false` and the unique net id will contain the *continuance token*. The process then can be restarted by calling the `IOnlineIdentityInterface::Login(int32, const FOnlineAccountCredentials&)` function, where the `FOnlineAccountCredentials` parameter is initialized with the following parameters:
+* Id: *empty*
+* Token: `<continuance token>`
+* Type: CONNECT::Continuance
+
+If this call succeeds the OnLoginCompleteDelegate is called with the `bWasSuccessful` parameter set to `true`, the local user index, and the users unique net id. Note, that since a continuance token was used to create an account, the unique net id will only contain a product user id and never an epic account id.
+Should the call fail, the delegate will be called with the local user index, the `bWasSuccessful` parameter set to `false`, an invalid net id and an error message.
+
+In *Blueprints* the caller doesn't need to do anything. The BP-Node will take the login details and a boolean asking whether to create a new user. The node then will internally call the appropriate C++ functions.

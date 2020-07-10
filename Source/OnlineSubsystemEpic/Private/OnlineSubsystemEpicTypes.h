@@ -63,13 +63,13 @@ public:
 		, epicAccountId(nullptr)
 	{
 	}
+	
 	explicit FUniqueNetIdEpic(EOS_ProductUserId&& InUserId)
 		: Type(EPIC_SUBSYSTEM)
 		, productUserId(MoveTemp(InUserId))
 		, epicAccountId(nullptr)
 	{
 	}
-	
 
 	/**
 	 * Constructs this object with the string value of the specified net id.
@@ -114,7 +114,7 @@ public:
 		}
 	}
 
-	//Used by friends and presence
+	//Used by friends and presence because they only give you account ids
 	FUniqueNetIdEpic(const EOS_EpicAccountId& InEpicAccountId)
 		: Type(EPIC_SUBSYSTEM)
 		, productUserId(nullptr)
@@ -216,7 +216,7 @@ public:
 	  * Keep in mind that this returns a non owning pointer
 	  * which might become invalid at any given point.
 	  */
-	EOS_ProductUserId ToProductUserId() const
+	EOS_ProductUserId ToProdcutUserId() const
 	{
 		bool puidValid = (bool)EOS_ProductUserId_IsValid(this->productUserId);
 		check(puidValid);
@@ -334,13 +334,13 @@ UENUM()
 enum class EFriendStatus : uint8
 {
 	/** The two accounts have no friendship status */
-	NotFriends = 0,
+	NotFriends		UMETA(DisplayName = "Not Friends"),
 	/** The local account has sent a friend invite to the other account */
-	InviteSent = 1,
+	InviteSent		UMETA(DisplayName = "Invite Sent"),
 	/** The other account has sent a friend invite to the local account */
-	InviteReceived = 2,
+	InviteReceived	UMETA(DisplayName = "Invite Received"),
 	/** The accounts have accepted friendship */
-	Friends = 3
+	Friends			UMETA(DisplayNAme = "Friends")
 };
 
 UENUM()

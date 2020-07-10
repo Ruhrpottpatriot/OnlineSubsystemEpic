@@ -36,9 +36,8 @@ typedef struct FQueryUserInfoAdditionalData {
 	FOnlineUserEpic* OnlineUserPtr;
 	int32 LocalUserId;
 	double StartTime;
+	//Count the query id index we are currently on
 	int32 CurrentQueryUserIndex;
-	//Count the query number we are currently on
-	int32 CurrentNumberQuery;
 } FQueryUserInfoAdditionalData;
 
 typedef struct FQueryUserIdMappingAdditionalInfo
@@ -142,13 +141,13 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 	thisPtr->UserQueryLock.Lock();
 
 	// Auto used below to increase readability
-	TTuple<TArray<TSharedRef<FUniqueNetId const>>, TArray<bool>, TArray<FString>>* query = thisPtr->userQueries.Find(additionalData->StartTime);
+	auto query = thisPtr->userQueries.Find(additionalData->StartTime);
 	
 	TArray<TSharedRef<FUniqueNetId const>> userIds = query->Get<0>();
 	TArray<bool> completedQueries = query->Get<1>();
 	TArray<FString> errors = query->Get<2>();
 
-	int32 CurrentIndex = additionalData->CurrentNumberQuery;
+	int32 CurrentIndex = additionalData->CurrentQueryUserIndex;
 	//We need to update the tuple here - otherwise we never complete the query! - Mike
 	if (result != EOS_EResult::EOS_Success)
 	{
@@ -156,9 +155,9 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 		errors[CurrentIndex] = FString::Printf(TEXT("SubQueryId: %d, Message: %s"), CurrentIndex, *error);
 	}
 	
-	//regardless if there is an error or not for this index, we have completed a query
-	//we will simply move on to the next one
-	completedQueries[additionalData->CurrentQueryUserIndex] = true;
+	//Regardless if there is an error or not for this index, we have completed a query
+	//we will simply move on to the next index
+	completedQueries[CurrentIndex] = true;
 	checkf(userIds.Num() == errors.Num() && errors.Num() == completedQueries.Num(), TEXT("Amount(UserIds, completedQueries, errors) mismatch."));
 	thisPtr->userQueries[additionalData->StartTime] = MakeTuple(userIds, completedQueries, errors);
 	
@@ -166,7 +165,7 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 	int32 doneQueries = 0;
 	for (int32 i = 0; i < completedQueries.Num(); ++i)
 	{
-		//we are done if all queries have been completed in some fort
+		//We are done if all queries have been completed in some form
 		if (completedQueries[i])
 		{
 			doneQueries += 1;
@@ -184,8 +183,7 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 
 		//Just like a queue, remove the first element as we have finished that query
 		thisPtr->queriedUserIdsCache.RemoveAt(0);
-		thisPtr->CurrentQueryIndices.RemoveAt(0);
-		
+
 		IOnlineIdentityPtr identityPtr = thisPtr->Subsystem->GetIdentityInterface();
 		thisPtr->TriggerOnQueryUserInfoCompleteDelegates(additionalData->LocalUserId, error.IsEmpty(), userIds, completeErrorString);
 	}
@@ -205,7 +203,7 @@ void FOnlineUserEpic::OnEOSQueryUserInfoByDisplayNameComplete(EOS_UserInfo_Query
 	{
 		EOS_Connect_GetExternalAccountMappingsOptions getExternalAccountMappingsOptions = {
 				EOS_CONNECT_GETEXTERNALACCOUNTMAPPINGS_API_LATEST,
-				additionalData->LocalUserId.ToProductUserId(),
+				additionalData->LocalUserId.ToProdcutUserId(),
 				EOS_EExternalAccountType::EOS_EAT_EPIC,
 				TCHAR_TO_UTF8(*FUniqueNetIdEpic::EpicAccountIdToString(Data->TargetUserId))
 		};
@@ -263,7 +261,7 @@ void FOnlineUserEpic::OnEOSQueryExternalIdMappingsByDisplayNameComplete(EOS_User
 		{
 			EOS_Connect_GetExternalAccountMappingsOptions getExternalAccountMappingsOptions = {
 				EOS_CONNECT_GETEXTERNALACCOUNTMAPPINGS_API_LATEST,
-				additionalData->QueryUserId->ToProductUserId(),
+				additionalData->QueryUserId->ToProdcutUserId(),
 				EOS_EExternalAccountType::EOS_EAT_EPIC,
 				TCHAR_TO_UTF8(*FUniqueNetIdEpic::EpicAccountIdToString(Data->TargetUserId))
 			};
@@ -346,7 +344,7 @@ void FOnlineUserEpic::OnEOSQueryExternalIdMappingsByDisplayNameComplete(EOS_User
 
 		EOS_Connect_GetExternalAccountMappingsOptions getExternalAccountMappingsOptions = {
 			EOS_CONNECT_GETEXTERNALACCOUNTMAPPINGS_API_LATEST,
-			additionalData->QueryUserId->ToProductUserId(),
+			additionalData->QueryUserId->ToProdcutUserId(),
 			EOS_EExternalAccountType::EOS_EAT_EPIC,
 			TCHAR_TO_UTF8(*FUniqueNetIdEpic::EpicAccountIdToString(Data->LocalUserId))
 		};
@@ -508,7 +506,7 @@ void FOnlineUserEpic::OnEOSQueryExternalIdMappingsByIdComplete(EOS_UserInfo_Quer
 
 		EOS_Connect_GetExternalAccountMappingsOptions getExternalAccountMappingsOptions = {
 			EOS_CONNECT_GETEXTERNALACCOUNTMAPPINGS_API_LATEST,
-			additionalData->QueryUserId->ToProductUserId(),
+			additionalData->QueryUserId->ToProdcutUserId(),
 			EOS_EExternalAccountType::EOS_EAT_EPIC,
 			TCHAR_TO_UTF8(*FUniqueNetIdEpic::EpicAccountIdToString(Data->LocalUserId))
 		};
@@ -574,9 +572,7 @@ bool FOnlineUserEpic::QueryUserInfo(int32 LocalUserNum, const TArray<TSharedRef<
 
 				TTuple<TArray<TSharedRef<FUniqueNetId const>>, TArray<bool>, TArray<FString>> queries = MakeTuple(UserIds, states, errors);
 				this->userQueries.Add(FDateTime::UtcNow().ToUnixTimestamp(), queries);
-				this->CurrentQueryIndices.Add(UserIds.Num());
-				CurrentNumberQuery = this->userQueries.Num();
-				
+
 				// Start the actual queries
 				for (int32 i = 0; i < UserIds.Num(); i++)
 				{
@@ -660,7 +656,7 @@ bool FOnlineUserEpic::GetAllUserInfo(int32 LocalUserNum, TArray< TSharedRef<clas
 						EOS_HConnect connectHandle = EOS_Platform_GetConnectInterface(this->Subsystem->PlatformHandle);
 						EOS_Connect_GetExternalAccountMappingsOptions getExternalAccountMappingsOptions = {
 							EOS_CONNECT_GETEXTERNALACCOUNTMAPPINGS_API_LATEST,
-							localUserNetId->ToProductUserId(),
+							localUserNetId->ToProdcutUserId(),
 							EOS_EExternalAccountType::EOS_EAT_EPIC,
 							TCHAR_TO_UTF8(*FUniqueNetIdEpic::EpicAccountIdToString(eaid))
 						};
@@ -733,9 +729,8 @@ TSharedPtr<FOnlineUser> FOnlineUserEpic::GetUserInfo(int32 LocalUserNum, const c
 		{
 			FUniqueNetIdEpic const epicUserId = static_cast<FUniqueNetIdEpic const>(UserId);
 
-			//TSharedPtr<FUniqueNetIdEpic> epicUserId = MakeShareable(new FUniqueNetIdEpic(UserId));
-			UE_LOG_ONLINE_USER(Log, TEXT("Local: %s:%s"), __FUNCTIONW__, *localUserId->ToDebugString());
-			UE_LOG_ONLINE_USER(Log, TEXT("Target: %s:%s"), __FUNCTIONW__, *epicUserId.ToDebugString());
+			UE_LOG_ONLINE_USER(Log, TEXT("%hs: Local ID : %s"), __FUNCTION__, *localUserId->ToDebugString());
+			UE_LOG_ONLINE_USER(Log, TEXT("%hs: Target ID: %s"), __FUNCTION__, *epicUserId.ToDebugString());
 			
 			if (epicUserId.IsEpicAccountIdValid())
 			{

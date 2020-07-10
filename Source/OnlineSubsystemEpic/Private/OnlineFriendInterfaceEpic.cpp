@@ -104,7 +104,6 @@ bool FOnlineFriendInterfaceEpic::GetFriendsList(int32 InLocalUserNum, const FStr
 	return bResult;
 }
 
-//TODO - Call upon an asynchronous task for this as there could be numerous queries needed
 bool FOnlineFriendInterfaceEpic::ReadFriendsList(int32 InLocalUserNum, const FString& ListName,
 	const FOnReadFriendsListComplete& Delegate)
 {
@@ -132,7 +131,15 @@ bool FOnlineFriendInterfaceEpic::ReadFriendsList(int32 InLocalUserNum, const FSt
 		OnQueryUserInfoCompleteDelegateHandle = this->Subsystem->GetUserInterface()->AddOnQueryUserInfoCompleteDelegate_Handle(InLocalUserNum, OnQueryUserInfoCompleteDelegate);
 
 		Options.LocalUserId = userId->ToEpicAccountId();
-		EOS_Friends_QueryFriends(this->friendsHandle, &Options, this, &FOnlineFriendInterfaceEpic::OnEOSQueryFriendsComplete);
+
+		FLocalUserData* UserData = new FLocalUserData
+		{
+			this,
+			friendsHandle,
+			InLocalUserNum
+		};
+		
+		EOS_Friends_QueryFriends(this->friendsHandle, &Options, UserData, &FOnlineFriendInterfaceEpic::OnEOSQueryFriendsComplete);
 	}
 	else
 	{
@@ -154,9 +161,9 @@ void FOnlineFriendInterfaceEpic::HandleQueryUserInfoComplete(int32 InLocalUserNu
 		{
 			TSharedRef<FOnlineFriendEpic> CurrentFriend = FriendsLists[InLocalUserNum].Friends[UserIdx];
 			CurrentFriend->AccountData[USER_ATTR_DISPLAYNAME] = UserInterfacePtr->GetUserInfo(InLocalUserNum, Ids[UserIdx].Get())->GetDisplayName();
-			CurrentFriend->AccountData[USER_ATTR_REALNAME] = UserInterfacePtr->GetUserInfo(InLocalUserNum, Ids[UserIdx].Get())->GetDisplayName();
-			CurrentFriend->AccountData[USER_ATTR_PREFERRED_DISPLAYNAME] = UserInterfacePtr->GetUserInfo(InLocalUserNum, Ids[UserIdx].Get())->GetDisplayName();
-			CurrentFriend->AccountData[USER_ATTR_ALIAS] = UserInterfacePtr->GetUserInfo(InLocalUserNum, Ids[UserIdx].Get())->GetDisplayName();
+			//CurrentFriend->AccountData[USER_ATTR_REALNAME] = UserInterfacePtr->GetUserInfo(InLocalUserNum, Ids[UserIdx].Get())->GetDisplayName();
+			//CurrentFriend->AccountData[USER_ATTR_PREFERRED_DISPLAYNAME] = UserInterfacePtr->GetUserInfo(InLocalUserNum, Ids[UserIdx].Get())->GetDisplayName();
+			//CurrentFriend->AccountData[USER_ATTR_ALIAS] = UserInterfacePtr->GetUserInfo(InLocalUserNum, Ids[UserIdx].Get())->GetDisplayName();
 
 			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Name is: " + CurrentFriend->AccountData[USER_ATTR_DISPLAYNAME]);
 		}
@@ -249,12 +256,14 @@ void FOnlineFriendInterfaceEpic::OnEOSQueryFriendsComplete(EOS_Friends_QueryFrie
 	// Make sure the received data is valid on a low level
 	check(Data);
 
+	// To raise the friends query complete delegate the interface itself has to be retrieved from the returned data
+	FLocalUserData* ThisPtr = (FLocalUserData*)(Data->ClientData);
+	check(ThisPtr);
+
 	if (Data->ResultCode == EOS_EResult::EOS_Success)
 	{
 
-		// To raise the friends query complete delegate the interface itself has to be retrieved from the returned data
-		FLocalUserData* ThisPtr = (FLocalUserData*)(Data->ClientData);
-		check(ThisPtr);
+		FOnlineFriendInterfaceEpic* FriendInterfaceEpic = ThisPtr->OnlineFriendPtr;
 		
 		EOS_Friends_GetFriendsCountOptions Options;
 		Options.ApiVersion = EOS_FRIENDS_GETFRIENDSCOUNT_API_LATEST;
@@ -265,7 +274,7 @@ void FOnlineFriendInterfaceEpic::OnEOSQueryFriendsComplete(EOS_Friends_QueryFrie
 		UE_LOG_ONLINE_FRIEND(Log, TEXT("%s number of friends is: %d"), __FUNCTIONW__, FriendsCount);
 
 		
-		FOnlineFriendInterfaceEpic::FEpicFriendsList& FriendsList = ThisPtr->OnlineFriendPtr->FriendsLists.FindOrAdd(ThisPtr->LocalPlayerNum);
+		FOnlineFriendInterfaceEpic::FEpicFriendsList& FriendsList = FriendInterfaceEpic->FriendsLists.FindOrAdd(ThisPtr->LocalPlayerNum);
 		//Pre-Size array for minimum re-allocs
 		FriendsList.Friends.Empty(FriendsCount);
 
@@ -309,6 +318,8 @@ void FOnlineFriendInterfaceEpic::OnEOSQueryFriendsComplete(EOS_Friends_QueryFrie
 	else {
 		UE_LOG_ONLINE_FRIEND(Error, TEXT("%s asynchronous call was not successful!"), __FUNCTIONW__);
 	}
+
+	delete ThisPtr;
 }
 
 bool FOnlineFriendInterfaceEpic::DeleteFriendsList(int32 InLocalUserNum, const FString& ListName,

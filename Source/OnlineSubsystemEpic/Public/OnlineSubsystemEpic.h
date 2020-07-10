@@ -78,13 +78,14 @@ PACKAGE_SCOPE:
 
 	FOnlineSessionEpicPtr SessionInterface;
 
-	FOnlineFriendsEpicPtr FriendsInterface;
-
 	FOnlineUserEpicPtr UserInterface;
 
 	FOnlinePresenceEpicPtr PresenceInterface;
-
+	
+	FOnlineFriendsEpicPtr FriendsInterface;
+	
 	FString DevToolAddress;
+
 };
 
 

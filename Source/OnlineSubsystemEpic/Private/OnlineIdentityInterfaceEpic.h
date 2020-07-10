@@ -28,6 +28,8 @@ class FOnlineIdentityInterfaceEpic
 	static void EOS_Connect_OnLoginStatusChanged(EOS_Connect_LoginStatusChangedCallbackInfo const* Data);
 	static void EOS_Auth_OnLoginComplete(EOS_Auth_LoginCallbackInfo const* Data);
 	static void EOS_Auth_OnLogoutComplete(const EOS_Auth_LogoutCallbackInfo* Data);
+	static void EOS_Connect_OnUserCreated(EOS_Connect_CreateUserCallbackInfo const* Data);
+	static void EOS_Connect_OnAccountLinked(EOS_Connect_LinkAccountCallbackInfo const* Data);
 
 	TSharedPtr<FUserOnlineAccount> OnlineUserAcccountFromPUID(EOS_ProductUserId const& PUID) const;
 	ELoginStatus::Type EOSLoginStatusToUELoginStatus(EOS_ELoginStatus LoginStatus);

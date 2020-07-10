@@ -14,7 +14,7 @@ class FOnlineUserEpic
 private:
 	/** Hidden on purpose */
 	FOnlineUserEpic()
-		: Subsystem(nullptr), CurrentNumberQuery(0)
+		: Subsystem(nullptr)
 	{
 	}
 
@@ -25,10 +25,6 @@ private:
 
 	/** A list of all user ids for which the SDK has cached user information. */
 	TArray<EOS_EpicAccountId> queriedUserIdsCache;
-	//This is the query index that we are at per above query cache^
-	TArray<int32> CurrentQueryIndices;
-	//Count the query number we are currently on
-	int32 CurrentNumberQuery;
 	
 	/**
 	 * Concatenates multiple error strings into one single error string.
@@ -50,7 +46,6 @@ private:
 	 * @value - A tuple containing the data with the queried data (either id or display name), the state and optional error message
 	 */
 	TMap<double, TTuple<FExternalIdQueryOptions, TArray<FString>, TArray<bool>, TArray<FString>>> externalIdMappingsQueries;
-
 
 	/**
 	 * A list of all cached id mappings.
