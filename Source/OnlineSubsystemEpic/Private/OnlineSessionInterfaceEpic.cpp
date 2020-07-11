@@ -730,7 +730,6 @@ void FOnlineSessionEpic::OnEOSCreateSessionComplete(const EOS_Sessions_UpdateSes
 	FCreateSessionAdditionalData* additionalData = static_cast<FCreateSessionAdditionalData*>(Data->ClientData);
 	FOnlineSessionEpic* thisPtr = additionalData->OnlineSessionPtr;
 
-
 	if (ResultCode != EOS_EResult::EOS_Success)
 	{
 		UE_LOG_ONLINE_SESSION(Warning, TEXT("Update Session failed. Error Code: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(ResultCode)));
@@ -746,14 +745,6 @@ void FOnlineSessionEpic::OnEOSCreateSessionComplete(const EOS_Sessions_UpdateSes
 		thisPtr->TriggerOnCreateSessionCompleteDelegates(sessionName, false);
 		return;
 	}
-
-	session->HostingPlayerNum = INDEX_NONE; // Eventually this is going to be replaced by LocalOwnerId.
-	session->bHosting = true;				// We  created the session, therefore we're hosting it.
-	session->SessionState = EOnlineSessionState::Pending;
-
-	// Add the host to the list of registered players,
-	// without updating the number of slots.
-	session->RegisteredPlayers.Add(additionalData->CreatingUserId);
 
 	// --------------------------
 	// Create a new session info class, that includes the session id and host address
@@ -968,7 +959,7 @@ void FOnlineSessionEpic::OnEOSFindSessionComplete(const EOS_SessionSearch_FindCa
 						};
 						eosResult = EOS_SessionDetails_CopyInfo(sessionDetailsHandle, &copyInfoOptions, &eosSessionInfo);
 						if (eosResult == EOS_EResult::EOS_Success)
-						{						
+						{
 							// Create a new search result.
 							// Ping is set to -1, as we have no way of retrieving it for now
 							FOnlineSessionSearchResult searchResult;
@@ -1556,7 +1547,7 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 						EOS_SESSIONS_UPDATESESSION_API_LATEST,
 						modificationHandle
 					};
-					FCreateSessionAdditionalData* addionalData = new FCreateSessionAdditionalData {
+					FCreateSessionAdditionalData* addionalData = new FCreateSessionAdditionalData{
 						this,
 						HostingPlayerId.AsShared()
 					};
