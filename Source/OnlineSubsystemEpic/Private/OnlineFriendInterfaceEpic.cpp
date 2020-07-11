@@ -345,6 +345,7 @@ void FOnlineFriendInterfaceEpic::OnFriendQueryPresenceComplete(const class FUniq
 		IOnlinePresencePtr FriendPresencePtr = this->Subsystem->GetPresenceInterface();
 		TSharedPtr<FOnlineUserPresence> UserPresence;
 		FriendPresencePtr->GetCachedPresence(UserId, UserPresence);
+		FriendPresencePtr->SetPresence(UserId, UserPresence->Status);
 		FOnlineFriendEpic* OnlineFriendEpic = static_cast<FOnlineFriendEpic*>(OnlineAccount.Get());
 		//TODO - It seems like when a user presence doesn't exist, this call fails
 		if (OnlineFriendEpic && UserPresence.Get()) {

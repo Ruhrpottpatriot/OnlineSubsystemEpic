@@ -64,8 +64,6 @@ void FOnlinePresenceEpic::EOS_QueryPresenceComplete(EOS_Presence_QueryPresenceCa
 
 void FOnlinePresenceEpic::EOS_OnPresenceChanged(EOS_Presence_PresenceChangedCallbackInfo const* data)
 {
-	//TODO - Redo this
-	return;
 	FOnlinePresenceEpic* THIS = static_cast<FOnlinePresenceEpic*>(data->ClientData);
 
 	IOnlineIdentityPtr identityPtr = THIS->subsystem->GetIdentityInterface();
@@ -111,21 +109,22 @@ void FOnlinePresenceEpic::EOS_OnPresenceChanged(EOS_Presence_PresenceChangedCall
 				FUniqueNetIdEpic targetEpicNetId(nullptr, data->PresenceUserId);
 
 				//TODO - REdo some of this functionality
-				TSharedPtr<FOnlineUserPresence> targetPresence = TSharedPtr<FOnlineUserPresence>();
+				TSharedPtr<FOnlineUserPresence> targetPresence;
+				THIS->GetCachedPresence(targetEpicNetId, targetPresence);
 				//Using this map can be our "cache result that we do in house"
-				//if (THIS->PresenceNotifications.Contains(targetEpicNetId))
-				//{
-				//	THIS->TriggerOnPresenceReceivedDelegates(*fittingNetId.Get(), targetPresence.ToSharedRef());
-				//}
-				//else
-				//{
+				if (THIS->PresenceNotifications.Contains(targetEpicNetId))
+				{
+					THIS->TriggerOnPresenceReceivedDelegates(targetEpicNetId, targetPresence.ToSharedRef());
+				}
+				else
+				{
 					//The thinking below here is wrong, it should just return an error, you don't want to add unnecessary queries
-				//	UE_LOG_ONLINE_PRESENCE(Error, TEXT("Presence for this user doesn't exist."));
+					UE_LOG_ONLINE_PRESENCE(Error, TEXT("Presence for this user doesn't exist."));
 					
 					// If the user, that got his presence updated is not in the cache, we need to query them
 					// Usually this shouldn't happen, but we never know. TODO - Why shouldn't it happen? you always need to query before retrieving presence information
 					// Using a lambda here makes the code more readable
-					/*auto completeFunc = [THIS](const class FUniqueNetId& UserId, const bool bWasSuccessful)
+					auto completeFunc = [THIS](const class FUniqueNetId& UserId, const bool bWasSuccessful)
 					{
 						TSharedPtr<FOnlineUserPresence> queriedPresence;
 						EOnlineCachedResult::Type cacheResult = THIS->GetCachedPresence(UserId, queriedPresence);
@@ -137,10 +136,9 @@ void FOnlinePresenceEpic::EOS_OnPresenceChanged(EOS_Presence_PresenceChangedCall
 						{
 							UE_LOG_ONLINE_PRESENCE(Warning, TEXT("Recieved presence update, but couldn't retrive user presence information."));
 						}
-					};*/
-					//Really, the cache just doesn't exist - you just need to force it active - Mike
-					//THIS->QueryPresence(targetEpicNetId, FOnPresenceTaskCompleteDelegate::CreateLambda(completeFunc));
-				//}
+					};
+					THIS->QueryPresence(targetEpicNetId, FOnPresenceTaskCompleteDelegate::CreateLambda(completeFunc));
+				}
 			}
 			else
 			{
