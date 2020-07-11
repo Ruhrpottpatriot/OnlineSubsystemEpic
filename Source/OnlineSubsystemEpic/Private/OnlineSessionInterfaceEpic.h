@@ -77,12 +77,12 @@ private:
 	 * @returns - True if the creation was successful, false otherwise
 	*/
 	EOS_Sessions_AttributeData CreateEOSAttributeData(FString const attributeName, FVariantData const variantData, FString& error);
-
-	/** Convert the EOS session details into an online session */
-	FOnlineSession SessionDetailsToSessionOnlineSession(EOS_SessionDetails_Info const* SessionDetails);
+	
+	/** Sets the session details from the EOS session details struct*/
+	void SetSessionDetails(FOnlineSession* session, EOS_SessionDetails_Info const* SessionDetails);
 
 	/** Converts an EOS active session into a local named session */
-	FNamedOnlineSession ActiveSessionToNamedSession(EOS_ActiveSession_Info const* ActiveSession, bool IsHosting);
+	bool UpdateNamedOnlineSession(FNamedOnlineSession* session, EOS_ActiveSession_Info const* ActiveSession, bool IsHosting);
 
 	/** Creates a pointer to an EOS session update struct from the passed session settings */
 	void CreateSessionModificationHandle(FOnlineSessionSettings const& NewSessionSettings, EOS_HSessionModification& ModificationHandle, FString& Error);
@@ -175,5 +175,4 @@ public:
 	virtual int32 GetNumSessions() override;
 	virtual void DumpSessionState() override;
 };
-
 using FOnlineSessionEpicPtr = TSharedPtr<FOnlineSessionEpic, ESPMode::ThreadSafe>;
