@@ -129,8 +129,7 @@ public:
 		, productUserId(nullptr)
 		, epicAccountId(InEpicAccountId)
 	{
-	}
-	
+	}	
 	FUniqueNetIdEpic(EOS_EpicAccountId&& InEpicAccountId)
 		: Type(EPIC_SUBSYSTEM)
 		, productUserId(nullptr)
@@ -145,7 +144,6 @@ public:
 		, epicAccountId(InEpicAccountId)
 	{
 	}
-
 	FUniqueNetIdEpic(EOS_ProductUserId&& InProductUserId, EOS_EpicAccountId&& InEpicAccountId)
 		: Type(EPIC_SUBSYSTEM)
 		, productUserId(MoveTemp(InProductUserId))
@@ -207,7 +205,6 @@ public:
 				UE_LOG_ONLINE(Warning, TEXT("Couldn't convert EAID to byte array."));
 			}
 		}
-		//This needs to be 3, not 4 - Mike
 		else if (type == 3)
 		{
 			// Convert both ids into a char array.

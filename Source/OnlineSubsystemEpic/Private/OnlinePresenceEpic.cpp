@@ -4,7 +4,6 @@
 #include "eos_connect.h"
 #include "eos_userinfo.h"
 #include "eos_sessions.h"
-
 #include "Interfaces/OnlineIdentityInterface.h"
 #include "Interfaces/OnlineSessionInterface.h"
 
@@ -281,8 +280,6 @@ FOnlinePresenceEpic::FOnlinePresenceEpic(FOnlineSubsystemEpic const* InSubsystem
 	EOS_Presence_AddNotifyOnPresenceChangedOptions onPresenceChangedOptions = {
 		EOS_PRESENCE_ADDNOTIFYONPRESENCECHANGED_API_LATEST
 	};
-	//TODO - This is problematic - causes crash almost immediately after logging in - Mike
-	//this->OnPresenceChangedHandle = EOS_Presence_AddNotifyOnPresenceChanged(this->presenceHandle, &onPresenceChangedOptions, this, &FOnlinePresenceEpic::EOS_OnPresenceChanged);
 }
 
 void FOnlinePresenceEpic::SetPresence(const FUniqueNetId& User, const FOnlineUserPresenceStatus& Status, const FOnPresenceTaskCompleteDelegate& Delegate)
@@ -480,8 +477,7 @@ EOnlineCachedResult::Type FOnlinePresenceEpic::GetCachedPresence(const FUniqueNe
 				// Get the last time the querying user was online.
 				FString lastOnlineString;
 				userAcc->GetUserAttribute(USER_ATTR_LAST_LOGIN_TIME, lastOnlineString);
-				//NOTE: The variable below does not exist in the FOnlinePresenceStruct struct - Mike
-				//OutPresence->LastOnline = FDateTime::FromUnixTimestamp(FCString::Atoi64(*lastOnlineString));
+				OutPresence->LastOnline = FDateTime::FromUnixTimestamp(FCString::Atoi64(*lastOnlineString));
 
 				IOnlineSessionPtr sessionPtr = this->subsystem->GetSessionInterface();
 

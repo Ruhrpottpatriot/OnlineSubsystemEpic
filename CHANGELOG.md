@@ -6,11 +6,21 @@
 
 **Breaking changes:**
 
+- Remove ability to create an FUniqueNetIdEpic from string [\#34](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/issues/34)
+- Add support for connect login and support for external account creation [\#29](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/pull/29) ([Ruhrpottpatriot](https://github.com/Ruhrpottpatriot))
 - Make address of DevAuthTool customizable [\#24](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/pull/24) ([Ruhrpottpatriot](https://github.com/Ruhrpottpatriot))
 
 **Implemented enhancements:**
 
+- Change FUniqueNetIdEpic::GetHash [\#36](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/issues/36)
+- Allow an FUniqueNetIdEpic to be created from an Epic Account ID [\#33](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/issues/33)
 - DevAuthTool should have the address customizable [\#23](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/issues/23)
+
+**Fixed bugs:**
+
+- Session Ids are still created as FUniqueNetIdEpic  [\#35](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/issues/35)
+- FOnlineSessionEpic::FindSessions doesn't correctly cast from FUniqueNetId to FUniqueNetIdEpic [\#26](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/issues/26)
+- OnlineSubsystemEpic tries to initialize missing devToolPort field [\#25](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/issues/25)
 
 ## [v0.3_Presence](https://github.com/Ruhrpottpatriot/OnlineSubsystemEpic/tree/v0.3_Presence) (2020-07-02)
 
