@@ -96,7 +96,7 @@ public:
 	/** The subsystem that owns the instance */
 	FOnlineSubsystemEpic* Subsystem;
 	/** Delegates for non-friend users that were called with QueryPresence */
-	TMap<FUniqueNetIdEpic, TSharedRef<const IOnlinePresence::FOnPresenceTaskCompleteDelegate>> DelayedPresenceDelegates;
+	TMap<FUniqueNetIdEpic, IOnlinePresence::FOnPresenceTaskCompleteDelegate> DelayedPresenceDelegates;
 
 
 protected:

@@ -16,6 +16,7 @@ private:
 
 	//We want to keep track of presence notifications for every new person we add to friend or meet in sessions
 	TMap<FUniqueNetIdEpic, EOS_NotificationId> PresenceNotifications;
+	//TMap<FUniqueNetIdEpic, TSharedRef<const FOnPresenceTaskCompleteDelegate&> AllPresenceDelegates;
 
 	static void EOS_QueryPresenceComplete(EOS_Presence_QueryPresenceCallbackInfo const* data);
 	static void EOS_OnPresenceChanged(EOS_Presence_PresenceChangedCallbackInfo const* data);

@@ -321,7 +321,7 @@ void FOnlineFriendInterfaceEpic::OnEASQueryFriendsComplete(EOS_Friends_QueryFrie
 				Friend->FriendStatus = (EFriendStatus)FriendStatus;
 
 				IOnlinePresence::FOnPresenceTaskCompleteDelegate DelegateHandle = IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateRaw(ThisPtr->OnlineFriendPtr, &FOnlineFriendInterfaceEpic::OnFriendQueryPresenceComplete);
-				ThisPtr->OnlineFriendPtr->DelayedPresenceDelegates.Add(FUniqueNetIdEpic(Friend->UserId.Get()), MakeShared<const IOnlinePresence::FOnPresenceTaskCompleteDelegate>(DelegateHandle));
+				ThisPtr->OnlineFriendPtr->DelayedPresenceDelegates.Add(FUniqueNetIdEpic(Friend->UserId.Get()), DelegateHandle);
 				ThisPtr->OnlineFriendPtr->Subsystem->GetPresenceInterface()->QueryPresence(Friend->UserId.Get(), DelegateHandle);
 			}
 		}
@@ -346,8 +346,11 @@ void FOnlineFriendInterfaceEpic::OnFriendQueryPresenceComplete(const class FUniq
 		TSharedPtr<FOnlineUserPresence> UserPresence;
 		FriendPresencePtr->GetCachedPresence(UserId, UserPresence);
 		FOnlineFriendEpic* OnlineFriendEpic = static_cast<FOnlineFriendEpic*>(OnlineAccount.Get());
-		//It doesn't matter when presence is set whether before or after query of name
-		OnlineFriendEpic->SetPresence(*UserPresence.Get());
+		//TODO - It seems like when a user presence doesn't exist, this call fails
+		if (OnlineFriendEpic && UserPresence.Get()) {
+			//It doesn't matter when presence is set whether before or after query of name
+			OnlineFriendEpic->SetPresence(*UserPresence.Get());
+		}
 	}
 	else
 	{
