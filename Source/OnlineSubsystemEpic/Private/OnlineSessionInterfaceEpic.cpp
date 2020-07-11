@@ -758,10 +758,6 @@ void FOnlineSessionEpic::OnEOSCreateSessionComplete(const EOS_Sessions_UpdateSes
 	// without updating the number of slots.
 	session->RegisteredPlayers.Add(additionalData->CreatingUserId);
 
-	// --------------------------
-	// Create a new session info class, that includes the session id and host address
-	// --------------------------
-
 	// Get the session handle for a given session
 	EOS_HActiveSession activeSessionHandle = nullptr;
 	EOS_Sessions_CopyActiveSessionHandleOptions copyActiveSessionHandleOptions = {
@@ -1547,7 +1543,7 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 						EOS_SESSIONS_UPDATESESSION_API_LATEST,
 						modificationHandle
 					};
-					FCreateSessionAdditionalData* addionalData = new FCreateSessionAdditionalData{
+					FCreateSessionAdditionalData* addionalData = new FCreateSessionAdditionalData {
 						this,
 						HostingPlayerId.AsShared()
 					};
