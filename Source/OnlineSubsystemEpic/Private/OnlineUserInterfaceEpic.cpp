@@ -181,8 +181,10 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 		UE_CLOG_ONLINE_USER(completeErrorString.IsEmpty(), Display, TEXT("Query user info successful."));
 		UE_CLOG_ONLINE_USER(!completeErrorString.IsEmpty(), Warning, TEXT("Query user info failed:\r\n%s"), *error);
 
-		//Just like a queue, remove the first element as we have finished that query
-		thisPtr->queriedUserIdsCache.RemoveAt(0);
+		//queries don't respect order, so remove the index on what the current query is set at
+		int32 IndexToRemove = thisPtr->TimeToIndexMap[additionalData->StartTime];
+		thisPtr->queriedUserIdsCache.RemoveAt(IndexToRemove);
+		thisPtr->TimeToIndexMap.Remove(IndexToRemove);
 
 		IOnlineIdentityPtr identityPtr = thisPtr->Subsystem->GetIdentityInterface();
 		thisPtr->TriggerOnQueryUserInfoCompleteDelegates(additionalData->LocalUserId, error.IsEmpty(), userIds, completeErrorString);
@@ -571,8 +573,13 @@ bool FOnlineUserEpic::QueryUserInfo(int32 LocalUserNum, const TArray<TSharedRef<
 				errors.Init(FString(), UserIds.Num());
 
 				TTuple<TArray<TSharedRef<FUniqueNetId const>>, TArray<bool>, TArray<FString>> queries = MakeTuple(UserIds, states, errors);
-				this->userQueries.Add(FDateTime::UtcNow().ToUnixTimestamp(), queries);
-
+				int64 CurrentTimeStamp = FDateTime::UtcNow().ToUnixTimestamp();
+				this->userQueries.Add(CurrentTimeStamp, queries);
+				//Add only the current time stamp to the index
+				if (!this->TimeToIndexMap.Contains(CurrentTimeStamp)) {
+					this->TimeToIndexMap.Add(CurrentTimeStamp, this->userQueries.Num() - 1);
+				}
+					
 				// Start the actual queries
 				for (int32 i = 0; i < UserIds.Num(); i++)
 				{

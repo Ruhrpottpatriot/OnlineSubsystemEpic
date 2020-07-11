@@ -9,6 +9,7 @@
 #include "OnlineUserInterfaceEpic.h"
 #include "Utilities.h"
 #include "Engine/Engine.h"
+#include "OnlinePresenceEpic.h"
 
 typedef struct FLocalUserData
 {
@@ -140,7 +141,7 @@ bool FOnlineFriendInterfaceEpic::ReadFriendsList(int32 InLocalUserNum, const FSt
 		};
 
 		ReadFriendsListDelegate = Delegate;
-		EOS_Friends_QueryFriends(this->friendsHandle, &Options, UserData, &FOnlineFriendInterfaceEpic::OnEOSQueryFriendsComplete);
+		EOS_Friends_QueryFriends(this->friendsHandle, &Options, UserData, &FOnlineFriendInterfaceEpic::OnEASQueryFriendsComplete);
 	}
 	else
 	{
@@ -262,7 +263,7 @@ void FOnlineFriendInterfaceEpic::DumpBlockedPlayers() const
 // EOS SDK Callback functions
 // ---------------------------------------------
 
-void FOnlineFriendInterfaceEpic::OnEOSQueryFriendsComplete(EOS_Friends_QueryFriendsCallbackInfo const* Data)
+void FOnlineFriendInterfaceEpic::OnEASQueryFriendsComplete(EOS_Friends_QueryFriendsCallbackInfo const* Data)
 {
 	// Make sure the received data is valid on a low level
 	check(Data);
@@ -319,25 +320,9 @@ void FOnlineFriendInterfaceEpic::OnEOSQueryFriendsComplete(EOS_Friends_QueryFrie
 				UserIds.Add(Friend->UserId);
 				Friend->FriendStatus = (EFriendStatus)FriendStatus;
 
-				//Lambda made for readability when presence status is set
-				/*auto completeFunc = [ThisPtr](const class FUniqueNetId& UserId, const bool bWasSuccessful)
-				{
-					TSharedPtr<FOnlineFriend> OnlineAccount = ThisPtr->OnlineFriendPtr->GetFriend(ThisPtr->LocalPlayerNum, FUniqueNetIdEpic(UserId), "Default");
-
-					if (bWasSuccessful) {
-						IOnlinePresencePtr FriendPresencePtr = ThisPtr->OnlineFriendPtr->Subsystem->GetPresenceInterface();
-						TSharedPtr<FOnlineUserPresence> UserPresence;
-						FriendPresencePtr->GetCachedPresence(UserId, UserPresence);
-						FOnlineFriendEpic* OnlineFriendEpic = static_cast<FOnlineFriendEpic*>(OnlineAccount.Get());
-						//It doesn't matter when presence is set whether before or after query of name
-						OnlineFriendEpic->SetPresence(*UserPresence.Get());
-					}
-					else
-					{
-						UE_LOG_ONLINE_FRIEND(Error, TEXT("%s could not set presence for account: %s"), __FUNCTIONW__, *OnlineAccount->GetUserId()->ToDebugString());
-					}
-				};
-				ThisPtr->OnlineFriendPtr->Subsystem->GetPresenceInterface()->QueryPresence(Friend->UserId.Get(), IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateLambda(completeFunc));*/
+				IOnlinePresence::FOnPresenceTaskCompleteDelegate DelegateHandle = IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateRaw(ThisPtr->OnlineFriendPtr, &FOnlineFriendInterfaceEpic::OnFriendQueryPresenceComplete);
+				ThisPtr->OnlineFriendPtr->DelayedPresenceDelegates.Add(FUniqueNetIdEpic(Friend->UserId.Get()), MakeShared<const IOnlinePresence::FOnPresenceTaskCompleteDelegate>(DelegateHandle));
+				ThisPtr->OnlineFriendPtr->Subsystem->GetPresenceInterface()->QueryPresence(Friend->UserId.Get(), DelegateHandle);
 			}
 		}
 
@@ -350,6 +335,30 @@ void FOnlineFriendInterfaceEpic::OnEOSQueryFriendsComplete(EOS_Friends_QueryFrie
 	}
 
 	delete ThisPtr;
+}
+
+void FOnlineFriendInterfaceEpic::OnFriendQueryPresenceComplete(const class FUniqueNetId& UserId, const bool bWasSuccessful)
+{
+	TSharedPtr<FOnlineFriend> OnlineAccount = this->GetFriend(0, FUniqueNetIdEpic(UserId), "Default");
+
+	if (bWasSuccessful) {
+		IOnlinePresencePtr FriendPresencePtr = this->Subsystem->GetPresenceInterface();
+		TSharedPtr<FOnlineUserPresence> UserPresence;
+		FriendPresencePtr->GetCachedPresence(UserId, UserPresence);
+		FOnlineFriendEpic* OnlineFriendEpic = static_cast<FOnlineFriendEpic*>(OnlineAccount.Get());
+		//It doesn't matter when presence is set whether before or after query of name
+		OnlineFriendEpic->SetPresence(*UserPresence.Get());
+	}
+	else
+	{
+		UE_LOG_ONLINE_FRIEND(Error, TEXT("could not set presence for this account"));
+		//UE_LOG_ONLINE_FRIEND(Error, TEXT("%s could not set presence for account: %s"), __FUNCTIONW__, *OnlineAccount->GetUserId()->ToDebugString());
+	}
+
+	const FUniqueNetIdEpic& EpicId = (const FUniqueNetIdEpic&)(UserId);
+
+	// Clear delegates for the presence async call
+	DelayedPresenceDelegates.Remove(EpicId);
 }
 
 bool FOnlineFriendInterfaceEpic::DeleteFriendsList(int32 InLocalUserNum, const FString& ListName,

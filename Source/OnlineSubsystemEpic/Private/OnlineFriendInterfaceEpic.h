@@ -5,10 +5,10 @@
 #include "CoreMinimal.h"
 #include "eos_friends.h"
 #include "OnlineIdentityInterfaceEpic.h"
-#include "OnlinePresenceInterface.h"
 #include "Interfaces/OnlineFriendsInterface.h"
 #include "OnlineSubsystemEpic/Private/OnlineSubsystemEpicTypes.h"
 #include "Interfaces/OnlineUserInterface.h"
+#include "OnlinePresenceInterface.h"
 
 class FOnlineSubsystemEpic;
 
@@ -93,10 +93,13 @@ public:
 
 	virtual ~FOnlineFriendInterfaceEpic() {};
 
-protected:
 	/** The subsystem that owns the instance */
 	FOnlineSubsystemEpic* Subsystem;
-	
+	/** Delegates for non-friend users that were called with QueryPresence */
+	TMap<FUniqueNetIdEpic, TSharedRef<const IOnlinePresence::FOnPresenceTaskCompleteDelegate>> DelayedPresenceDelegates;
+
+
+protected:
 	EOS_HFriends friendsHandle;
 	FOnReadFriendsListComplete ReadFriendsListDelegate;
 
@@ -158,7 +161,8 @@ public:
 
 
 private:
-	static void OnEOSQueryFriendsComplete(EOS_Friends_QueryFriendsCallbackInfo const* Data);
+	static void OnEASQueryFriendsComplete(EOS_Friends_QueryFriendsCallbackInfo const* Data);
+	void OnFriendQueryPresenceComplete(const FUniqueNetId& UserId, bool bWasSuccessful);
 	static void SendInviteCallback(const EOS_Friends_SendInviteCallbackInfo* Data);
 	static void RejectInviteCallback(const EOS_Friends_RejectInviteCallbackInfo* Data);
 	static void AcceptInviteCallback(const EOS_Friends_AcceptInviteCallbackInfo* Data);

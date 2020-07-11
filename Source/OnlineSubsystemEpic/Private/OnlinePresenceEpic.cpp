@@ -54,7 +54,7 @@ void FOnlinePresenceEpic::EOS_QueryPresenceComplete(EOS_Presence_QueryPresenceCa
 
 	bool success = data->ResultCode == EOS_EResult::EOS_Success;
 
-	UE_CLOG_ONLINE_PRESENCE(success, Display, TEXT("[EOS SDK] Sucessfully queried presence for user: %s"), UTF8_TO_TCHAR(data->TargetUserId));
+	UE_CLOG_ONLINE_PRESENCE(success, Display, TEXT("[EOS SDK] Sucessfully queried presence for user: %s"), *FUniqueNetIdEpic(data->TargetUserId).ToString());
 	UE_CLOG_ONLINE_PRESENCE(!success, Warning, TEXT("[EOS SDK] QueryPresence encountered an error: %s"), *FString(__FUNCTION__));
 
 	additionalData->Delegate.ExecuteIfBound(additionalData->EpicNetId, success);
@@ -401,14 +401,16 @@ void FOnlinePresenceEpic::QueryPresence(const FUniqueNetId& User, const FOnPrese
 	{
 		PresenceNotifications.Add(FUniqueNetIdEpic(User), PresenceNotificationHandle);
 	}
-	
+
+	//TODO - I don't know if this is right to just access 0 but I can't get the num anywhere else - maybe we loop through all max local players?
+	TSharedPtr<FUniqueNetId const> localUser = subsystem->GetIdentityInterface()->GetUniquePlayerId(0);
 	FUniqueNetIdEpic const& epicUser = static_cast<FUniqueNetIdEpic>(User);
 	if (epicUser.IsEpicAccountIdValid())
 	{
 		EOS_Presence_QueryPresenceOptions queryPresenceOptions = {
 			EOS_PRESENCE_QUERYPRESENCE_API_LATEST,
-			epicUser.ToEpicAccountId(),
-			FUniqueNetIdEpic(User).ToEpicAccountId()
+			FUniqueNetIdEpic(*localUser).ToEpicAccountId(),
+			epicUser.ToEpicAccountId()
 		};
 		FPresenceAdditionalData* additionalData = new FPresenceAdditionalData{
 			this,

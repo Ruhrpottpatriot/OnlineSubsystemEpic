@@ -41,6 +41,13 @@ private:
 	TMap<double, TTuple<TArray<TSharedRef<FUniqueNetId const>>, TArray<bool>, TArray<FString>>> userQueries;
 
 	/**
+	 * A map of current timestamp to index map
+	 * @key - The start time of the query
+	 * @value - the index of what time step we are at
+	 */
+	TMap<double, int32> TimeToIndexMap;
+
+	/**
 	 * A list of all currently running external id mappings queries
 	 * @key - The start time of the query
 	 * @value - A tuple containing the data with the queried data (either id or display name), the state and optional error message
