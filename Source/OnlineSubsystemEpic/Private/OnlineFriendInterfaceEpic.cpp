@@ -170,6 +170,16 @@ void FOnlineFriendInterfaceEpic::HandleQueryUserInfoComplete(int32 InLocalUserNu
 		}
 	}
 
+	//It is ok if we don't execute this with presence status, that can be updated immediately after
+	if (ReadFriendsListDelegate.IsBound() && bWasSuccessful) {
+		ReadFriendsListDelegate.ExecuteIfBound(InLocalUserNum, true, "Default", "");
+	}
+	else
+	{
+		ReadFriendsListDelegate.ExecuteIfBound(InLocalUserNum, false, "Default", FString::Printf(TEXT("Could perform a query, but could not isolate out delegates.")));
+	}
+
+
 	// Clear delegates for the various async calls
 	this->Subsystem->GetUserInterface()->ClearOnQueryUserInfoCompleteDelegate_Handle(0, OnQueryUserInfoCompleteDelegateHandle);
 }
@@ -308,33 +318,30 @@ void FOnlineFriendInterfaceEpic::OnEOSQueryFriendsComplete(EOS_Friends_QueryFrie
 
 				UserIds.Add(Friend->UserId);
 				Friend->FriendStatus = (EFriendStatus)FriendStatus;
-				
-				auto completeFunc = [ThisPtr](const class FUniqueNetId& UserId, const bool bWasSuccessful)
+
+				//Lambda made for readability when presence status is set
+				/*auto completeFunc = [ThisPtr](const class FUniqueNetId& UserId, const bool bWasSuccessful)
 				{
 					TSharedPtr<FOnlineFriend> OnlineAccount = ThisPtr->OnlineFriendPtr->GetFriend(ThisPtr->LocalPlayerNum, FUniqueNetIdEpic(UserId), "Default");
 
-					IOnlinePresencePtr FriendPresencePtr = ThisPtr->OnlineFriendPtr->Subsystem->GetPresenceInterface();
-					TSharedPtr<FOnlineUserPresence> UserPresence;
-					FriendPresencePtr->GetCachedPresence(UserId, UserPresence);
-					FOnlineFriendEpic* OnlineFriendEpic = static_cast<FOnlineFriendEpic*>(OnlineAccount.Get());
-					OnlineFriendEpic->SetPresence(*UserPresence.Get());
-
-					//TODO - I have to have both the presence and read functions complete at the same time to query 
-					/*if (ThisPtr->OnlineFriendPtr->ReadFriendsListDelegate.IsBound() && bWasSuccessful) {
-						ThisPtr->OnlineFriendPtr->ReadFriendsListDelegate.ExecuteIfBound(ThisPtr->LocalPlayerNum, true, "Default", "");
+					if (bWasSuccessful) {
+						IOnlinePresencePtr FriendPresencePtr = ThisPtr->OnlineFriendPtr->Subsystem->GetPresenceInterface();
+						TSharedPtr<FOnlineUserPresence> UserPresence;
+						FriendPresencePtr->GetCachedPresence(UserId, UserPresence);
+						FOnlineFriendEpic* OnlineFriendEpic = static_cast<FOnlineFriendEpic*>(OnlineAccount.Get());
+						//It doesn't matter when presence is set whether before or after query of name
+						OnlineFriendEpic->SetPresence(*UserPresence.Get());
 					}
 					else
 					{
-						ThisPtr->OnlineFriendPtr->ReadFriendsListDelegate.ExecuteIfBound(ThisPtr->LocalPlayerNum, false, "Default", FString::Printf(TEXT("Could perform a query, but could not isolate out delegates.")));
-					}*/
-
+						UE_LOG_ONLINE_FRIEND(Error, TEXT("%s could not set presence for account: %s"), __FUNCTIONW__, *OnlineAccount->GetUserId()->ToDebugString());
+					}
 				};
-				ThisPtr->OnlineFriendPtr->Subsystem->GetPresenceInterface()->QueryPresence(Friend->UserId.Get(), IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateLambda(completeFunc));
+				ThisPtr->OnlineFriendPtr->Subsystem->GetPresenceInterface()->QueryPresence(Friend->UserId.Get(), IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateLambda(completeFunc));*/
 			}
 		}
 
 		//Query the array of friends
-		//TODO - Possibly improve later and do a Finalize call through a QueryAsyncTask call
 		ThisPtr->OnlineFriendPtr->Subsystem->GetUserInterface()->QueryUserInfo(ThisPtr->LocalPlayerNum, UserIds);
 
 	}

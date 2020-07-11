@@ -4,7 +4,6 @@
 #include "eos_connect.h"
 #include "eos_userinfo.h"
 #include "eos_sessions.h"
-
 #include "Interfaces/OnlineIdentityInterface.h"
 #include "Interfaces/OnlineSessionInterface.h"
 
@@ -501,7 +500,7 @@ EOnlineCachedResult::Type FOnlinePresenceEpic::GetCachedPresence(const FUniqueNe
 				// Get the last time the querying user was online.
 				FString lastOnlineString;
 				userAcc->GetUserAttribute(USER_ATTR_LAST_LOGIN_TIME, lastOnlineString);
-				//NOTE: The variable below does not exist in the FOnlinePresenceStruct struct - Mike
+				//TODO - Variable doesn't exist in 4.24, need to handle
 				//OutPresence->LastOnline = FDateTime::FromUnixTimestamp(FCString::Atoi64(*lastOnlineString));
 
 				IOnlineSessionPtr sessionPtr = this->subsystem->GetSessionInterface();
@@ -540,6 +539,16 @@ EOnlineCachedResult::Type FOnlinePresenceEpic::GetCachedPresenceForApp(const FUn
 {
 	UE_LOG_ONLINE_PRESENCE(Warning, TEXT("Getting presence for a user and app is not supported."));
 	return EOnlineCachedResult::NotFound;
+}
+
+void FOnlinePresenceEpic::RemoveAllPresenceQueries()
+{
+	for (auto& NotificationQuery : PresenceNotifications)
+	{
+		EOS_Presence_RemoveNotifyOnPresenceChanged(presenceHandle, NotificationQuery.Value);
+	}
+
+	PresenceNotifications.Empty();
 }
 
 void FOnlinePresenceEpic::RemovePresenceQuery(const FUniqueNetId& TargetUserId)

@@ -39,6 +39,13 @@ public:
 	virtual EOnlineCachedResult::Type GetCachedPresenceForApp(const FUniqueNetId& LocalUserId, const FUniqueNetId& User, const FString& AppId, TSharedPtr<FOnlineUserPresence>& OutPresence) override;
 
 	/*
+	 * Removes all presence queries from local ID
+	 *
+	 * Typically called upon logout.
+	 */
+	virtual void RemoveAllPresenceQueries();
+
+	/*
 	 * Custom function made to have a way to unsubscribe to presence updates if one chooses to do so
 	 *
 	 * @param TagetUserId removing presence query for this person
