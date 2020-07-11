@@ -89,7 +89,6 @@ typedef struct FCreateSessionAdditionalData
 // Most free functions should be moved to be private class functions
 // ---------------------------------------------
 
-<<<<<<< HEAD
 TPair<bool, TSharedPtr<FInternetAddr>> FOnlineSessionEpic::StringToInternetAddress(FString addressStr)
 {
 	TSharedPtr<FInternetAddr> address = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
@@ -107,58 +106,26 @@ TPair<bool, TSharedPtr<FInternetAddr>> FOnlineSessionEpic::StringToInternetAddre
 void FOnlineSessionEpic::SetSessionDetails(FOnlineSession* session, EOS_SessionDetails_Info const* SessionDetails)
 {
 	// Update the maximum number of open connections
-=======
-void FOnlineSessionEpic::SetSessionDetails(FOnlineSession* session, EOS_SessionDetails_Info const* SessionDetails)
-{
-	EOS_SessionDetails_Settings const* eosSessionSettings = SessionDetails->Settings;
-
-	// Replace the session setting with new ones
-	FOnlineSessionSettings sessionSettings;
-	sessionSettings.bAllowInvites = eosSessionSettings->bInvitesAllowed == EOS_TRUE ? true : false;
-	sessionSettings.bAllowJoinInProgress = eosSessionSettings->bAllowJoinInProgress == EOS_TRUE ? true : false;
-	sessionSettings.NumPublicConnections = eosSessionSettings->NumPublicConnections;
-	sessionSettings.BuildUniqueId = GetBuildUniqueId();
-
-	session->SessionSettings = sessionSettings;
-
->>>>>>> 20b7156... Fix Session not starting
 	session->NumOpenPublicConnections = SessionDetails->NumOpenPublicConnections;
 
 	// Setup the host session info
 	TSharedPtr<FOnlineSessionInfoEpic> sessionInfo = MakeShared<FOnlineSessionInfoEpic>();
-<<<<<<< HEAD
 	sessionInfo->HostAddr = this->StringToInternetAddress(UTF8_TO_TCHAR(SessionDetails->HostAddress)).Get<1>();
 	sessionInfo->SessionId = this->CreateSessionIdFromString(UTF8_TO_TCHAR(SessionDetails->SessionId));
 	session->SessionInfo = sessionInfo;
 
 	// ToDo: Do we want to do this here?
-//	// Replace the session settings with updated ones from the server
-//	EOS_SessionDetails_Settings const* eosSessionSettings = SessionDetails->Settings;
-//
-//	// Replace the session setting with new ones
-//	session->SessionSettings.Set(TEXT("BucketId"), UTF8_TO_TCHAR(eosSessionSettings->BucketId), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-//	session->SessionSettings.NumPublicConnections = eosSessionSettings->NumPublicConnections;
-//	session->SessionSettings.bAllowJoinInProgress = eosSessionSettings->bAllowJoinInProgress == EOS_TRUE ? true : false;
-//
-//	session->SessionSettings.bAllowInvites = eosSessionSettings->bInvitesAllowed == EOS_TRUE ? true : false;
-//	
-//	session->SessionSettings.BuildUniqueId = this->Subsystem->GetBuildUniqueId();
-=======
-	sessionInfo->HostAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
-
-	FString hostAddrStr = UTF8_TO_TCHAR(SessionDetails->HostAddress);
-	FString ip, port;
-	ip.Split(":", &ip, &port);
-
-	bool isValid;
-	sessionInfo->HostAddr->SetIp(*ip, isValid);
-	sessionInfo->HostAddr->SetPort(FCString::Atoi(*port));
-
-	session->SessionInfo = sessionInfo;
-
-	// Set the session id
-	sessionInfo->SessionId = MakeShared<FUniqueNetIdEpic>(UTF8_TO_TCHAR(SessionDetails->SessionId));
->>>>>>> 20b7156... Fix Session not starting
+	//	// Replace the session settings with updated ones from the server
+	//	EOS_SessionDetails_Settings const* eosSessionSettings = SessionDetails->Settings;
+	//
+	//	// Replace the session setting with new ones
+	//	session->SessionSettings.Set(TEXT("BucketId"), UTF8_TO_TCHAR(eosSessionSettings->BucketId), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+	//	session->SessionSettings.NumPublicConnections = eosSessionSettings->NumPublicConnections;
+	//	session->SessionSettings.bAllowJoinInProgress = eosSessionSettings->bAllowJoinInProgress == EOS_TRUE ? true : false;
+	//
+	//	session->SessionSettings.bAllowInvites = eosSessionSettings->bInvitesAllowed == EOS_TRUE ? true : false;
+	//	
+	//	session->SessionSettings.BuildUniqueId = this->Subsystem->GetBuildUniqueId();
 }
 
 /**
@@ -749,55 +716,6 @@ handleError:
 	ModificationHandle = EOS_HSessionModification();
 }
 
-bool FOnlineSessionEpic::UpdateNamedOnlineSession(FNamedOnlineSession* session, EOS_ActiveSession_Info const* ActiveSession, bool IsHosting)
-{
-	if (!session->SessionName.IsEqual(UTF8_TO_TCHAR(ActiveSession->SessionName), ENameCase::IgnoreCase))
-	{
-		return false;
-	}
-
-	// Create a new local user if from a PUID
-	TSharedRef<FUniqueNetId> localUserId = MakeShared<FUniqueNetIdEpic>(UTF8_TO_TCHAR(ActiveSession->LocalUserId));
-	session->LocalOwnerId = localUserId;
-	session->bHosting = IsHosting;
-
-	SetSessionDetails(session, ActiveSession->SessionDetails);
-
-	switch (ActiveSession->State)
-	{
-	case EOS_EOnlineSessionState::EOS_OSS_NoSession:
-		session->SessionState = EOnlineSessionState::NoSession;
-		break;
-	case EOS_EOnlineSessionState::EOS_OSS_Creating:
-		session->SessionState = EOnlineSessionState::Creating;
-		break;
-	case EOS_EOnlineSessionState::EOS_OSS_Pending:
-		session->SessionState = EOnlineSessionState::Pending;
-		break;
-	case EOS_EOnlineSessionState::EOS_OSS_Starting:
-		session->SessionState = EOnlineSessionState::Starting;
-		break;
-	case EOS_EOnlineSessionState::EOS_OSS_InProgress:
-		session->SessionState = EOnlineSessionState::InProgress;
-		break;
-	case EOS_EOnlineSessionState::EOS_OSS_Ending:
-		session->SessionState = EOnlineSessionState::Ending;
-		break;
-	case EOS_EOnlineSessionState::EOS_OSS_Ended:
-		session->SessionState = EOnlineSessionState::Ended;
-		break;
-	case EOS_EOnlineSessionState::EOS_OSS_Destroying:
-		session->SessionState = EOnlineSessionState::Destroying;
-		break;
-	default:
-		checkNoEntry();
-		return false;
-	}
-
-	return true;
-}
-
-
 // ---------------------------------------------
 // EOS method callbacks
 // ---------------------------------------------
@@ -828,10 +746,18 @@ void FOnlineSessionEpic::OnEOSCreateSessionComplete(const EOS_Sessions_UpdateSes
 		thisPtr->TriggerOnCreateSessionCompleteDelegates(sessionName, false);
 		return;
 	}
-	TSharedPtr<FUniqueNetId const> sessionId = thisPtr->CreateSessionIdFromString(UTF8_TO_TCHAR(Data->SessionId));
 
-	session->SessionInfo->GetSessionId()
+	session->HostingPlayerNum = INDEX_NONE; // Eventually this is going to be replaced by LocalOwnerId.
+	session->bHosting = true;				// We  created the session, therefore we're hosting it.
+	session->SessionState = EOnlineSessionState::Pending;
 
+	// Add the host to the list of registered players,
+	// without updating the number of slots.
+	session->RegisteredPlayers.Add(additionalData->CreatingUserId);
+
+	// --------------------------
+	// Create a new session info class, that includes the session id and host address
+	// --------------------------
 
 	session->HostingPlayerNum = INDEX_NONE; // Eventually this is going to be replaced by LocalOwnerId.
 	session->bHosting = true;				// We  created the session, therefore we're hosting it.
@@ -860,24 +786,20 @@ void FOnlineSessionEpic::OnEOSCreateSessionComplete(const EOS_Sessions_UpdateSes
 	};
 	EOS_ActiveSession_CopyInfo(activeSessionHandle, &activeSessionCopyInfoOptions, &activeSessionInfo);
 
-	// Overwrite the locally created session with the latest remote details just to be sure.
-	bool success = thisPtr->UpdateNamedOnlineSession(session, activeSessionInfo, true);
-	if (!success)
-	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("Create session failed. Couldn't update local session \"%s\""), *sessionName.ToString());
-		thisPtr->TriggerOnCreateSessionCompleteDelegates(sessionName, false);
-	}
-	else
-	{
-		UE_LOG_ONLINE_SESSION(Display, TEXT("Created session: %s"), *sessionName.ToString());
-		thisPtr->TriggerOnCreateSessionCompleteDelegates(sessionName, true);
-	}
+
+	thisPtr->SetSessionDetails(session, activeSessionInfo->SessionDetails);
 
 	// Release the active session info memory 
 	EOS_ActiveSession_Info_Release(activeSessionInfo);
 
 	// Release the active session handle memory
 	EOS_ActiveSession_Release(activeSessionHandle);
+
+	// Release the additional data struct
+	delete additionalData;
+
+	UE_LOG_ONLINE_SESSION(Display, TEXT("Created session: %s"), *sessionName.ToString());
+	thisPtr->TriggerOnCreateSessionCompleteDelegates(sessionName, true);
 }
 
 void FOnlineSessionEpic::OnEOSStartSessionComplete(const EOS_Sessions_StartSessionCallbackInfo* Data)
@@ -1634,7 +1556,11 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 						EOS_SESSIONS_UPDATESESSION_API_LATEST,
 						modificationHandle
 					};
-					EOS_Sessions_UpdateSession(this->sessionsHandle, &updateSessionOptions, this, &FOnlineSessionEpic::OnEOSCreateSessionComplete);
+					FCreateSessionAdditionalData* addionalData = new FCreateSessionAdditionalData {
+						this,
+						HostingPlayerId.AsShared()
+					};
+					EOS_Sessions_UpdateSession(this->sessionsHandle, &updateSessionOptions, addionalData, &FOnlineSessionEpic::OnEOSCreateSessionComplete);
 
 					// Mark the creation operation as pending
 					result = ONLINE_IO_PENDING;
