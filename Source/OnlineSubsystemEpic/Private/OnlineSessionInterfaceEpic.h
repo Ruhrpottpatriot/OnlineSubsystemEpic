@@ -81,6 +81,9 @@ private:
 	/** Sets the session details from the EOS session details struct*/
 	void SetSessionDetails(FOnlineSession* session, EOS_SessionDetails_Info const* SessionDetails);
 
+	/** Converts an EOS active session into a local named session */
+	bool UpdateNamedOnlineSession(FNamedOnlineSession* session, EOS_ActiveSession_Info const* ActiveSession, bool IsHosting);
+
 	/** Creates a pointer to an EOS session update struct from the passed session settings */
 	void CreateSessionModificationHandle(FOnlineSessionSettings const& NewSessionSettings, EOS_HSessionModification& ModificationHandle, FString& Error);
 
