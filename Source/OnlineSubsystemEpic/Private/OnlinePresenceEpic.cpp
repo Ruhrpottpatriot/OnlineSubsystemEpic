@@ -1,4 +1,4 @@
-#include "OnlinePrensenceEpic.h"
+#include "OnlinePresenceEpic.h"
 #include "eos_presence.h"
 #include "OnlineSubsystemEpicTypes.h"
 #include "eos_connect.h"
@@ -280,7 +280,6 @@ FOnlinePresenceEpic::FOnlinePresenceEpic(FOnlineSubsystemEpic const* InSubsystem
 	EOS_Presence_AddNotifyOnPresenceChangedOptions onPresenceChangedOptions = {
 		EOS_PRESENCE_ADDNOTIFYONPRESENCECHANGED_API_LATEST
 	};
-	this->OnPresenceChangedHandle = EOS_Presence_AddNotifyOnPresenceChanged(this->presenceHandle, &onPresenceChangedOptions, this, &FOnlinePresenceEpic::EOS_OnPresenceChanged);
 }
 
 void FOnlinePresenceEpic::SetPresence(const FUniqueNetId& User, const FOnlineUserPresenceStatus& Status, const FOnPresenceTaskCompleteDelegate& Delegate)

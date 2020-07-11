@@ -36,3 +36,5 @@ public:
 
 	virtual EOnlineCachedResult::Type GetCachedPresenceForApp(const FUniqueNetId& LocalUserId, const FUniqueNetId& User, const FString& AppId, TSharedPtr<FOnlineUserPresence>& OutPresence) override;
 };
+
+typedef TSharedPtr<class FOnlinePresenceEpic, ESPMode::ThreadSafe> FOnlinePresenceEpicPtr;

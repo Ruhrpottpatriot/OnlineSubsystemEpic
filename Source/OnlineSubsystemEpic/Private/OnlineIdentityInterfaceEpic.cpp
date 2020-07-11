@@ -201,7 +201,8 @@ void FOnlineIdentityInterfaceEpic::EOS_Connect_OnLoginComplete(EOS_Connect_Login
 		}
 
 		userId = FUniqueNetIdEpic(Data->LocalUserId, additionalData->EpicAccountId);
-		UE_LOG_ONLINE_IDENTITY(Display, TEXT("Finished logging in user \"%s\""), UTF8_TO_TCHAR(Data->LocalUserId));
+		//Added a pretty print for the user ID here as the log before was spitting undefined characters - Mike
+		UE_LOG_ONLINE_IDENTITY(Display, TEXT("Finished logging in user \"%s\""), *userId.ToDebugString());
 	}
 	else if (eosResult == EOS_EResult::EOS_InvalidUser)
 	{
@@ -450,6 +451,8 @@ bool FOnlineIdentityInterfaceEpic::Login(int32 LocalUserNum, const FOnlineAccoun
 				case ELoginType::AccountPortal:
 				{
 					UE_LOG_ONLINE_IDENTITY(Display, TEXT("[EOS SDK] Logging In with Account Portal"));
+					credentials.Id = idPtr;
+					credentials.Token = tokenPtr;
 					credentials.Type = EOS_ELoginCredentialType::EOS_LCT_AccountPortal;
 					break;
 				}

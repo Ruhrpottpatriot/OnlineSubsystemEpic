@@ -5,6 +5,7 @@
 #include "OnlineSubsystemUtils.h"
 #include "OnlineSubsystemEpicTypes.h"
 #include "Utilities.h"
+#include "Private/Utilities.h"
 
 
 IOnlineIdentityPtr UEpicOnlineServicesIdentityTask::GetIdentityInterface()

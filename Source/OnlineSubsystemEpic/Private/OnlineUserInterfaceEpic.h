@@ -25,7 +25,7 @@ private:
 
 	/** A list of all user ids for which the SDK has cached user information. */
 	TArray<EOS_EpicAccountId> queriedUserIdsCache;
-
+	
 	/**
 	 * Concatenates multiple error strings into one single error string.
 	 * @param ErrorStrings - The errors to concatenate
@@ -46,7 +46,6 @@ private:
 	 * @value - A tuple containing the data with the queried data (either id or display name), the state and optional error message
 	 */
 	TMap<double, TTuple<FExternalIdQueryOptions, TArray<FString>, TArray<bool>, TArray<FString>>> externalIdMappingsQueries;
-
 
 	/**
 	 * A list of all cached id mappings.

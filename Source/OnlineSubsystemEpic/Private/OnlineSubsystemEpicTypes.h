@@ -129,10 +129,12 @@ public:
 		, productUserId(nullptr)
 		, epicAccountId(InEpicAccountId)
 	{
-	}
+	}	
 	FUniqueNetIdEpic(EOS_EpicAccountId&& InEpicAccountId)
 		: Type(EPIC_SUBSYSTEM)
 		, productUserId(nullptr)
+		, epicAccountId(MoveTemp(InEpicAccountId)) //another thing missed
+	{
 	}
 
 	/** Create a new net id from an existing PUID and EAID */
@@ -142,7 +144,6 @@ public:
 		, epicAccountId(InEpicAccountId)
 	{
 	}
-
 	FUniqueNetIdEpic(EOS_ProductUserId&& InProductUserId, EOS_EpicAccountId&& InEpicAccountId)
 		: Type(EPIC_SUBSYSTEM)
 		, productUserId(MoveTemp(InProductUserId))
@@ -196,6 +197,7 @@ public:
 		else if (type == 2)
 		{
 			int32_t eaidBufSize = EOS_EPICACCOUNTID_MAX_LENGTH;
+
 			char* eaidData = (char*)(buffer + 1);
 			EOS_EResult result = EOS_EpicAccountId_ToString(this->epicAccountId, eaidData, &eaidBufSize);
 			if (result != EOS_EResult::EOS_Success)
@@ -203,7 +205,7 @@ public:
 				UE_LOG_ONLINE(Warning, TEXT("Couldn't convert EAID to byte array."));
 			}
 		}
-		else if (type == 4)
+		else if (type == 3)
 		{
 			// Convert both ids into a char array.
 			// If one conversion fails, the user shouldn't receive anything.
@@ -422,6 +424,22 @@ public:
 	{
 		return ((A.productUserId ? ::GetTypeHash(A.productUserId) : 0) * 397) ^ (A.epicAccountId ? ::GetTypeHash(A.epicAccountId) : 0);
 	}
+};
+
+/**
+ * An enumeration of the different friendship statuses. Modified from eos_friends_types.h
+ */
+UENUM()
+enum class EFriendStatus : uint8
+{
+	/** The two accounts have no friendship status */
+	NotFriends		UMETA(DisplayName = "Not Friends"),
+	/** The local account has sent a friend invite to the other account */
+	InviteSent		UMETA(DisplayName = "Invite Sent"),
+	/** The other account has sent a friend invite to the local account */
+	InviteReceived	UMETA(DisplayName = "Invite Received"),
+	/** The accounts have accepted friendship */
+	Friends			UMETA(DisplayNAme = "Friends")
 };
 
 UENUM()
