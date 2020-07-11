@@ -11,13 +11,13 @@
 // ---------------------------------------------
 // FOnlineSessionInfoEpic definitions
 //
-// These defintions are from OnlineSubsystemEpicTypes.h
+// These definitions are from OnlineSubsystemEpicTypes.h
 // and are located here to keep the types header only
 // ---------------------------------------------
 
 FOnlineSessionInfoEpic::FOnlineSessionInfoEpic()
 	: HostAddr(nullptr)
-	, SessionId(new FUniqueNetIdEpic("INVALID"))
+	, SessionId(new FUniqueNetIdString("INVALID"))
 {
 }
 
@@ -696,7 +696,7 @@ FNamedOnlineSession FOnlineSessionEpic::ActiveSessionToNamedSession(EOS_ActiveSe
 	FString sessionName = UTF8_TO_TCHAR(ActiveSession->SessionName);
 
 	// Create a new local user if from a PUID
-	TSharedRef<FUniqueNetId> localUserId = MakeShared<FUniqueNetIdEpic>(UTF8_TO_TCHAR(ActiveSession->LocalUserId));
+	TSharedRef<FUniqueNetId> localUserId = MakeShared<FUniqueNetIdEpic>(FUniqueNetIdEpic::ProductUserIDFromString(UTF8_TO_TCHAR(ActiveSession->LocalUserId)));
 
 	FOnlineSession session = SessionDetailsToSessionOnlineSession(ActiveSession->SessionDetails);
 
@@ -766,7 +766,7 @@ FOnlineSession FOnlineSessionEpic::SessionDetailsToSessionOnlineSession(EOS_Sess
 	sessionInfo->HostAddr->SetIp(*ip, isValid);
 	sessionInfo->HostAddr->SetPort(FCString::Atoi(*port));
 
-	sessionInfo->SessionId = MakeShared<FUniqueNetIdEpic>(UTF8_TO_TCHAR(SessionDetails->SessionId));
+	sessionInfo->SessionId = MakeShared<FUniqueNetIdString>(UTF8_TO_TCHAR(SessionDetails->SessionId));
 
 	session.SessionInfo = sessionInfo;
 
@@ -1298,10 +1298,10 @@ void FOnlineSessionEpic::OnEOSSessionInviteReceived(const EOS_Sessions_SessionIn
 	checkf(thisPtr, TEXT("%s called. But \"this\" is missing"), *FString(__FUNCTION__));
 
 	// User that received the invite
-	TSharedRef<FUniqueNetId const> localUserId = MakeShared<FUniqueNetIdEpic>(UTF8_TO_TCHAR(Data->LocalUserId));
+	TSharedRef<FUniqueNetId const> localUserId = MakeShared<FUniqueNetIdEpic>(FUniqueNetIdEpic::ProductUserIDFromString(UTF8_TO_TCHAR(Data->LocalUserId)));
 
 	// User that sent the invite
-	TSharedRef<FUniqueNetId const> fromUserId = MakeShared<FUniqueNetIdEpic>(UTF8_TO_TCHAR(Data->TargetUserId));
+	TSharedRef<FUniqueNetId const> fromUserId = MakeShared<FUniqueNetIdEpic>(FUniqueNetIdEpic::ProductUserIDFromString(UTF8_TO_TCHAR(Data->TargetUserId)));
 
 	EOS_Sessions_CopySessionHandleByInviteIdOptions copySessionHandleByInviteIdOptions = {
 		EOS_SESSIONS_COPYSESSIONHANDLEBYINVITEID_API_LATEST,
@@ -1353,10 +1353,10 @@ void FOnlineSessionEpic::OnEOSSessionInviteAccepted(const EOS_Sessions_SessionIn
 	checkf(thisPtr, TEXT("%s called. But \"this\" is missing"), *FString(__FUNCTION__));
 
 	// User that received the invite
-	TSharedRef<FUniqueNetId const> localUserId = MakeShared<FUniqueNetIdEpic>(UTF8_TO_TCHAR(Data->LocalUserId));
+	TSharedRef<FUniqueNetId const> localUserId = MakeShared<FUniqueNetIdEpic>(FUniqueNetIdEpic::ProductUserIDFromString(UTF8_TO_TCHAR(Data->LocalUserId)));
 
 	// User that sent the invite
-	TSharedRef<FUniqueNetId const> fromUserId = MakeShared<FUniqueNetIdEpic>(UTF8_TO_TCHAR(Data->TargetUserId));
+	TSharedRef<FUniqueNetId const> fromUserId = MakeShared<FUniqueNetIdEpic>(FUniqueNetIdEpic::ProductUserIDFromString(UTF8_TO_TCHAR(Data->TargetUserId)));
 
 
 	EOS_HSessionDetails sessionDetailsHandle = {};
@@ -1570,7 +1570,7 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 				TCHAR_TO_UTF8(*SessionName.ToString()),
 				TCHAR_TO_UTF8(*bucketId),
 				static_cast<uint32_t>(NewSessionSettings.NumPublicConnections),
-				((FUniqueNetIdEpic)HostingPlayerId).ToProdcutUserId(),
+				((FUniqueNetIdEpic)HostingPlayerId).ToProductUserId(),
 				session->SessionSettings.bUsesPresence
 			};
 
@@ -1936,7 +1936,7 @@ bool FOnlineSessionEpic::FindSessions(const FUniqueNetId& SearchingPlayerId, con
 
 					EOS_SessionSearch_FindOptions findOptions = {
 						EOS_SESSIONSEARCH_FIND_API_LATEST,
-						epicNetId.ToProdcutUserId()
+						epicNetId.ToProductUserId()
 					};
 					FFindSessionsAdditionalData* additionalData = new FFindSessionsAdditionalData{
 						this,
@@ -2102,7 +2102,7 @@ bool FOnlineSessionEpic::JoinSession(const FUniqueNetId& PlayerId, FName Session
 				// Check if the desired session is in the search results
 				searchResultPtr = session->SearchResults.FindByPredicate([&DesiredSession](FOnlineSessionSearchResult sr)
 					{
-						return FUniqueNetIdEpic(sr.GetSessionIdStr()) == FUniqueNetIdEpic(DesiredSession.GetSessionIdStr());
+						return FUniqueNetIdString(sr.GetSessionIdStr()) == FUniqueNetIdString(DesiredSession.GetSessionIdStr());
 					});
 
 				if (searchResultPtr)
@@ -2198,7 +2198,7 @@ bool FOnlineSessionEpic::FindFriendSession(const FUniqueNetId& LocalUserId, cons
 			// Set the session search to only search for a user
 			EOS_SessionSearch_SetTargetUserIdOptions targetUserIdOptions = {
 				EOS_SESSIONSEARCH_SETTARGETUSERID_API_LATEST,
-				epicNetId.ToProdcutUserId()
+				epicNetId.ToProductUserId()
 			};
 			EOS_SessionSearch_SetTargetUserId(sessionSearchHandle, &targetUserIdOptions);
 
@@ -2298,8 +2298,8 @@ bool FOnlineSessionEpic::SendSessionInviteToFriends(const FUniqueNetId& LocalUse
 				EOS_Sessions_SendInviteOptions sendInviteOptions = {
 					EOS_SESSIONS_SENDINVITE_API_LATEST,
 					TCHAR_TO_UTF8(*SessionName.ToString()),
-					epicNetId.ToProdcutUserId(),
-					friendEpicNetId->ToProdcutUserId()
+					epicNetId.ToProductUserId(),
+					friendEpicNetId->ToProductUserId()
 				};
 
 				EOS_Sessions_SendInvite(this->sessionsHandle, &sendInviteOptions, this, &FOnlineSessionEpic::OnEOSSendSessionInviteToFriendsComplete);
@@ -2418,7 +2418,7 @@ bool FOnlineSessionEpic::RegisterPlayers(FName SessionName, const TArray< TShare
 				successfullyRegisteredPlayers.Add(playerId);
 
 				TSharedRef<FUniqueNetIdEpic const> epicNetId = StaticCastSharedRef<FUniqueNetIdEpic const>(playerId);
-				userIdArr[i] = epicNetId->ToProdcutUserId();
+				userIdArr[i] = epicNetId->ToProductUserId();
 
 				// update number of open connections
 				if (Session->NumOpenPublicConnections > 0)
@@ -2504,7 +2504,7 @@ bool FOnlineSessionEpic::UnregisterPlayers(FName SessionName, const TArray< TSha
 				}
 
 				TSharedRef<FUniqueNetIdEpic const> epicNetId = StaticCastSharedRef<FUniqueNetIdEpic const>(playerId);
-				productUserIdArr[i] = epicNetId->ToProdcutUserId();
+				productUserIdArr[i] = epicNetId->ToProductUserId();
 			}
 			else
 			{
