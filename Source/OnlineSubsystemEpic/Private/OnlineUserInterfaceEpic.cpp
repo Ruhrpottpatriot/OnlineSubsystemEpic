@@ -199,11 +199,11 @@ void FOnlineUserEpic::OnEOSQueryUserInfoByDisplayNameComplete(EOS_UserInfo_Query
 	EOS_HConnect connectHandle = EOS_Platform_GetConnectInterface(thisPtr->Subsystem->PlatformHandle);
 
 	FString error;
-	if (additionalData->LocalUserId.IsValid())
+	if (additionalData->LocalUserId.IsProductUserIdValid())
 	{
 		EOS_Connect_GetExternalAccountMappingsOptions getExternalAccountMappingsOptions = {
 				EOS_CONNECT_GETEXTERNALACCOUNTMAPPINGS_API_LATEST,
-				additionalData->LocalUserId.ToProdcutUserId(),
+				additionalData->LocalUserId.ToProductUserId(),
 				EOS_EExternalAccountType::EOS_EAT_EPIC,
 				TCHAR_TO_UTF8(*FUniqueNetIdEpic::EpicAccountIdToString(Data->TargetUserId))
 		};
@@ -261,7 +261,7 @@ void FOnlineUserEpic::OnEOSQueryExternalIdMappingsByDisplayNameComplete(EOS_User
 		{
 			EOS_Connect_GetExternalAccountMappingsOptions getExternalAccountMappingsOptions = {
 				EOS_CONNECT_GETEXTERNALACCOUNTMAPPINGS_API_LATEST,
-				additionalData->QueryUserId->ToProdcutUserId(),
+				additionalData->QueryUserId->ToProductUserId(),
 				EOS_EExternalAccountType::EOS_EAT_EPIC,
 				TCHAR_TO_UTF8(*FUniqueNetIdEpic::EpicAccountIdToString(Data->TargetUserId))
 			};
@@ -344,7 +344,7 @@ void FOnlineUserEpic::OnEOSQueryExternalIdMappingsByDisplayNameComplete(EOS_User
 
 		EOS_Connect_GetExternalAccountMappingsOptions getExternalAccountMappingsOptions = {
 			EOS_CONNECT_GETEXTERNALACCOUNTMAPPINGS_API_LATEST,
-			additionalData->QueryUserId->ToProdcutUserId(),
+			additionalData->QueryUserId->ToProductUserId(),
 			EOS_EExternalAccountType::EOS_EAT_EPIC,
 			TCHAR_TO_UTF8(*FUniqueNetIdEpic::EpicAccountIdToString(Data->LocalUserId))
 		};
@@ -416,7 +416,7 @@ void FOnlineUserEpic::OnEOSQueryExternalIdMappingsByIdComplete(EOS_UserInfo_Quer
 				result = EOS_UserInfo_CopyExternalUserInfoByIndex(thisPtr->userInfoHandle, &copyExternalInfoOptions, &externalUserInfoHandle);
 				if (result == EOS_EResult::EOS_Success)
 				{
-					TSharedRef<FUniqueNetId const> targetUserId = MakeShared<FUniqueNetIdEpic>(FUniqueNetIdEpic::EpicAccountIdToString(Data->TargetUserId));
+					TSharedRef<FUniqueNetId const> targetUserId = MakeShared<FUniqueNetIdEpic>(FUniqueNetIdEpic::EpicAccountIDFromString(UTF8_TO_TCHAR(Data->TargetUserId)));
 					FString externalAccountType = queryOptions.AuthType;
 
 					FExternalIdMapping* mapping = thisPtr->externalIdMappings.FindByPredicate([&externalAccountType, &targetUserId](FExternalIdMapping mapping)
@@ -506,7 +506,7 @@ void FOnlineUserEpic::OnEOSQueryExternalIdMappingsByIdComplete(EOS_UserInfo_Quer
 
 		EOS_Connect_GetExternalAccountMappingsOptions getExternalAccountMappingsOptions = {
 			EOS_CONNECT_GETEXTERNALACCOUNTMAPPINGS_API_LATEST,
-			additionalData->QueryUserId->ToProdcutUserId(),
+			additionalData->QueryUserId->ToProductUserId(),
 			EOS_EExternalAccountType::EOS_EAT_EPIC,
 			TCHAR_TO_UTF8(*FUniqueNetIdEpic::EpicAccountIdToString(Data->LocalUserId))
 		};
@@ -656,7 +656,7 @@ bool FOnlineUserEpic::GetAllUserInfo(int32 LocalUserNum, TArray< TSharedRef<clas
 						EOS_HConnect connectHandle = EOS_Platform_GetConnectInterface(this->Subsystem->PlatformHandle);
 						EOS_Connect_GetExternalAccountMappingsOptions getExternalAccountMappingsOptions = {
 							EOS_CONNECT_GETEXTERNALACCOUNTMAPPINGS_API_LATEST,
-							localUserNetId->ToProdcutUserId(),
+							localUserNetId->ToProductUserId(),
 							EOS_EExternalAccountType::EOS_EAT_EPIC,
 							TCHAR_TO_UTF8(*FUniqueNetIdEpic::EpicAccountIdToString(eaid))
 						};
@@ -828,7 +828,7 @@ bool FOnlineUserEpic::QueryExternalIdMappings(const FUniqueNetId& UserId, const 
 	if (ExternalIds.Num())
 	{
 		FUniqueNetIdEpic const epicNetId = (FUniqueNetIdEpic)UserId;
-		if (epicNetId.IsValid())
+		if (epicNetId.IsEpicAccountIdValid())
 		{
 			double startTime = FDateTime::UtcNow().ToUnixTimestamp();
 
