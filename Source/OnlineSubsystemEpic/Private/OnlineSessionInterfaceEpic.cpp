@@ -7,6 +7,7 @@
 #include "SocketSubsystem.h"
 #include "Utilities.h"
 #include "eos_auth.h"
+#include "OnlineSubsystemEpic.h"
 
 // ---------------------------------------------
 // FOnlineSessionInfoEpic definitions
@@ -1503,7 +1504,7 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 			session->bHosting = true; // A person creating a session is always hosting
 
 			IOnlineIdentityPtr identityPtr = this->Subsystem->GetIdentityInterface();
-			if (identityPtr.IsValid())
+			if (identityPtr.IsValid() || identityPtr->GetPlayerNickname(HostingPlayerId).IsEmpty())
 			{
 				session->OwningUserName = identityPtr->GetPlayerNickname(HostingPlayerId);
 			}
@@ -1544,19 +1545,9 @@ bool FOnlineSessionEpic::CreateSession(const FUniqueNetId& HostingPlayerId, FNam
 						EOS_SESSIONS_UPDATESESSION_API_LATEST,
 						modificationHandle
 					};
-					FCreateSessionAdditionalData* addionalData = new FCreateSessionAdditionalData{
-						this,
-						HostingPlayerId.AsShared()
-					};
-					EOS_Sessions_UpdateSession(this->sessionsHandle, &updateSessionOptions, addionalData, &FOnlineSessionEpic::OnEOSCreateSessionComplete);
-
-					// Mark the creation operation as pending
+					EOS_Sessions_UpdateSession(this->sessionsHandle, &updateSessionOptions, this, &FOnlineSessionEpic::OnEOSCreateSessionComplete);
+					
 					result = ONLINE_IO_PENDING;
-				}
-				else
-				{
-					// We failed to create a new session, remove it from the local list
-					this->RemoveNamedSession(SessionName);
 				}
 			}
 			else
