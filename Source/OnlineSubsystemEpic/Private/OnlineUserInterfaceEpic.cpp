@@ -12,22 +12,6 @@
 // These structs carry additional informations to the callbacks
 // ---------------------------------------------
 
-/** Stores information about an external id mapping */
-typedef struct FExternalIdMapping
-{
-	// THe local FUniqueNetId the external user info maps to
-	TSharedRef<FUniqueNetId const> UserId;
-
-	// The external display name
-	FString DisplayName;
-
-	// The external id, can be anything really
-	FString ExternalId;
-
-	// The external account type (Steam, XBL, PSN, etc.)
-	FString AccountType;
-} FExternalIdMapping;
-
 /**
  * This structure is needed, since the callback to start as session doesn't include the session's name,
  * which is needed to call the completion delegates
@@ -679,9 +663,11 @@ bool FOnlineUserEpic::GetAllUserInfo(int32 LocalUserNum, TArray< TSharedRef<clas
 
 						TSharedRef<FUserOnlineAccount> localUser = MakeShared<FUserOnlineAccountEpic>(epicNetId);
 						localUser->SetUserAttribute(USER_ATTR_COUNTRY, country);
+						localUser->SetUserAttribute(USER_ATTR_REALNAME, displayName);
 						localUser->SetUserAttribute(USER_ATTR_DISPLAYNAME, displayName);
 						localUser->SetUserAttribute(USER_ATTR_PREFERRED_LANGUAGE, preferredLanguage);
 						localUser->SetUserAttribute(USER_ATTR_PREFERRED_DISPLAYNAME, nickname);
+						localUser->SetUserAttribute(USER_ATTR_ALIAS, nickname);
 
 						OutUsers.Add(localUser);
 					}
@@ -756,15 +742,21 @@ TSharedPtr<FOnlineUser> FOnlineUserEpic::GetUserInfo(int32 LocalUserNum, const c
 					FString country = UTF8_TO_TCHAR(userInfo->Country);
 					FString displayName = UTF8_TO_TCHAR(userInfo->DisplayName);
 					FString preferredLanguage = UTF8_TO_TCHAR(userInfo->PreferredLanguage);
-					FString nickname = FString(UTF8_TO_TCHAR(userInfo->Nickname));
+					FString nickname = UTF8_TO_TCHAR(userInfo->Nickname);
 
 					localUser = MakeShared<FUserOnlineAccountEpic>(UserId.AsShared());
 					localUser->SetUserAttribute(USER_ATTR_COUNTRY, country);
 					localUser->SetUserAttribute(USER_ATTR_DISPLAYNAME, displayName);
 					localUser->SetUserAttribute(USER_ATTR_PREFERRED_LANGUAGE, preferredLanguage);
-					localUser->SetUserLocalAttribute(USER_ATTR_PREFERRED_DISPLAYNAME, nickname);
+					localUser->SetUserAttribute(USER_ATTR_PREFERRED_DISPLAYNAME, nickname);
+					localUser->SetUserAttribute(USER_ATTR_ALIAS, nickname);
 
-					UE_LOG_ONLINE_USER(Log, TEXT("User name is: %s"), *displayName);
+					FString DebugDisplayName;
+					localUser->GetUserAttribute(USER_ATTR_DISPLAYNAME, DebugDisplayName);
+					FString DebugNickname;
+					localUser->GetUserAttribute(USER_ATTR_ALIAS, DebugNickname);
+					
+					UE_LOG_ONLINE_USER(Log, TEXT("User name is: %s with nickname of: %s"), *DebugDisplayName, *nickname);
 				}
 				else
 				{

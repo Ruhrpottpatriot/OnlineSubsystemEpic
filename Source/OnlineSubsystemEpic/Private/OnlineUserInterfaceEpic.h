@@ -6,6 +6,23 @@
 #include "Misc/ScopeLock.h"
 #include "OnlineSubsystemEpicPackage.h" // Needs to be the last include
 
+
+/** Stores information about an external id mapping */
+struct FExternalIdMapping
+{
+	// THe local FUniqueNetId the external user info maps to
+	TSharedRef<FUniqueNetId const> UserId;
+
+	// The external display name
+	FString DisplayName;
+
+	// The external id, can be anything really
+	FString ExternalId;
+
+	// The external account type (Steam, XBL, PSN, etc.)
+	FString AccountType;
+};
+
 class FOnlineSubsystemEpic;
 
 class FOnlineUserEpic
@@ -62,7 +79,7 @@ private:
 	 * to specify the user id that wants to retrieve the cached data.
 	 * Improvement: In the future this might be changed into a map
 	 */
-	TArray<struct FExternalIdMapping> externalIdMappings;
+	TArray<FExternalIdMapping> externalIdMappings;
 
 	static void OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallbackInfo const* Data);
 	static void OnEOSQueryUserInfoByDisplayNameComplete(EOS_UserInfo_QueryUserInfoByDisplayNameCallbackInfo const* Data);
