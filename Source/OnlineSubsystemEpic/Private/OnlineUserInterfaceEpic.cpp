@@ -758,7 +758,7 @@ TSharedPtr<FOnlineUser> FOnlineUserEpic::GetUserInfo(int32 LocalUserNum, const c
 					FString DebugNickname;
 					localUser->GetUserAttribute(USER_ATTR_ALIAS, DebugNickname);
 					
-					UE_LOG_ONLINE_USER(Log, TEXT("%s: User name is: %s with nickname of: %s"), *FString(__FUNCTION__) *DebugDisplayName, *DebugNickname);
+					UE_LOG_ONLINE_USER(Log, TEXT("%s: User name is: %s with nickname of: %s"), *FString(__FUNCTION__), *DebugDisplayName, *DebugNickname);
 				}
 				else
 				{
