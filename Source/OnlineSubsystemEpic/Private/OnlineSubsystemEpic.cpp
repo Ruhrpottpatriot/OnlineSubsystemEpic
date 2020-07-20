@@ -4,7 +4,10 @@
 #include "OnlineUserInterfaceEpic.h"
 #include "Utilities.h"
 #include <string>
+
+#include "ConfigCacheIni.h"
 #include "OnlineFriendInterfaceEpic.h"
+#include "OnlinePresenceEpic.h"
 
 IOnlineSessionPtr FOnlineSubsystemEpic::GetSessionInterface() const
 {
@@ -360,7 +363,7 @@ bool FOnlineSubsystemEpic::Init()
 	this->IdentityInterface = MakeShareable(new FOnlineIdentityInterfaceEpic(this));
 	this->SessionInterface = MakeShareable(new FOnlineSessionEpic(this));
 	this->UserInterface = MakeShareable(new FOnlineUserEpic(this));
-	this->PresenceInterface = MakeShared<FOnlinePresenceEpic, ESPMode::ThreadSafe>(this);
+	this->PresenceInterface = MakeShareable(new FOnlinePresenceEpic(this));
 	this->FriendsInterface = MakeShareable(new FOnlineFriendInterfaceEpic(this));
 
 	this->IsInit = true;

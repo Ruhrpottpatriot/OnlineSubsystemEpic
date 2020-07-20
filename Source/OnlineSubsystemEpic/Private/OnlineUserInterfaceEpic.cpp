@@ -742,21 +742,23 @@ TSharedPtr<FOnlineUser> FOnlineUserEpic::GetUserInfo(int32 LocalUserNum, const c
 					FString country = UTF8_TO_TCHAR(userInfo->Country);
 					FString displayName = UTF8_TO_TCHAR(userInfo->DisplayName);
 					FString preferredLanguage = UTF8_TO_TCHAR(userInfo->PreferredLanguage);
-					FString nickname = UTF8_TO_TCHAR(userInfo->Nickname);
+					FString nickname = FString(UTF8_TO_TCHAR(userInfo->Nickname));
 
 					localUser = MakeShared<FUserOnlineAccountEpic>(UserId.AsShared());
 					localUser->SetUserAttribute(USER_ATTR_COUNTRY, country);
 					localUser->SetUserAttribute(USER_ATTR_DISPLAYNAME, displayName);
 					localUser->SetUserAttribute(USER_ATTR_PREFERRED_LANGUAGE, preferredLanguage);
 					localUser->SetUserAttribute(USER_ATTR_PREFERRED_DISPLAYNAME, nickname);
+					//Alias is needed in Friends interface, usually nickname is null anyways in EOS
 					localUser->SetUserAttribute(USER_ATTR_ALIAS, nickname);
 
+					//Good to log so that users can see the difference between display name and nickname
 					FString DebugDisplayName;
 					localUser->GetUserAttribute(USER_ATTR_DISPLAYNAME, DebugDisplayName);
 					FString DebugNickname;
 					localUser->GetUserAttribute(USER_ATTR_ALIAS, DebugNickname);
 					
-					UE_LOG_ONLINE_USER(Log, TEXT("User name is: %s with nickname of: %s"), *DebugDisplayName, *nickname);
+					UE_LOG_ONLINE_USER(Log, TEXT("%s: User name is: %s with nickname of: %s"), *FString(__FUNCTION__) *DebugDisplayName, *DebugNickname);
 				}
 				else
 				{

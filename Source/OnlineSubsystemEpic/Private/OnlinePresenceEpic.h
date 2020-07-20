@@ -56,4 +56,8 @@ public:
 	virtual void RemovePresenceQuery(const FUniqueNetId& TargetUserId);
 };
 
+<<<<<<< HEAD:Source/OnlineSubsystemEpic/Private/OnlinePresenceEpic.h
 using FOnlinePresenceEpicPtr = TSharedPtr<FOnlinePresenceEpic, ESPMode::ThreadSafe>;
+=======
+typedef TSharedPtr<class FOnlinePresenceEpic, ESPMode::ThreadSafe> FOnlinePresenceEpicPtr;
+>>>>>>> master:Source/OnlineSubsystemEpic/Private/OnlinePrensenceEpic.h

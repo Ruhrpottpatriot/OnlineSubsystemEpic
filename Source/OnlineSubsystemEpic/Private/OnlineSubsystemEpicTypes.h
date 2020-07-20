@@ -84,7 +84,7 @@ public:
 			{
 				char const* buffer = (char const*)(bytes + 1);
 				EOS_EpicAccountId eaid = EOS_EpicAccountId_FromString(TCHAR_TO_UTF8(*FString(buffer)));
-				assert(EOS_EpicAccountId_IsValid(eaid));
+				check(EOS_EpicAccountId_IsValid(eaid));
 				this->epicAccountId = eaid;
 			}
 			else if (type == 3)
@@ -533,7 +533,7 @@ PACKAGE_SCOPE:
 	TSharedPtr<class FInternetAddr> HostAddr;
 
 	/** Unique Id for this session */
-	TSharedPtr<FUniqueNetId> SessionId;
+	TSharedPtr<FUniqueNetId const> SessionId;
 
 public:
 
