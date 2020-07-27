@@ -62,7 +62,7 @@ private:
 	 * to specify the user id that wants to retrieve the cached data.
 	 * Improvement: In the future this might be changed into a map
 	 */
-	TArray<FExternalIdMapping> externalIdMappings;
+	TArray<struct FExternalIdMapping> externalIdMappings;
 
 	static void OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallbackInfo const* Data);
 	static void OnEOSQueryUserInfoByDisplayNameComplete(EOS_UserInfo_QueryUserInfoByDisplayNameCallbackInfo const* Data);

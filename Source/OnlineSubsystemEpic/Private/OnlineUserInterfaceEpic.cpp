@@ -26,7 +26,7 @@ typedef struct FExternalIdMapping
 
 	// The external account type (Steam, XBL, PSN, etc.)
 	FString AccountType;
-};
+} FExternalIdMapping;
 
 /**
  * This structure is needed, since the callback to start as session doesn't include the session's name,
