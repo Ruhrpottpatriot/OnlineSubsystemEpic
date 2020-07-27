@@ -6,6 +6,7 @@
 #include "eos_sessions.h"
 #include "Interfaces/OnlineIdentityInterface.h"
 #include "Interfaces/OnlineSessionInterface.h"
+#include "Runtime/Launch/Resources/Version.h"
 
 
 // ---------------------------------------------
@@ -474,10 +475,12 @@ EOnlineCachedResult::Type FOnlinePresenceEpic::GetCachedPresence(const FUniqueNe
 				IOnlineIdentityPtr identityPtr = this->subsystem->GetIdentityInterface();
 				TSharedPtr<FUserOnlineAccount> userAcc = identityPtr->GetUserAccount(epicNetId);
 
+#if ENGINE_MINOR_VERSION >= 25
 				// Get the last time the querying user was online.
 				FString lastOnlineString;
 				userAcc->GetUserAttribute(USER_ATTR_LAST_LOGIN_TIME, lastOnlineString);
 				OutPresence->LastOnline = FDateTime::FromUnixTimestamp(FCString::Atoi64(*lastOnlineString));
+#endif
 
 				IOnlineSessionPtr sessionPtr = this->subsystem->GetSessionInterface();
 

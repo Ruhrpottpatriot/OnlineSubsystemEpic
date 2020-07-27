@@ -64,7 +64,7 @@ private:
 	// --------
 	// Private Utility methods
 	// --------
-	void UpdateSessionSearchParameters(TSharedRef<FOnlineSessionSearch> const& sessionSearchPtr, EOS_HSessionSearch const eosSessionSearch, FString& error);
+	void UpdateSessionSearchParameters(TSharedRef<FOnlineSessionSearch> const& sessionSearchPtr, EOS_HSessionSearch eosSessionSearch, FString& error);
 
 	bool GetConnectStringFromSessionInfo(TSharedPtr<FOnlineSessionInfoEpic>& SessionInfo, FString& ConnectInfo, int32 PortOverride = 0);
 
@@ -77,18 +77,17 @@ private:
 	 * @returns - True if the creation was successful, false otherwise
 	*/
 	EOS_Sessions_AttributeData CreateEOSAttributeData(FString const attributeName, FVariantData const variantData, FString& error);
-
-	/** Convert the EOS session details into an online session */
-	FOnlineSession SessionDetailsToSessionOnlineSession(EOS_SessionDetails_Info const* SessionDetails);
-
-	/** Converts an EOS active session into a local named session */
-	FNamedOnlineSession ActiveSessionToNamedSession(EOS_ActiveSession_Info const* ActiveSession, bool IsHosting);
+	
+	/** Sets the session details from the EOS session details struct*/
+	void SetSessionDetails(FOnlineSession* session, EOS_SessionDetails_Info const* SessionDetails);
 
 	/** Creates a pointer to an EOS session update struct from the passed session settings */
 	void CreateSessionModificationHandle(FOnlineSessionSettings const& NewSessionSettings, EOS_HSessionModification& ModificationHandle, FString& Error);
 
+	/// Convert a String to an Internet address.
+	TPair<bool, TSharedPtr<class FInternetAddr>> StringToInternetAddress(FString addressStr);
 
-	//void UpdateSessionOptions();
+
 
 PACKAGE_SCOPE:
 
@@ -104,7 +103,7 @@ PACKAGE_SCOPE:
 	 * @Value1 - A handle to the EOS session search. If the search isn't running, the handle will be invalid
 	 * @Value2 - The local session search settings
 	 */
-	TMap<double, TTuple<TSharedPtr<EOS_HSessionSearch>, TSharedRef<FOnlineSessionSearch>>> SessionSearches;
+	TMap<double, TTuple<EOS_HSessionSearch, TSharedRef<FOnlineSessionSearch>>> SessionSearches;
 
 	/**
 	 * Creates a new instance of the FOnlineSessionEpic class.
@@ -175,5 +174,4 @@ public:
 	virtual int32 GetNumSessions() override;
 	virtual void DumpSessionState() override;
 };
-
 using FOnlineSessionEpicPtr = TSharedPtr<FOnlineSessionEpic, ESPMode::ThreadSafe>;

@@ -75,27 +75,27 @@ public:
 			else if (type == 1)
 			{
 				char const* buffer = (char const*)(bytes + 1);
-				EOS_ProductUserId puid = EOS_ProductUserId_FromString(buffer);
+				EOS_ProductUserId puid = EOS_ProductUserId_FromString(TCHAR_TO_UTF8(*FString(buffer)));
 				check(EOS_ProductUserId_IsValid(puid));
 				this->productUserId = puid;
 			}
 			else if (type == 2)
 			{
 				char const* buffer = (char const*)(bytes + 1);
-				EOS_EpicAccountId eaid = EOS_EpicAccountId_FromString(buffer);
+				EOS_EpicAccountId eaid = EOS_EpicAccountId_FromString(TCHAR_TO_UTF8(*FString(buffer)));
 				check(EOS_EpicAccountId_IsValid(eaid));
 				this->epicAccountId = eaid;
 			}
 			else if (type == 3)
 			{
 				char const* buffer = (char const*)(bytes + 1);
-				EOS_ProductUserId puid = EOS_ProductUserId_FromString(buffer);
+				EOS_ProductUserId puid = EOS_ProductUserId_FromString(TCHAR_TO_UTF8(*FString(buffer)));
 				check(EOS_ProductUserId_IsValid(puid));
 				this->productUserId = puid;
 
 				// Move the buffer ptr ahead
 				buffer = (char const*)(bytes + 1 + EOS_PRODUCTUSERID_MAX_LENGTH);
-				EOS_EpicAccountId eaid = EOS_EpicAccountId_FromString(buffer);
+				EOS_EpicAccountId eaid = EOS_EpicAccountId_FromString(TCHAR_TO_UTF8(*FString(buffer)));
 				check(EOS_EpicAccountId_IsValid(eaid));
 				this->epicAccountId = eaid;
 			}
@@ -532,7 +532,7 @@ PACKAGE_SCOPE:
 	TSharedPtr<class FInternetAddr> HostAddr;
 
 	/** Unique Id for this session */
-	TSharedPtr<FUniqueNetId> SessionId;
+	TSharedPtr<FUniqueNetId const> SessionId;
 
 public:
 
