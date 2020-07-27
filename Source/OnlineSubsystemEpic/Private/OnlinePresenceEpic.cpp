@@ -6,7 +6,6 @@
 #include "eos_sessions.h"
 #include "Interfaces/OnlineIdentityInterface.h"
 #include "Interfaces/OnlineSessionInterface.h"
-#include "Runtime/Launch/Resources/Version.h"
 
 // ---------------------------------------------
 // Implementation file only structs
@@ -141,6 +140,7 @@ void FOnlinePresenceEpic::EOS_QueryExternalAccountMappingsForPresenceComplete(EO
 	delete additionalData;
 }
 
+
 //-------------------------------
 // Utility Methods
 //-------------------------------
@@ -184,6 +184,7 @@ EOS_Presence_EStatus FOnlinePresenceEpic::UEPresenceStateToEOSPresenceState(EOnl
 	return EOS_Presence_EStatus::EOS_PS_Offline;
 }
 
+
 //-------------------------------
 // FOnlineIdentityInterfaceEpic
 //-------------------------------
@@ -193,6 +194,7 @@ FOnlinePresenceEpic::FOnlinePresenceEpic(FOnlineSubsystemEpic const* InSubsystem
 	this->presenceHandle = EOS_Platform_GetPresenceInterface(this->subsystem->PlatformHandle);
 	PresenceNotifications = TMap<EOS_EpicAccountId, EOS_NotificationId>();
 }
+
 
 void FOnlinePresenceEpic::QueryPresence(const FUniqueNetId& User, const FOnPresenceTaskCompleteDelegate& Delegate)
 {
@@ -282,17 +284,15 @@ EOnlineCachedResult::Type FOnlinePresenceEpic::GetCachedPresence(const FUniqueNe
 				EOS_Presence_DataRecord const record = presenceInfo->Records[i];
 				presenceStatus.Properties.Add(UTF8_TO_TCHAR(record.Key), UTF8_TO_TCHAR(record.Value));
 			}
-			
+
 			// ToDo: Check if there's a better way to do this
+			// This seems solid, I do something similar in Friends Interface - Mike
 			presenceStatus.Properties.Add(TEXT("ProductName"), UTF8_TO_TCHAR(presenceInfo->ProductName));
 			presenceStatus.Properties.Add(TEXT("ProductVersion"), UTF8_TO_TCHAR(presenceInfo->ProductVersion));
 			presenceStatus.Properties.Add(TEXT("Platform"), UTF8_TO_TCHAR(presenceInfo->Platform));
 			presenceStatus.Properties.Add(TEXT("ProductVersion"), UTF8_TO_TCHAR(presenceInfo->ProductVersion));
 			presenceStatus.StatusStr = UTF8_TO_TCHAR(presenceInfo->RichText);
 			presenceStatus.State = EOSPresenceStateToUEPresenceState(presenceInfo->Status);
-
-			// If the product id is not empty, we assume that the user is playing a game
-			OutPresence->bIsPlaying = presenceInfo->ProductId[0] != '\0';
 
 			FString appId = this->subsystem->GetAppId();
 
@@ -301,6 +301,11 @@ EOnlineCachedResult::Type FOnlinePresenceEpic::GetCachedPresence(const FUniqueNe
 			appId.Split(TEXT("::"), &projectId, &projectVersion);
 
 			// If the game the user is in is the same as this, the user is playing the same game
+			OutPresence = MakeShared< FOnlineUserPresence>();
+
+			// If the product id is not empty, we assume that the user is playing a game
+			OutPresence->bIsPlaying = presenceInfo->ProductId[0] != '\0';
+
 			OutPresence->bIsPlayingThisGame = projectId.Equals(UTF8_TO_TCHAR(presenceInfo->ProductId), ESearchCase::IgnoreCase);
 
 			// A general check if the user is online, more details in the Presence.State field
@@ -310,22 +315,21 @@ EOnlineCachedResult::Type FOnlinePresenceEpic::GetCachedPresence(const FUniqueNe
 			OutPresence->bHasVoiceSupport = false;
 
 			// Create the presence object
-			OutPresence = MakeShared< FOnlineUserPresence>();
 			OutPresence->Status = presenceStatus;
 
 			int32 joinInfoLen = EOS_PRESENCEMODIFICATION_JOININFO_MAX_LENGTH;
 			char* joinInfo = nullptr;
 			EOS_Presence_GetJoinInfoOptions getJoinInfoOptions = {
 				EOS_PRESENCE_GETJOININFO_API_LATEST,
-				epicNetId.ToEpicAccountId(),
-				epicNetId.ToEpicAccountId()
+				EpicLocalUserId.ToEpicAccountId(),
+				TargetUserId.ToEpicAccountId()
 			};
 			eosResult = EOS_Presence_GetJoinInfo(this->presenceHandle, &getJoinInfoOptions, joinInfo, &joinInfoLen);
 			if (eosResult == EOS_EResult::EOS_Success)
 			{
-				IOnlineIdentityPtr identityPtr = this->subsystem->GetIdentityInterface();
-				TSharedPtr<FUserOnlineAccount> userAcc = identityPtr->GetUserAccount(epicNetId);
+				TSharedPtr<FUserOnlineAccount> userAcc = identityPtr->GetUserAccount(TargetUserId);
 
+				// Get the last time the querying user was online.
 #if ENGINE_MINOR_VERSION >= 25
 				// Get the last time the querying user was online.
 				FString lastOnlineString;
@@ -338,10 +342,10 @@ EOnlineCachedResult::Type FOnlinePresenceEpic::GetCachedPresence(const FUniqueNe
 				// Get the session id
 				TSharedPtr<FUniqueNetId const> sessionId = sessionPtr->CreateSessionIdFromString(UTF8_TO_TCHAR(joinInfo));
 				OutPresence->SessionId = sessionId;
-								
+
 				// A session is joinable, when the player is in a presence session, they are is playing this game
 				// and the game version is the the same as this game
-				OutPresence->bIsJoinable = sessionPtr->HasPresenceSession() 
+				OutPresence->bIsJoinable = sessionPtr->HasPresenceSession()
 					&& OutPresence->bIsPlayingThisGame
 					&& projectVersion.Equals(UTF8_TO_TCHAR(presenceInfo->ProductVersion), ESearchCase::IgnoreCase);
 
@@ -350,6 +354,8 @@ EOnlineCachedResult::Type FOnlinePresenceEpic::GetCachedPresence(const FUniqueNe
 			else
 			{
 				error = TEXT("[EOS SDK] Couldn't get join info.");
+				//this may occur if we are just querying using friends, still return success
+				result = EOnlineCachedResult::Success;
 			}
 		}
 		else
@@ -358,10 +364,10 @@ EOnlineCachedResult::Type FOnlinePresenceEpic::GetCachedPresence(const FUniqueNe
 		}
 
 		EOS_Presence_Info_Release(presenceInfo);
+
+		UE_CLOG_ONLINE_PRESENCE(result != EOnlineCachedResult::Success, Warning, TEXT("%s: Message: %s"), *FString(__FUNCTION__), *error);
 	}
-
-	UE_CLOG_ONLINE_PRESENCE(result != EOnlineCachedResult::Success, Warning, TEXT("%s: Message: %s"), *FString(__FUNCTION__), *error);
-
+		
 	return result;
 }
 
@@ -370,6 +376,7 @@ EOnlineCachedResult::Type FOnlinePresenceEpic::GetCachedPresenceForApp(const FUn
 	UE_LOG_ONLINE_PRESENCE(Warning, TEXT("Getting presence for a user and app is not supported."));
 	return EOnlineCachedResult::NotFound;
 }
+
 
 void FOnlinePresenceEpic::SetPresence(const FUniqueNetId& User, const FOnlineUserPresenceStatus& Status, const FOnPresenceTaskCompleteDelegate& Delegate)
 {
@@ -472,15 +479,6 @@ void FOnlinePresenceEpic::SetPresence(const FUniqueNetId& User, const FOnlineUse
 	}
 }
 
-void FOnlinePresenceEpic::RemovePresenceQuery(const FUniqueNetId& TargetUserId)
-{
-	if (PresenceNotifications.Contains(FUniqueNetIdEpic(TargetUserId).ToEpicAccountId())) {
-		EOS_Presence_RemoveNotifyOnPresenceChanged(presenceHandle, PresenceNotifications[FUniqueNetIdEpic(TargetUserId).ToEpicAccountId()]);
-		PresenceNotifications.Remove(FUniqueNetIdEpic(TargetUserId).ToEpicAccountId());
-	}
-}
-
-/* ===================================== CUSTOM FUNCTION CALLBACKS ======================================= */
 void FOnlinePresenceEpic::RemoveAllPresenceQueries()
 {
 	for (auto& NotificationQuery : PresenceNotifications)
@@ -488,5 +486,13 @@ void FOnlinePresenceEpic::RemoveAllPresenceQueries()
 		EOS_Presence_RemoveNotifyOnPresenceChanged(presenceHandle, NotificationQuery.Value);
 	}
 
-	PresenceNotifications.Empty();		
+	PresenceNotifications.Empty();
+}
+
+void FOnlinePresenceEpic::RemovePresenceQuery(const FUniqueNetId& TargetUserId)
+{
+	if (PresenceNotifications.Contains(FUniqueNetIdEpic(TargetUserId).ToEpicAccountId())) {
+		EOS_Presence_RemoveNotifyOnPresenceChanged(presenceHandle, PresenceNotifications[FUniqueNetIdEpic(TargetUserId).ToEpicAccountId()]);
+		PresenceNotifications.Remove(FUniqueNetIdEpic(TargetUserId).ToEpicAccountId());
+	}
 }
