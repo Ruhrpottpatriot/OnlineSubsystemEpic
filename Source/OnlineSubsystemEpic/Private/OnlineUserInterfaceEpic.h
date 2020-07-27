@@ -41,6 +41,13 @@ private:
 	TMap<double, TTuple<TArray<TSharedRef<FUniqueNetId const>>, TArray<bool>, TArray<FString>>> userQueries;
 
 	/**
+	 * A map of current timestamp to index map
+	 * @key - The start time of the query
+	 * @value - the index of what time step we are at
+	 */
+	TMap<double, int32> TimeToIndexMap;
+
+	/**
 	 * A list of all currently running external id mappings queries
 	 * @key - The start time of the query
 	 * @value - A tuple containing the data with the queried data (either id or display name), the state and optional error message
@@ -55,7 +62,7 @@ private:
 	 * to specify the user id that wants to retrieve the cached data.
 	 * Improvement: In the future this might be changed into a map
 	 */
-	TArray<struct FExternalIdMapping> externalIdMappings;
+	TArray<FExternalIdMapping> externalIdMappings;
 
 	static void OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallbackInfo const* Data);
 	static void OnEOSQueryUserInfoByDisplayNameComplete(EOS_UserInfo_QueryUserInfoByDisplayNameCallbackInfo const* Data);

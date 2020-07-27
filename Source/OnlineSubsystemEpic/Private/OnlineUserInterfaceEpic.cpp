@@ -26,7 +26,7 @@ typedef struct FExternalIdMapping
 
 	// The external account type (Steam, XBL, PSN, etc.)
 	FString AccountType;
-} FExternalIdMapping;
+};
 
 /**
  * This structure is needed, since the callback to start as session doesn't include the session's name,
@@ -181,8 +181,10 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 		UE_CLOG_ONLINE_USER(completeErrorString.IsEmpty(), Display, TEXT("Query user info successful."));
 		UE_CLOG_ONLINE_USER(!completeErrorString.IsEmpty(), Warning, TEXT("Query user info failed:\r\n%s"), *error);
 
-		//Just like a queue, remove the first element as we have finished that query
-		thisPtr->queriedUserIdsCache.RemoveAt(0);
+		//queries don't respect order, so remove the index on what the current query is set at
+		int32 IndexToRemove = thisPtr->TimeToIndexMap[additionalData->StartTime];
+		thisPtr->queriedUserIdsCache.RemoveAt(IndexToRemove);
+		thisPtr->TimeToIndexMap.Remove(IndexToRemove);
 
 		IOnlineIdentityPtr identityPtr = thisPtr->Subsystem->GetIdentityInterface();
 		thisPtr->TriggerOnQueryUserInfoCompleteDelegates(additionalData->LocalUserId, error.IsEmpty(), userIds, completeErrorString);
@@ -571,8 +573,13 @@ bool FOnlineUserEpic::QueryUserInfo(int32 LocalUserNum, const TArray<TSharedRef<
 				errors.Init(FString(), UserIds.Num());
 
 				TTuple<TArray<TSharedRef<FUniqueNetId const>>, TArray<bool>, TArray<FString>> queries = MakeTuple(UserIds, states, errors);
-				this->userQueries.Add(FDateTime::UtcNow().ToUnixTimestamp(), queries);
-
+				int64 CurrentTimeStamp = FDateTime::UtcNow().ToUnixTimestamp();
+				this->userQueries.Add(CurrentTimeStamp, queries);
+				//Add only the current time stamp to the index
+				if (!this->TimeToIndexMap.Contains(CurrentTimeStamp)) {
+					this->TimeToIndexMap.Add(CurrentTimeStamp, this->userQueries.Num() - 1);
+				}
+					
 				// Start the actual queries
 				for (int32 i = 0; i < UserIds.Num(); i++)
 				{
@@ -672,9 +679,11 @@ bool FOnlineUserEpic::GetAllUserInfo(int32 LocalUserNum, TArray< TSharedRef<clas
 
 						TSharedRef<FUserOnlineAccount> localUser = MakeShared<FUserOnlineAccountEpic>(epicNetId);
 						localUser->SetUserAttribute(USER_ATTR_COUNTRY, country);
+						localUser->SetUserAttribute(USER_ATTR_REALNAME, displayName);
 						localUser->SetUserAttribute(USER_ATTR_DISPLAYNAME, displayName);
 						localUser->SetUserAttribute(USER_ATTR_PREFERRED_LANGUAGE, preferredLanguage);
 						localUser->SetUserAttribute(USER_ATTR_PREFERRED_DISPLAYNAME, nickname);
+						localUser->SetUserAttribute(USER_ATTR_ALIAS, nickname);
 
 						OutUsers.Add(localUser);
 					}
@@ -755,9 +764,17 @@ TSharedPtr<FOnlineUser> FOnlineUserEpic::GetUserInfo(int32 LocalUserNum, const c
 					localUser->SetUserAttribute(USER_ATTR_COUNTRY, country);
 					localUser->SetUserAttribute(USER_ATTR_DISPLAYNAME, displayName);
 					localUser->SetUserAttribute(USER_ATTR_PREFERRED_LANGUAGE, preferredLanguage);
-					localUser->SetUserLocalAttribute(USER_ATTR_PREFERRED_DISPLAYNAME, nickname);
+					localUser->SetUserAttribute(USER_ATTR_PREFERRED_DISPLAYNAME, nickname);
+					//Alias is needed in Friends interface, usually nickname is null anyways in EOS
+					localUser->SetUserAttribute(USER_ATTR_ALIAS, nickname);
 
-					UE_LOG_ONLINE_USER(Log, TEXT("User name is: %s"), *displayName);
+					//Good to log so that users can see the difference between display name and nickname
+					FString DebugDisplayName;
+					localUser->GetUserAttribute(USER_ATTR_DISPLAYNAME, DebugDisplayName);
+					FString DebugNickname;
+					localUser->GetUserAttribute(USER_ATTR_ALIAS, DebugNickname);
+					
+					UE_LOG_ONLINE_USER(Log, TEXT("%s: User name is: %s with nickname of: %s"), *FString(__FUNCTION__), *DebugDisplayName, *DebugNickname);
 				}
 				else
 				{
