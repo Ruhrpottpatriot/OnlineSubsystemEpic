@@ -124,70 +124,73 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 	// Lock the following section to make sure the amount of completed queries doesn't change mid way.
 	thisPtr->UserQueryLock.Lock();
 
-	// Auto used below to increase readability
-	auto query = thisPtr->userQueries.Find(additionalData->StartTime);
+	// Check in case we went too fast and info is not available immediately
+	if (thisPtr->userQueries.Num() > 0) {
+		// Auto used below to increase readability
+		auto query = thisPtr->userQueries.Find(additionalData->StartTime);
 
-	TArray<TSharedRef<FUniqueNetId const>> userIds = query->Get<0>();
-	TArray<bool> completedQueries = query->Get<1>();
-	TArray<FString> errors = query->Get<2>();
+		TArray<TSharedRef<FUniqueNetId const>> userIds = query->Get<0>();
+		TArray<bool> completedQueries = query->Get<1>();
+		TArray<FString> errors = query->Get<2>();
 
-	int32 CurrentIndex = additionalData->CurrentQueryUserIndex;
-	//We need to update the tuple here - otherwise we never complete the query! - Mike
-	if (result != EOS_EResult::EOS_Success)
-	{
-		// Change the error message so that the end user knows at which sub-query index the error occurred.
-		errors[CurrentIndex] = FString::Printf(TEXT("SubQueryId: %d, Message: %s"), CurrentIndex, *error);
-	}
-
-	//Regardless if there is an error or not for this index, we have completed a query
-	//we will simply move on to the next index
-	completedQueries[CurrentIndex] = true;
-	checkf(userIds.Num() == errors.Num() && errors.Num() == completedQueries.Num(), TEXT("Amount(UserIds, completedQueries, errors) mismatch."));
-	thisPtr->userQueries[additionalData->StartTime] = MakeTuple(userIds, completedQueries, errors);
-
-	// Count the number of completed queries
-	int32 doneQueries = 0;
-	for (int32 i = 0; i < completedQueries.Num(); ++i)
-	{
-		//We are done if all queries have been completed in some form
-		if (completedQueries[i])
+		int32 CurrentIndex = additionalData->CurrentQueryUserIndex;
+		//We need to update the tuple here - otherwise we never complete the query! - Mike
+		if (result != EOS_EResult::EOS_Success)
 		{
-			doneQueries += 1;
+			// Change the error message so that the end user knows at which sub-query index the error occurred.
+			errors[CurrentIndex] = FString::Printf(TEXT("SubQueryId: %d, Message: %s"), CurrentIndex, *error);
 		}
-	}
 
-	thisPtr->UserQueryLock.Unlock();
+		//Regardless if there is an error or not for this index, we have completed a query
+		//we will simply move on to the next index
+		completedQueries[CurrentIndex] = true;
+		checkf(userIds.Num() == errors.Num() && errors.Num() == completedQueries.Num(), TEXT("Amount(UserIds, completedQueries, errors) mismatch."));
+		thisPtr->userQueries[additionalData->StartTime] = MakeTuple(userIds, completedQueries, errors);
 
-	// If all queries are done, log the result of the function
-	if (doneQueries == userIds.Num())
-	{
-		UE_LOG_ONLINE_USER(Log, TEXT("Query user info successful. Number of queries is: %d"), thisPtr->queriedUserIdsCache.Num());
-		//queries don't necessarily respect order, so remove the index on what the current query is set at
-		int32 IndexToRemove = thisPtr->TimeToIndexMap[additionalData->StartTime];
-		thisPtr->TimeToIndexMap.Remove(IndexToRemove);
+		// Count the number of completed queries
+		int32 doneQueries = 0;
+		for (int32 i = 0; i < completedQueries.Num(); ++i)
+		{
+			//We are done if all queries have been completed in some form
+			if (completedQueries[i])
+			{
+				doneQueries += 1;
+			}
+		}
 
-		//Remove the user query that we have from this timestamp, we are done with it
-		thisPtr->userQueries.Remove(additionalData->StartTime);
+		thisPtr->UserQueryLock.Unlock();
 
-		thisPtr->TriggerOnQueryUserInfoCompleteDelegates(additionalData->LocalUserId, error.IsEmpty(), userIds, "");
-	}
-	//we have finished all queries but there are errors as well
-	else if (doneQueries == completedQueries.Num() + errors.Num())
-	{
-		UE_LOG_ONLINE_USER(Log, TEXT("Query user info successful. Number of queries is: %d"), thisPtr->queriedUserIdsCache.Num());
+		// If all queries are done, log the result of the function
+		if (doneQueries == userIds.Num())
+		{
+			UE_LOG_ONLINE_USER(Log, TEXT("Query user info successful. Number of queries is: %d"), thisPtr->queriedUserIdsCache.Num());
+			//queries don't necessarily respect order, so remove the index on what the current query is set at
+			int32 IndexToRemove = thisPtr->TimeToIndexMap[additionalData->StartTime];
+			thisPtr->TimeToIndexMap.Remove(IndexToRemove);
 
-		FString completeErrorString = thisPtr->ConcatErrorString(errors);
+			//Remove the user query that we have from this timestamp, we are done with it
+			thisPtr->userQueries.Remove(additionalData->StartTime);
 
-		UE_CLOG_ONLINE_USER(!completeErrorString.IsEmpty(), Warning, TEXT("Query user info failed:\r\n%s"), *error);
+			thisPtr->TriggerOnQueryUserInfoCompleteDelegates(additionalData->LocalUserId, error.IsEmpty(), userIds, "");
+		}
+		//we have finished all queries but there are errors as well
+		else if (doneQueries == completedQueries.Num() + errors.Num())
+		{
+			UE_LOG_ONLINE_USER(Log, TEXT("Query user info successful. Number of queries is: %d"), thisPtr->queriedUserIdsCache.Num());
 
-		//queries don't necessarily respect order, so remove the index on what the current query is set at
-		int32 IndexToRemove = thisPtr->TimeToIndexMap[additionalData->StartTime];
-		thisPtr->TimeToIndexMap.Remove(IndexToRemove);
+			FString completeErrorString = thisPtr->ConcatErrorString(errors);
 
-		//Remove the user query that we have from this timestamp, we are done with it
-		thisPtr->userQueries.Remove(additionalData->StartTime);
+			UE_CLOG_ONLINE_USER(!completeErrorString.IsEmpty(), Warning, TEXT("Query user info failed:\r\n%s"), *error);
 
-		thisPtr->TriggerOnQueryUserInfoCompleteDelegates(additionalData->LocalUserId, error.IsEmpty(), userIds, completeErrorString);
+			//queries don't necessarily respect order, so remove the index on what the current query is set at
+			int32 IndexToRemove = thisPtr->TimeToIndexMap[additionalData->StartTime];
+			thisPtr->TimeToIndexMap.Remove(IndexToRemove);
+
+			//Remove the user query that we have from this timestamp, we are done with it
+			thisPtr->userQueries.Remove(additionalData->StartTime);
+
+			thisPtr->TriggerOnQueryUserInfoCompleteDelegates(additionalData->LocalUserId, error.IsEmpty(), userIds, completeErrorString);
+		}
 	}
 
 	// Release the memory from additionalUserData
