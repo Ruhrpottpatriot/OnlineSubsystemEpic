@@ -274,8 +274,8 @@ EOnlineCachedResult::Type FOnlinePresenceEpic::GetCachedPresence(const FUniqueNe
 			EpicLocalUserId.ToEpicAccountId(),
 			TargetUserId.ToEpicAccountId()
 		};
-		EOS_EResult eosResult = EOS_Presence_CopyPresence(this->presenceHandle, &copyPresenceOptions, &presenceInfo);
-		if (eosResult == EOS_EResult::EOS_Success)
+		EOS_EResult EOS_EResult = EOS_Presence_CopyPresence(this->presenceHandle, &copyPresenceOptions, &presenceInfo);
+		if (EOS_EResult == EOS_EResult::EOS_Success)
 		{
 			// Add remaining presence fields to a users presence status, which include additional information 
 			FOnlineUserPresenceStatus presenceStatus;
@@ -324,8 +324,8 @@ EOnlineCachedResult::Type FOnlinePresenceEpic::GetCachedPresence(const FUniqueNe
 				EpicLocalUserId.ToEpicAccountId(),
 				TargetUserId.ToEpicAccountId()
 			};
-			eosResult = EOS_Presence_GetJoinInfo(this->presenceHandle, &getJoinInfoOptions, joinInfo, &joinInfoLen);
-			if (eosResult == EOS_EResult::EOS_Success)
+			EOS_EResult = EOS_Presence_GetJoinInfo(this->presenceHandle, &getJoinInfoOptions, joinInfo, &joinInfoLen);
+			if (EOS_EResult == EOS_EResult::EOS_Success)
 			{
 				TSharedPtr<FUserOnlineAccount> userAcc = identityPtr->GetUserAccount(TargetUserId);
 
@@ -360,7 +360,7 @@ EOnlineCachedResult::Type FOnlinePresenceEpic::GetCachedPresence(const FUniqueNe
 		}
 		else
 		{
-			error = FString::Printf(TEXT("[EOS SDK] Error while retrieving cached presence information. Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(eosResult)));
+			error = FString::Printf(TEXT("[EOS SDK] Error while retrieving cached presence information. Error: %s"), UTF8_TO_TCHAR(EOS_EResult_ToString(EOS_EResult)));
 		}
 
 		EOS_Presence_Info_Release(presenceInfo);
@@ -391,24 +391,24 @@ void FOnlinePresenceEpic::SetPresence(const FUniqueNetId& User, const FOnlineUse
 			epicNetId.ToEpicAccountId()
 		};
 
-		EOS_EResult eosResult = EOS_Presence_CreatePresenceModification(this->presenceHandle, &createPresenceModOptions, &modHandle);
-		if (eosResult == EOS_EResult::EOS_Success)
+		EOS_EResult EOS_EResult = EOS_Presence_CreatePresenceModification(this->presenceHandle, &createPresenceModOptions, &modHandle);
+		if (EOS_EResult == EOS_EResult::EOS_Success)
 		{
 			// Set the new status
 			EOS_PresenceModification_SetStatusOptions setStatusOptions = {
 				EOS_PRESENCE_SETSTATUS_API_LATEST,
 				this->UEPresenceStateToEOSPresenceState(Status.State)
 			};
-			eosResult = EOS_PresenceModification_SetStatus(modHandle, &setStatusOptions);
-			if (eosResult == EOS_EResult::EOS_Success)
+			EOS_EResult = EOS_PresenceModification_SetStatus(modHandle, &setStatusOptions);
+			if (EOS_EResult == EOS_EResult::EOS_Success)
 			{
 				// Set the raw status message
 				EOS_PresenceModification_SetRawRichTextOptions setRawMessageOptions = {
 					EOS_PRESENCE_SETRAWRICHTEXT_API_LATEST,
 					TCHAR_TO_UTF8(*Status.StatusStr)
 				};
-				eosResult = EOS_PresenceModification_SetRawRichText(modHandle, &setRawMessageOptions);
-				if (eosResult == EOS_EResult::EOS_Success)
+				EOS_EResult = EOS_PresenceModification_SetRawRichText(modHandle, &setRawMessageOptions);
+				if (EOS_EResult == EOS_EResult::EOS_Success)
 				{
 					// Set all additional presence properties.
 					int32 recordCount = Status.Properties.Num();
@@ -432,8 +432,8 @@ void FOnlinePresenceEpic::SetPresence(const FUniqueNetId& User, const FOnlineUse
 						recordCount,
 						recordArr
 					};
-					eosResult = EOS_PresenceModification_SetData(modHandle, &setDataOpts);
-					if (eosResult == EOS_EResult::EOS_Success)
+					EOS_EResult = EOS_PresenceModification_SetData(modHandle, &setDataOpts);
+					if (EOS_EResult == EOS_EResult::EOS_Success)
 					{
 						// Finally update the presence itself.
 						EOS_Presence_SetPresenceOptions setPresenceOptions = {

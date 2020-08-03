@@ -75,11 +75,11 @@ protected:
 	FOnlineUserPresence Presence;
 };
 
-class FOnlineFriendInterfaceEpic : public IOnlineFriends
+class FOnlineFriendsInterfaceEpic : public IOnlineFriends
 {
 
 public:
-	FOnlineFriendInterfaceEpic() : Subsystem(nullptr),
+	FOnlineFriendsInterfaceEpic() : Subsystem(nullptr),
 	                               friendsHandle(nullptr)
 	{
 	}
@@ -89,9 +89,9 @@ public:
 	 *
 	 * @param InSubsystem the subsystem that owns this object
 	 */
-	FOnlineFriendInterfaceEpic(FOnlineSubsystemEpic* InSubsystem);
+	FOnlineFriendsInterfaceEpic(FOnlineSubsystemEpic* InSubsystem);
 
-	virtual ~FOnlineFriendInterfaceEpic() {};
+	virtual ~FOnlineFriendsInterfaceEpic() {};
 
 	/** The subsystem that owns the instance */
 	FOnlineSubsystemEpic* Subsystem;
@@ -229,4 +229,4 @@ public:
 #endif
 };
 
-using FOnlineFriendInterfacePtr = TSharedPtr<FOnlineFriendInterfaceEpic, ESPMode::ThreadSafe>;
+using FOnlineFriendInterfacePtr = TSharedPtr<FOnlineFriendsInterfaceEpic, ESPMode::ThreadSafe>;

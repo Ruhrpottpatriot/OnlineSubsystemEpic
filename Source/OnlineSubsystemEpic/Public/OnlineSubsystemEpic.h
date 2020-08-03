@@ -3,14 +3,16 @@
 #include "CoreMinimal.h"
 #include "OnlineSubsystemEpicPackage.h"
 #include "OnlineSubsystemImpl.h"
+#include "OnlineLobbyInterfaceEpic.h"
 #include "eos_sdk.h"
-
 
 using FOnlineIdentityEpicPtr = TSharedPtr<class FOnlineIdentityInterfaceEpic, ESPMode::ThreadSafe>;
 using FOnlineSessionEpicPtr = TSharedPtr<class FOnlineSessionEpic, ESPMode::ThreadSafe>;
 using FOnlineUserEpicPtr = TSharedPtr<class FOnlineUserEpic, ESPMode::ThreadSafe>;
-using FOnlineFriendsEpicPtr = TSharedPtr<class FOnlineFriendInterfaceEpic, ESPMode::ThreadSafe>;
+using FOnlineFriendsEpicPtr = TSharedPtr<class FOnlineFriendsInterfaceEpic, ESPMode::ThreadSafe>;
 using FOnlinePresenceEpicPtr = TSharedPtr<class FOnlinePresenceEpic, ESPMode::ThreadSafe>;
+using FOnlinePartyEpicPtr = TSharedPtr<class FOnlinePartyInterfaceEpic, ESPMode::ThreadSafe>;
+using FOnlineLobbyEpicPtr = TSharedPtr<class FOnlineLobbyEpic, ESPMode::ThreadSafe>;
 
 class ONLINESUBSYSTEMEPIC_API FOnlineSubsystemEpic
 	: public FOnlineSubsystemImpl
@@ -45,6 +47,8 @@ public:
 	virtual IOnlineTurnBasedPtr GetTurnBasedInterface() const override;
 	virtual IOnlineTournamentPtr GetTournamentInterface() const override;
 
+	virtual FOnlineLobbyEpicPtr GetEpicLobbyInterface() const;
+
 	virtual bool Init() override;
 	virtual bool Shutdown() override;
 	virtual FString GetAppId() const override;
@@ -65,6 +69,7 @@ PACKAGE_SCOPE:
 		, PlatformHandle(nullptr)
 		, IdentityInterface(nullptr)
 		, PresenceInterface(nullptr)
+		, PartyInterface(nullptr)
 		, DevToolAddress(TEXT(""))
 	{}
 
@@ -83,6 +88,10 @@ PACKAGE_SCOPE:
 	FOnlinePresenceEpicPtr PresenceInterface;
 	
 	FOnlineFriendsEpicPtr FriendsInterface;
+
+	FOnlinePartyEpicPtr PartyInterface;
+
+	FOnlineLobbyEpicPtr LobbyInterface;
 	
 	FString DevToolAddress;
 
