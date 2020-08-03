@@ -23,7 +23,7 @@ IOnlineFriendsPtr FOnlineSubsystemEpic::GetFriendsInterface() const
 
 IOnlinePartyPtr FOnlineSubsystemEpic::GetPartyInterface() const
 {
-	return this->PartyInterface;
+	return nullptr;
 }
 
 IOnlineGroupsPtr FOnlineSubsystemEpic::GetGroupsInterface() const
@@ -139,11 +139,6 @@ IOnlineTurnBasedPtr FOnlineSubsystemEpic::GetTurnBasedInterface() const
 IOnlineTournamentPtr FOnlineSubsystemEpic::GetTournamentInterface() const
 {
 	return nullptr;
-}
-
-FOnlineLobbyEpicPtr FOnlineSubsystemEpic::GetEpicLobbyInterface() const
-{
-	return LobbyInterface;
 }
 
 bool FOnlineSubsystemEpic::Init()
@@ -372,10 +367,6 @@ bool FOnlineSubsystemEpic::Init()
 	this->UserInterface = MakeShareable(new FOnlineUserEpic(this));
 	this->PresenceInterface = MakeShareable(new FOnlinePresenceEpic(this));
 	this->FriendsInterface = MakeShareable(new FOnlineFriendsInterfaceEpic(this));
-	this->PartyInterface = MakeShareable(new FOnlinePartyInterfaceEpic(this));
-
-	//Custom interfaces not in OnlineSubsystem
-	this->LobbyInterface = MakeShareable(new FOnlineLobbyEpic(this));
 	
 	this->IsInit = true;
 	return true;
@@ -400,10 +391,6 @@ bool FOnlineSubsystemEpic::Shutdown()
 	DESTRUCT_INTERFACE(UserInterface);
 	DESTRUCT_INTERFACE(this->PresenceInterface);
 	DESTRUCT_INTERFACE(FriendsInterface);
-	DESTRUCT_INTERFACE(PartyInterface);
-
-	//Custom interface destruction
-	DESTRUCT_INTERFACE(LobbyInterface);
 #undef DESTRUCT_INTERFACE
 
 	return true;
