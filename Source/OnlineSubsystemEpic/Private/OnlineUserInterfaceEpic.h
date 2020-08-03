@@ -5,6 +5,24 @@
 #include "eos_sdk.h"
 #include "Misc/ScopeLock.h"
 #include "OnlineSubsystemEpicPackage.h" // Needs to be the last include
+#include "OnlineSubsystemEpicTypes.h"
+
+
+/** Stores information about an external id mapping */
+struct FExternalIdMapping
+{
+	// THe local FUniqueNetId the external user info maps to
+	TSharedRef<FUniqueNetId const> UserId;
+
+	// The external display name
+	FString DisplayName;
+
+	// The external id, can be anything really
+	FString ExternalId;
+
+	// The external account type (Steam, XBL, PSN, etc.)
+	FString AccountType;
+};
 
 class FOnlineSubsystemEpic;
 
@@ -25,7 +43,11 @@ private:
 
 	/** A list of all user ids for which the SDK has cached user information. */
 	TArray<EOS_EpicAccountId> queriedUserIdsCache;
-	
+
+	//Product UserId map to epic account id
+	TMap<EOS_ProductUserId, EOS_EpicAccountId> ExternalToEpicAccountsMap;
+	TArray<FUniqueNetIdEpic> CurrentQueriedProductIds;
+
 	/**
 	 * Concatenates multiple error strings into one single error string.
 	 * @param ErrorStrings - The errors to concatenate
@@ -62,7 +84,7 @@ private:
 	 * to specify the user id that wants to retrieve the cached data.
 	 * Improvement: In the future this might be changed into a map
 	 */
-	TArray<struct FExternalIdMapping> externalIdMappings;
+	TArray<FExternalIdMapping> externalIdMappings;
 
 	static void OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallbackInfo const* Data);
 	static void OnEOSQueryUserInfoByDisplayNameComplete(EOS_UserInfo_QueryUserInfoByDisplayNameCallbackInfo const* Data);
