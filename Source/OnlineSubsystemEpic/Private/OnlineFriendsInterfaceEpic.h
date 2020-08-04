@@ -30,8 +30,7 @@ public:
 
 	FOnlineFriendEpic(const FUniqueNetId& NetId);
 
-	/** Virtual destructor to keep resharper happy */
-	virtual ~FOnlineFriendEpic() {};
+	virtual ~FOnlineFriendEpic() = default;
 
 	// FOnlineUser
 	virtual TSharedRef<const FUniqueNetId> GetUserId() const override;
@@ -91,7 +90,7 @@ public:
 	 */
 	FOnlineFriendsInterfaceEpic(FOnlineSubsystemEpic* InSubsystem);
 
-	virtual ~FOnlineFriendsInterfaceEpic() {};
+	virtual ~FOnlineFriendsInterfaceEpic() = default;
 
 	/** The subsystem that owns the instance */
 	FOnlineSubsystemEpic* Subsystem;
@@ -106,10 +105,10 @@ protected:
 	/** List of friends */
 	struct FEpicFriendsList
 	{
-		TArray<TSharedRef<FOnlineFriendEpic> > Friends;
+		TArray<TSharedRef<FOnlineFriendEpic>> Friends;
 	};
 	
-	/**Mmap of local user idx to friends */
+	/**Map of local user idx to friends */
 	TMap<int32, FEpicFriendsList> FriendsLists;
 
 	/** Delegate to use for querying user info list */

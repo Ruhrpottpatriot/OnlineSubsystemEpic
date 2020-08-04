@@ -6,7 +6,6 @@
 #include "IPAddress.h"
 #include "eos_common.h"
 #include <OnlineSubsystem.h>
-#include <cassert>
 
 #define LOGIN_TYPE_EAS TEXT("EAS")
 #define LOGIN_TYPE_CONNECT TEXT("CONNECT")

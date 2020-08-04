@@ -200,8 +200,7 @@ void FOnlineFriendsInterfaceEpic::OnQueryFriendsComplete(int32 InLocalUserNum, b
 
 				FString DisplayName;
 				CurrentFriend->GetUserAttribute(USER_ATTR_DISPLAYNAME, DisplayName);
-				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Name is: " + CurrentFriend->GetDisplayName()
-					+ ", with nickname of: " + AliasName);
+				UE_LOG_ONLINE_FRIEND(Log, TEXT("%s: Name is: %s, with nickname of %s"), __FUNCTIONW__, *CurrentFriend->GetDisplayName(), *AliasName);
 			}
 			else
 			{
@@ -265,23 +264,23 @@ void FOnlineFriendsInterfaceEpic::OnEASQueryFriendsComplete(EOS_Friends_QueryFri
 	check(Data);
 
 	// To raise the friends query complete delegate the interface itself has to be retrieved from the returned data
-	FLocalUserData* ThisPtr = (FLocalUserData*)(Data->ClientData);
-	check(ThisPtr);
+	FLocalUserData* InformationData = static_cast<FLocalUserData*>(Data->ClientData);
+	check(InformationData);
 
 	if (Data->ResultCode == EOS_EResult::EOS_Success)
 	{
 
-		FOnlineFriendsInterfaceEpic* FriendInterfaceEpic = ThisPtr->OnlineFriendPtr;
+		FOnlineFriendsInterfaceEpic* FriendInterfaceEpic = InformationData->OnlineFriendPtr;
 		
 		EOS_Friends_GetFriendsCountOptions Options;
 		Options.ApiVersion = EOS_FRIENDS_GETFRIENDSCOUNT_API_LATEST;
 		Options.LocalUserId = Data->LocalUserId;
 		
-		int32_t FriendsCount = EOS_Friends_GetFriendsCount(ThisPtr->FriendsHandle, &Options);
+		int32_t FriendsCount = EOS_Friends_GetFriendsCount(InformationData->FriendsHandle, &Options);
 
 		UE_LOG_ONLINE_FRIEND(Log, TEXT("%s number of friends is: %d"), __FUNCTIONW__, FriendsCount);
 
-		FOnlineFriendsInterfaceEpic::FEpicFriendsList& FriendsList = FriendInterfaceEpic->FriendsLists.FindOrAdd(ThisPtr->LocalPlayerNum);
+		FOnlineFriendsInterfaceEpic::FEpicFriendsList& FriendsList = FriendInterfaceEpic->FriendsLists.FindOrAdd(InformationData->LocalPlayerNum);
 		//Pre-Size array for minimum re-allocs
 		FriendsList.Friends.Empty(FriendsCount);
 
@@ -294,7 +293,7 @@ void FOnlineFriendsInterfaceEpic::OnEASQueryFriendsComplete(EOS_Friends_QueryFri
 		{
 			IndexOptions.Index = FriendIdx;
 
-			EOS_EpicAccountId FriendUserId = EOS_Friends_GetFriendAtIndex(ThisPtr->FriendsHandle, &IndexOptions);
+			EOS_EpicAccountId FriendUserId = EOS_Friends_GetFriendAtIndex(InformationData->FriendsHandle, &IndexOptions);
 
 			if (EOS_EpicAccountId_IsValid(FriendUserId))
 			{
@@ -303,7 +302,7 @@ void FOnlineFriendsInterfaceEpic::OnEASQueryFriendsComplete(EOS_Friends_QueryFri
 				StatusOptions.LocalUserId = Data->LocalUserId;
 				StatusOptions.TargetUserId = FriendUserId;
 
-				EOS_EFriendsStatus FriendStatus = EOS_Friends_GetStatus(ThisPtr->FriendsHandle, &StatusOptions);
+				EOS_EFriendsStatus FriendStatus = EOS_Friends_GetStatus(InformationData->FriendsHandle, &StatusOptions);
 
 				// Add to list
 				TSharedRef<FOnlineFriendEpic> Friend(new FOnlineFriendEpic(FriendUserId));
@@ -324,21 +323,21 @@ void FOnlineFriendsInterfaceEpic::OnEASQueryFriendsComplete(EOS_Friends_QueryFri
 				 * so it is possible but that would require an engine build.
 				 * Individual queries will have to do for now
 				 */
-				IOnlinePresence::FOnPresenceTaskCompleteDelegate DelegateHandle = IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateRaw(ThisPtr->OnlineFriendPtr, &FOnlineFriendsInterfaceEpic::OnFriendQueryPresenceComplete);
-				ThisPtr->OnlineFriendPtr->DelayedPresenceDelegates.Add(FUniqueNetIdEpic(Friend->GetUserId().Get()), DelegateHandle);
-				ThisPtr->OnlineFriendPtr->Subsystem->GetPresenceInterface()->QueryPresence(FUniqueNetIdEpic(Friend->GetUserId().Get()), DelegateHandle);
+				IOnlinePresence::FOnPresenceTaskCompleteDelegate DelegateHandle = IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateRaw(InformationData->OnlineFriendPtr, &FOnlineFriendsInterfaceEpic::OnFriendQueryPresenceComplete);
+				InformationData->OnlineFriendPtr->DelayedPresenceDelegates.Add(FUniqueNetIdEpic(Friend->GetUserId().Get()), DelegateHandle);
+				InformationData->OnlineFriendPtr->Subsystem->GetPresenceInterface()->QueryPresence(FUniqueNetIdEpic(Friend->GetUserId().Get()), DelegateHandle);
 			}
 		}
 
 		//Query the array of friends
-		ThisPtr->OnlineFriendPtr->Subsystem->GetUserInterface()->QueryUserInfo(ThisPtr->LocalPlayerNum, UserIds);
+		InformationData->OnlineFriendPtr->Subsystem->GetUserInterface()->QueryUserInfo(InformationData->LocalPlayerNum, UserIds);
 
 	}
 	else {
 		UE_LOG_ONLINE_FRIEND(Error, TEXT("%s asynchronous call was not successful!"), __FUNCTIONW__);
 	}
 
-	delete ThisPtr;
+	delete InformationData;
 }
 
 void FOnlineFriendsInterfaceEpic::OnFriendQueryPresenceComplete(const class FUniqueNetId& UserId, const bool bWasSuccessful)
@@ -488,7 +487,7 @@ void FOnlineFriendsInterfaceEpic::SendInviteCallback(const EOS_Friends_SendInvit
 	check(Data);
 
 	// To raise the friends query complete delegate the interface itself has to be retrieved from the returned data
-	FLocalUserData* InformationData = (FLocalUserData*)(Data->ClientData);
+	FLocalUserData* InformationData = static_cast<FLocalUserData*>(Data->ClientData);
 	check(InformationData);
 
 	if (Data->ResultCode == EOS_EResult::EOS_Success)
@@ -512,7 +511,7 @@ void FOnlineFriendsInterfaceEpic::AcceptInviteCallback(const EOS_Friends_AcceptI
 	check(Data);
 
 	// To raise the friends query complete delegate the interface itself has to be retrieved from the returned data
-	FLocalUserData* InformationData = (FLocalUserData*)(Data->ClientData);
+	FLocalUserData* InformationData = static_cast<FLocalUserData*>(Data->ClientData);
 	check(InformationData);
 
 	if (Data->ResultCode == EOS_EResult::EOS_Success)
@@ -536,7 +535,7 @@ void FOnlineFriendsInterfaceEpic::RejectInviteCallback(const EOS_Friends_RejectI
 	check(Data);
 
 	// To raise the friends query complete delegate the interface itself has to be retrieved from the returned data
-	FRejectInformation* InformationData = (FRejectInformation*)(Data->ClientData);
+	FRejectInformation* InformationData = static_cast<FRejectInformation*>(Data->ClientData);
 	check(InformationData);
 
 	if (Data->ResultCode == EOS_EResult::EOS_Success)

@@ -223,8 +223,8 @@ void FOnlinePresenceEpic::QueryPresence(const FUniqueNetId& User, const FOnPrese
 			PresenceNotifications.Add(epicUser.ToEpicAccountId(), PresenceNotificationHandle);
 		}
 
-		//TODO - I don't know if this is right to just access 0 but I can't get the num anywhere else - maybe we loop through all local players?
-		TSharedPtr<FUniqueNetId const> localUser = subsystem->GetIdentityInterface()->GetUniquePlayerId(0);
+		FPlatformUserId LocalUserNum = GetPlatformUserIdFromUniqueNetId(UserId);
+		TSharedPtr<FUniqueNetId const> localUser = subsystem->GetIdentityInterface()->GetUniquePlayerId(LocalUserNum);
 
 		if (epicUser.IsEpicAccountIdValid())
 		{
