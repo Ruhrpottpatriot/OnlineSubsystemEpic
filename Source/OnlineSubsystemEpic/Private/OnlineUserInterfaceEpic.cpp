@@ -124,56 +124,73 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 	// Lock the following section to make sure the amount of completed queries doesn't change mid way.
 	thisPtr->UserQueryLock.Lock();
 
-	// Auto used below to increase readability
-	auto query = thisPtr->userQueries.Find(additionalData->StartTime);
-	
-	TArray<TSharedRef<FUniqueNetId const>> userIds = query->Get<0>();
-	TArray<bool> completedQueries = query->Get<1>();
-	TArray<FString> errors = query->Get<2>();
+	// Check in case we went too fast and info is not available immediately
+	if (thisPtr->userQueries.Num() > 0) {
+		// Auto used below to increase readability
+		auto query = thisPtr->userQueries.Find(additionalData->StartTime);
 
-	int32 CurrentIndex = additionalData->CurrentQueryUserIndex;
-	//We need to update the tuple here - otherwise we never complete the query! - Mike
-	if (result != EOS_EResult::EOS_Success)
-	{
-		// Change the error message so that the end user knows at which sub-query index the error occurred.
-		errors[CurrentIndex] = FString::Printf(TEXT("SubQueryId: %d, Message: %s"), CurrentIndex, *error);
-	}
-	
-	//Regardless if there is an error or not for this index, we have completed a query
-	//we will simply move on to the next index
-	completedQueries[CurrentIndex] = true;
-	checkf(userIds.Num() == errors.Num() && errors.Num() == completedQueries.Num(), TEXT("Amount(UserIds, completedQueries, errors) mismatch."));
-	thisPtr->userQueries[additionalData->StartTime] = MakeTuple(userIds, completedQueries, errors);
-	
-	// Count the number of completed queries
-	int32 doneQueries = 0;
-	for (int32 i = 0; i < completedQueries.Num(); ++i)
-	{
-		//We are done if all queries have been completed in some form
-		if (completedQueries[i])
+		TArray<TSharedRef<FUniqueNetId const>> userIds = query->Get<0>();
+		TArray<bool> completedQueries = query->Get<1>();
+		TArray<FString> errors = query->Get<2>();
+
+		int32 CurrentIndex = additionalData->CurrentQueryUserIndex;
+		//We need to update the tuple here - otherwise we never complete the query! - Mike
+		if (result != EOS_EResult::EOS_Success)
 		{
-			doneQueries += 1;
+			// Change the error message so that the end user knows at which sub-query index the error occurred.
+			errors[CurrentIndex] = FString::Printf(TEXT("SubQueryId: %d, Message: %s"), CurrentIndex, *error);
 		}
-	}
 
-	thisPtr->UserQueryLock.Unlock();
+		//Regardless if there is an error or not for this index, we have completed a query
+		//we will simply move on to the next index
+		completedQueries[CurrentIndex] = true;
+		checkf(userIds.Num() == errors.Num() && errors.Num() == completedQueries.Num(), TEXT("Amount(UserIds, completedQueries, errors) mismatch."));
+		thisPtr->userQueries[additionalData->StartTime] = MakeTuple(userIds, completedQueries, errors);
 
-	// If all queries are done, log the result of the function
-	if (doneQueries == userIds.Num())
-	{
-		FString completeErrorString = thisPtr->ConcatErrorString(errors);
-		UE_CLOG_ONLINE_USER(completeErrorString.IsEmpty(), Display, TEXT("Query user info successful. Number of queries is: %d"), thisPtr->queriedUserIdsCache.Num());
-		UE_CLOG_ONLINE_USER(!completeErrorString.IsEmpty(), Warning, TEXT("Query user info failed:\r\n%s"), *error);
+		// Count the number of completed queries
+		int32 doneQueries = 0;
+		for (int32 i = 0; i < completedQueries.Num(); ++i)
+		{
+			//We are done if all queries have been completed in some form
+			if (completedQueries[i])
+			{
+				doneQueries += 1;
+			}
+		}
 
-		//queries don't necessarily respect order, so remove the index on what the current query is set at
-		int32 IndexToRemove = thisPtr->TimeToIndexMap[additionalData->StartTime];
-		thisPtr->queriedUserIdsCache.RemoveAt(IndexToRemove);
-		thisPtr->TimeToIndexMap.Remove(IndexToRemove);
+		thisPtr->UserQueryLock.Unlock();
 
-		//Remove the user query that we have from this timestamp, we are done with it
-		thisPtr->userQueries.Remove(additionalData->StartTime);
+		// If all queries are done, log the result of the function
+		if (doneQueries == userIds.Num())
+		{
+			UE_LOG_ONLINE_USER(Log, TEXT("Query user info successful. Number of queries is: %d"), thisPtr->queriedUserIdsCache.Num());
+			//queries don't necessarily respect order, so remove the index on what the current query is set at
+			int32 IndexToRemove = thisPtr->TimeToIndexMap[additionalData->StartTime];
+			thisPtr->TimeToIndexMap.Remove(IndexToRemove);
 
-		thisPtr->TriggerOnQueryUserInfoCompleteDelegates(additionalData->LocalUserId, error.IsEmpty(), userIds, completeErrorString);
+			//Remove the user query that we have from this timestamp, we are done with it
+			thisPtr->userQueries.Remove(additionalData->StartTime);
+
+			thisPtr->TriggerOnQueryUserInfoCompleteDelegates(additionalData->LocalUserId, error.IsEmpty(), userIds, "");
+		}
+		//we have finished all queries but there are errors as well
+		else if (doneQueries == completedQueries.Num() + errors.Num())
+		{
+			UE_LOG_ONLINE_USER(Log, TEXT("Query user info successful. Number of queries is: %d"), thisPtr->queriedUserIdsCache.Num());
+
+			FString completeErrorString = thisPtr->ConcatErrorString(errors);
+
+			UE_CLOG_ONLINE_USER(!completeErrorString.IsEmpty(), Warning, TEXT("Query user info failed:\r\n%s"), *error);
+			
+			//queries don't necessarily respect order, so remove the index on what the current query is set at
+			int32 IndexToRemove = thisPtr->TimeToIndexMap[additionalData->StartTime];
+			thisPtr->TimeToIndexMap.Remove(IndexToRemove);
+
+			//Remove the user query that we have from this timestamp, we are done with it
+			thisPtr->userQueries.Remove(additionalData->StartTime);
+
+			thisPtr->TriggerOnQueryUserInfoCompleteDelegates(additionalData->LocalUserId, error.IsEmpty(), userIds, completeErrorString);
+		}
 	}
 
 	// Release the memory from additionalUserData
@@ -571,39 +588,21 @@ bool FOnlineUserEpic::QueryUserInfo(int32 LocalUserNum, const TArray<TSharedRef<
 					TSharedRef<FUniqueNetIdEpic const> targetUserId = StaticCastSharedRef<FUniqueNetIdEpic const>(UserIds[i]);
 					if (targetUserId->IsEpicAccountIdValid())
 					{
-						EOS_UserInfo_CopyUserInfoOptions copyUserOptions = {
-						EOS_USERINFO_COPYUSERINFO_API_LATEST,
-							localUserId->ToEpicAccountId(),
-							targetUserId->ToEpicAccountId()
+						EOS_UserInfo_QueryUserInfoOptions queryUserInfoOptions = {
+						   EOS_USERINFO_QUERYUSERINFO_API_LATEST,
+						   localUserId->ToEpicAccountId(),
+						   targetUserId->ToEpicAccountId()
+						};
+						FQueryUserInfoAdditionalData* additionalData = new FQueryUserInfoAdditionalData{
+							this,
+							LocalUserNum,
+							startTime,
+							i
 						};
 
-						EOS_UserInfo* UserInfo = nullptr;
-						EOS_EResult CachedResult = EOS_UserInfo_CopyUserInfo(this->userInfoHandle, &copyUserOptions, &UserInfo);
+						EOS_UserInfo_QueryUserInfo(this->userInfoHandle, &queryUserInfoOptions, additionalData, &FOnlineUserEpic::OnEOSQueryUserInfoComplete);
 
-						//Only query if we haven't cached this user in our results before
-						if (CachedResult == EOS_EResult::EOS_NotFound) {
-							EOS_UserInfo_QueryUserInfoOptions queryUserInfoOptions = {
-							   EOS_USERINFO_QUERYUSERINFO_API_LATEST,
-							   localUserId->ToEpicAccountId(),
-							   targetUserId->ToEpicAccountId()
-							};
-							FQueryUserInfoAdditionalData* additionalData = new FQueryUserInfoAdditionalData{
-								this,
-								LocalUserNum,
-								startTime,
-								i
-							};
-
-							EOS_UserInfo_QueryUserInfo(this->userInfoHandle, &queryUserInfoOptions, additionalData, &FOnlineUserEpic::OnEOSQueryUserInfoComplete);
-
-							result = ONLINE_IO_PENDING;
-						}
-						else
-						{
-							//We have previously queried this user, no need to do it again
-							result = ONLINE_SUCCESS;
-							EOS_UserInfo_Release(UserInfo);
-						}
+						result = ONLINE_IO_PENDING;
 					}
 				}
 			}
@@ -681,11 +680,9 @@ bool FOnlineUserEpic::GetAllUserInfo(int32 LocalUserNum, TArray< TSharedRef<clas
 
 						TSharedRef<FUserOnlineAccount> localUser = MakeShared<FUserOnlineAccountEpic>(epicNetId);
 						localUser->SetUserAttribute(USER_ATTR_COUNTRY, country);
-						localUser->SetUserAttribute(USER_ATTR_REALNAME, displayName);
 						localUser->SetUserAttribute(USER_ATTR_DISPLAYNAME, displayName);
 						localUser->SetUserAttribute(USER_ATTR_PREFERRED_LANGUAGE, preferredLanguage);
 						localUser->SetUserAttribute(USER_ATTR_PREFERRED_DISPLAYNAME, nickname);
-						localUser->SetUserAttribute(USER_ATTR_ALIAS, nickname);
 
 						OutUsers.Add(localUser);
 					}
@@ -766,15 +763,23 @@ TSharedPtr<FOnlineUser> FOnlineUserEpic::GetUserInfo(int32 LocalUserNum, const c
 					localUser->SetUserAttribute(USER_ATTR_COUNTRY, country);
 					localUser->SetUserAttribute(USER_ATTR_DISPLAYNAME, displayName);
 					localUser->SetUserAttribute(USER_ATTR_PREFERRED_LANGUAGE, preferredLanguage);
+					//Nickname is needed in Friends interface SetAlias method, usually nickname is null anyways in EOS
 					localUser->SetUserAttribute(USER_ATTR_PREFERRED_DISPLAYNAME, nickname);
+<<<<<<< HEAD
 					//Alias is needed in Friends interface, usually nickname is null anyways in EOS
 					localUser->SetUserAttribute(USER_ATTR_ALIAS, nickname);
+=======
+>>>>>>> Bug/UserInfoQuery
 
 					//Good to log so that users can see the difference between display name and nickname
 					FString DebugDisplayName;
 					localUser->GetUserAttribute(USER_ATTR_DISPLAYNAME, DebugDisplayName);
 					FString DebugNickname;
+<<<<<<< HEAD
 					localUser->GetUserAttribute(USER_ATTR_ALIAS, DebugNickname);
+=======
+					localUser->GetUserAttribute(USER_ATTR_PREFERRED_DISPLAYNAME, DebugNickname);
+>>>>>>> Bug/UserInfoQuery
 	
 					UE_LOG_ONLINE_USER(Log, TEXT("%s: User name is: %s with nickname of: %s"), *FString(__FUNCTION__), *DebugDisplayName, *DebugNickname);
 				}

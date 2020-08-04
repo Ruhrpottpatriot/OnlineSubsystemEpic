@@ -5,6 +5,24 @@
 #include "eos_sdk.h"
 #include "Misc/ScopeLock.h"
 #include "OnlineSubsystemEpicPackage.h" // Needs to be the last include
+#include "OnlineSubsystemEpicTypes.h"
+
+
+/** Stores information about an external id mapping */
+struct FExternalIdMapping
+{
+	// THe local FUniqueNetId the external user info maps to
+	TSharedRef<FUniqueNetId const> UserId;
+
+	// The external display name
+	FString DisplayName;
+
+	// The external id, can be anything really
+	FString ExternalId;
+
+	// The external account type (Steam, XBL, PSN, etc.)
+	FString AccountType;
+};
 
 
 /** Stores information about an external id mapping */
@@ -42,7 +60,11 @@ private:
 
 	/** A list of all user ids for which the SDK has cached user information. */
 	TArray<EOS_EpicAccountId> queriedUserIdsCache;
-	
+
+	//Product UserId map to epic account id
+	TMap<EOS_ProductUserId, EOS_EpicAccountId> ExternalToEpicAccountsMap;
+	TArray<FUniqueNetIdEpic> CurrentQueriedProductIds;
+
 	/**
 	 * Concatenates multiple error strings into one single error string.
 	 * @param ErrorStrings - The errors to concatenate
