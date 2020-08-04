@@ -24,23 +24,6 @@ struct FExternalIdMapping
 	FString AccountType;
 };
 
-
-/** Stores information about an external id mapping */
-struct FExternalIdMapping
-{
-	// THe local FUniqueNetId the external user info maps to
-	TSharedRef<FUniqueNetId const> UserId;
-
-	// The external display name
-	FString DisplayName;
-
-	// The external id, can be anything really
-	FString ExternalId;
-
-	// The external account type (Steam, XBL, PSN, etc.)
-	FString AccountType;
-};
-
 class FOnlineSubsystemEpic;
 
 class FOnlineUserEpic

@@ -223,8 +223,7 @@ void FOnlinePresenceEpic::QueryPresence(const FUniqueNetId& User, const FOnPrese
 			PresenceNotifications.Add(epicUser.ToEpicAccountId(), PresenceNotificationHandle);
 		}
 
-		FPlatformUserId LocalUserNum = GetPlatformUserIdFromUniqueNetId(UserId);
-		TSharedPtr<FUniqueNetId const> localUser = subsystem->GetIdentityInterface()->GetUniquePlayerId(LocalUserNum);
+		TSharedPtr<FUniqueNetId const> localUser = subsystem->GetIdentityInterface()->GetUniquePlayerId(0);
 
 		if (epicUser.IsEpicAccountIdValid())
 		{
