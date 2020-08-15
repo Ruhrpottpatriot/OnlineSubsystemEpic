@@ -12,22 +12,6 @@
 // These structs carry additional informations to the callbacks
 // ---------------------------------------------
 
-/** Stores information about an external id mapping */
-typedef struct FExternalIdMapping
-{
-	// THe local FUniqueNetId the external user info maps to
-	TSharedRef<FUniqueNetId const> UserId;
-
-	// The external display name
-	FString DisplayName;
-
-	// The external id, can be anything really
-	FString ExternalId;
-
-	// The external account type (Steam, XBL, PSN, etc.)
-	FString AccountType;
-} FExternalIdMapping;
-
 /**
  * This structure is needed, since the callback to start as session doesn't include the session's name,
  * which is needed to call the completion delegates
@@ -140,52 +124,73 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 	// Lock the following section to make sure the amount of completed queries doesn't change mid way.
 	thisPtr->UserQueryLock.Lock();
 
-	// Auto used below to increase readability
-	auto query = thisPtr->userQueries.Find(additionalData->StartTime);
-	
-	TArray<TSharedRef<FUniqueNetId const>> userIds = query->Get<0>();
-	TArray<bool> completedQueries = query->Get<1>();
-	TArray<FString> errors = query->Get<2>();
+	// Check in case we went too fast and info is not available immediately
+	if (thisPtr->userQueries.Num() > 0) {
+		// Auto used below to increase readability
+		auto query = thisPtr->userQueries.Find(additionalData->StartTime);
 
-	int32 CurrentIndex = additionalData->CurrentQueryUserIndex;
-	//We need to update the tuple here - otherwise we never complete the query! - Mike
-	if (result != EOS_EResult::EOS_Success)
-	{
-		// Change the error message so that the end user knows at which sub-query index the error occurred.
-		errors[CurrentIndex] = FString::Printf(TEXT("SubQueryId: %d, Message: %s"), CurrentIndex, *error);
-	}
-	
-	//Regardless if there is an error or not for this index, we have completed a query
-	//we will simply move on to the next index
-	completedQueries[CurrentIndex] = true;
-	checkf(userIds.Num() == errors.Num() && errors.Num() == completedQueries.Num(), TEXT("Amount(UserIds, completedQueries, errors) mismatch."));
-	thisPtr->userQueries[additionalData->StartTime] = MakeTuple(userIds, completedQueries, errors);
-	
-	// Count the number of completed queries
-	int32 doneQueries = 0;
-	for (int32 i = 0; i < completedQueries.Num(); ++i)
-	{
-		//We are done if all queries have been completed in some form
-		if (completedQueries[i])
+		TArray<TSharedRef<FUniqueNetId const>> userIds = query->Get<0>();
+		TArray<bool> completedQueries = query->Get<1>();
+		TArray<FString> errors = query->Get<2>();
+
+		int32 CurrentIndex = additionalData->CurrentQueryUserIndex;
+		//We need to update the tuple here - otherwise we never complete the query! - Mike
+		if (result != EOS_EResult::EOS_Success)
 		{
-			doneQueries += 1;
+			// Change the error message so that the end user knows at which sub-query index the error occurred.
+			errors[CurrentIndex] = FString::Printf(TEXT("SubQueryId: %d, Message: %s"), CurrentIndex, *error);
 		}
-	}
 
-	thisPtr->UserQueryLock.Unlock();
+		//Regardless if there is an error or not for this index, we have completed a query
+		//we will simply move on to the next index
+		completedQueries[CurrentIndex] = true;
+		checkf(userIds.Num() == errors.Num() && errors.Num() == completedQueries.Num(), TEXT("Amount(UserIds, completedQueries, errors) mismatch."));
+		thisPtr->userQueries[additionalData->StartTime] = MakeTuple(userIds, completedQueries, errors);
 
-	// If all queries are done, log the result of the function
-	if (doneQueries == userIds.Num())
-	{
-		FString completeErrorString = thisPtr->ConcatErrorString(errors);
-		UE_CLOG_ONLINE_USER(completeErrorString.IsEmpty(), Display, TEXT("Query user info successful."));
-		UE_CLOG_ONLINE_USER(!completeErrorString.IsEmpty(), Warning, TEXT("Query user info failed:\r\n%s"), *error);
+		// Count the number of completed queries
+		int32 doneQueries = 0;
+		for (int32 i = 0; i < completedQueries.Num(); ++i)
+		{
+			//We are done if all queries have been completed in some form
+			if (completedQueries[i])
+			{
+				doneQueries += 1;
+			}
+		}
 
-		//Just like a queue, remove the first element as we have finished that query
-		thisPtr->queriedUserIdsCache.RemoveAt(0);
+		thisPtr->UserQueryLock.Unlock();
 
-		IOnlineIdentityPtr identityPtr = thisPtr->Subsystem->GetIdentityInterface();
-		thisPtr->TriggerOnQueryUserInfoCompleteDelegates(additionalData->LocalUserId, error.IsEmpty(), userIds, completeErrorString);
+		// If all queries are done, log the result of the function
+		if (doneQueries == userIds.Num())
+		{
+			UE_LOG_ONLINE_USER(Log, TEXT("Query user info successful. Number of queries is: %d"), thisPtr->queriedUserIdsCache.Num());
+			//queries don't necessarily respect order, so remove the index on what the current query is set at
+			int32 IndexToRemove = thisPtr->TimeToIndexMap[additionalData->StartTime];
+			thisPtr->TimeToIndexMap.Remove(IndexToRemove);
+
+			//Remove the user query that we have from this timestamp, we are done with it
+			thisPtr->userQueries.Remove(additionalData->StartTime);
+
+			thisPtr->TriggerOnQueryUserInfoCompleteDelegates(additionalData->LocalUserId, error.IsEmpty(), userIds, "");
+		}
+		//we have finished all queries but there are errors as well
+		else if (doneQueries == completedQueries.Num() + errors.Num())
+		{
+			UE_LOG_ONLINE_USER(Log, TEXT("Query user info successful. Number of queries is: %d"), thisPtr->queriedUserIdsCache.Num());
+
+			FString completeErrorString = thisPtr->ConcatErrorString(errors);
+
+			UE_CLOG_ONLINE_USER(!completeErrorString.IsEmpty(), Warning, TEXT("Query user info failed:\r\n%s"), *error);
+
+			//queries don't necessarily respect order, so remove the index on what the current query is set at
+			int32 IndexToRemove = thisPtr->TimeToIndexMap[additionalData->StartTime];
+			thisPtr->TimeToIndexMap.Remove(IndexToRemove);
+
+			//Remove the user query that we have from this timestamp, we are done with it
+			thisPtr->userQueries.Remove(additionalData->StartTime);
+
+			thisPtr->TriggerOnQueryUserInfoCompleteDelegates(additionalData->LocalUserId, error.IsEmpty(), userIds, completeErrorString);
+		}
 	}
 
 	// Release the memory from additionalUserData
@@ -571,8 +576,11 @@ bool FOnlineUserEpic::QueryUserInfo(int32 LocalUserNum, const TArray<TSharedRef<
 				errors.Init(FString(), UserIds.Num());
 
 				TTuple<TArray<TSharedRef<FUniqueNetId const>>, TArray<bool>, TArray<FString>> queries = MakeTuple(UserIds, states, errors);
-				this->userQueries.Add(FDateTime::UtcNow().ToUnixTimestamp(), queries);
-
+				int64 CurrentTimeStamp = FDateTime::UtcNow().ToUnixTimestamp();
+				this->userQueries.Add(CurrentTimeStamp, queries);
+				//Add the current index on the time that this request is being made on
+				this->TimeToIndexMap.Add(CurrentTimeStamp, this->userQueries.Num() - 1);
+				
 				// Start the actual queries
 				for (int32 i = 0; i < UserIds.Num(); i++)
 				{
@@ -749,15 +757,22 @@ TSharedPtr<FOnlineUser> FOnlineUserEpic::GetUserInfo(int32 LocalUserNum, const c
 					FString country = UTF8_TO_TCHAR(userInfo->Country);
 					FString displayName = UTF8_TO_TCHAR(userInfo->DisplayName);
 					FString preferredLanguage = UTF8_TO_TCHAR(userInfo->PreferredLanguage);
-					FString nickname = FString(UTF8_TO_TCHAR(userInfo->Nickname));
+					FString nickname = UTF8_TO_TCHAR(userInfo->Nickname);
 
 					localUser = MakeShared<FUserOnlineAccountEpic>(UserId.AsShared());
 					localUser->SetUserAttribute(USER_ATTR_COUNTRY, country);
 					localUser->SetUserAttribute(USER_ATTR_DISPLAYNAME, displayName);
 					localUser->SetUserAttribute(USER_ATTR_PREFERRED_LANGUAGE, preferredLanguage);
-					localUser->SetUserLocalAttribute(USER_ATTR_PREFERRED_DISPLAYNAME, nickname);
+					//Nickname is needed in Friends interface SetAlias method, usually nickname is null anyways in EOS
+					localUser->SetUserAttribute(USER_ATTR_PREFERRED_DISPLAYNAME, nickname);
 
-					UE_LOG_ONLINE_USER(Log, TEXT("User name is: %s"), *displayName);
+					//Good to log so that users can see the difference between display name and nickname
+					FString DebugDisplayName;
+					localUser->GetUserAttribute(USER_ATTR_DISPLAYNAME, DebugDisplayName);
+					FString DebugNickname;
+					localUser->GetUserAttribute(USER_ATTR_PREFERRED_DISPLAYNAME, DebugNickname);
+	
+					UE_LOG_ONLINE_USER(Log, TEXT("%s: User name is: %s with nickname of: %s"), *FString(__FUNCTION__), *DebugDisplayName, *DebugNickname);
 				}
 				else
 				{

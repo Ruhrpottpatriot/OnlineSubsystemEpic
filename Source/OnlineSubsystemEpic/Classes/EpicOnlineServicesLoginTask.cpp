@@ -6,7 +6,6 @@
 #include "OnlineSubsystemEpicTypes.h"
 #include "Utilities.h"
 
-
 IOnlineIdentityPtr UEpicOnlineServicesIdentityTask::GetIdentityInterface()
 {
 	UWorld* world = GetWorld();
