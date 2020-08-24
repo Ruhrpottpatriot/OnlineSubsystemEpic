@@ -3,13 +3,13 @@
 #include "CoreMinimal.h"
 #include "OnlineSubsystemEpicPackage.h"
 #include "OnlineSubsystemImpl.h"
+#include "OnlineLobbyInterfaceEpic.h"
 #include "eos_sdk.h"
-
 
 using FOnlineIdentityEpicPtr = TSharedPtr<class FOnlineIdentityInterfaceEpic, ESPMode::ThreadSafe>;
 using FOnlineSessionEpicPtr = TSharedPtr<class FOnlineSessionEpic, ESPMode::ThreadSafe>;
 using FOnlineUserEpicPtr = TSharedPtr<class FOnlineUserEpic, ESPMode::ThreadSafe>;
-using FOnlineFriendsEpicPtr = TSharedPtr<class FOnlineFriendInterfaceEpic, ESPMode::ThreadSafe>;
+using FOnlineFriendsEpicPtr = TSharedPtr<class FOnlineFriendsInterfaceEpic, ESPMode::ThreadSafe>;
 using FOnlinePresenceEpicPtr = TSharedPtr<class FOnlinePresenceEpic, ESPMode::ThreadSafe>;
 
 class ONLINESUBSYSTEMEPIC_API FOnlineSubsystemEpic
@@ -81,8 +81,11 @@ PACKAGE_SCOPE:
 	FOnlineUserEpicPtr UserInterface;
 
 	FOnlinePresenceEpicPtr PresenceInterface;
-
+	
+	FOnlineFriendsEpicPtr FriendsInterface;
+	
 	FString DevToolAddress;
+
 };
 
 

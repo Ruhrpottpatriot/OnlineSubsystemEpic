@@ -181,7 +181,7 @@ void FOnlineUserEpic::OnEOSQueryUserInfoComplete(EOS_UserInfo_QueryUserInfoCallb
 			FString completeErrorString = thisPtr->ConcatErrorString(errors);
 
 			UE_CLOG_ONLINE_USER(!completeErrorString.IsEmpty(), Warning, TEXT("Query user info failed:\r\n%s"), *error);
-
+			
 			//queries don't necessarily respect order, so remove the index on what the current query is set at
 			int32 IndexToRemove = thisPtr->TimeToIndexMap[additionalData->StartTime];
 			thisPtr->TimeToIndexMap.Remove(IndexToRemove);

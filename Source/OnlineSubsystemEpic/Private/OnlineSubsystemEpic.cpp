@@ -5,6 +5,12 @@
 #include "Utilities.h"
 #include <string>
 
+#include "ConfigCacheIni.h"
+#include "OnlineFriendsInterfaceEpic.h"
+#include "OnlineLobbyInterfaceEpic.h"
+#include "OnlinePresenceEpic.h"
+#include "OnlinePartyInterfaceEpic.h"
+
 IOnlineSessionPtr FOnlineSubsystemEpic::GetSessionInterface() const
 {
 	return this->SessionInterface;
@@ -12,7 +18,7 @@ IOnlineSessionPtr FOnlineSubsystemEpic::GetSessionInterface() const
 
 IOnlineFriendsPtr FOnlineSubsystemEpic::GetFriendsInterface() const
 {
-	return nullptr;
+	return this->FriendsInterface;
 }
 
 IOnlinePartyPtr FOnlineSubsystemEpic::GetPartyInterface() const
@@ -359,8 +365,9 @@ bool FOnlineSubsystemEpic::Init()
 	this->IdentityInterface = MakeShareable(new FOnlineIdentityInterfaceEpic(this));
 	this->SessionInterface = MakeShareable(new FOnlineSessionEpic(this));
 	this->UserInterface = MakeShareable(new FOnlineUserEpic(this));
-	this->PresenceInterface = MakeShared<FOnlinePresenceEpic, ESPMode::ThreadSafe>(this);
-
+	this->PresenceInterface = MakeShareable(new FOnlinePresenceEpic(this));
+	this->FriendsInterface = MakeShareable(new FOnlineFriendsInterfaceEpic(this));
+	
 	this->IsInit = true;
 	return true;
 }
@@ -383,7 +390,7 @@ bool FOnlineSubsystemEpic::Shutdown()
 	DESTRUCT_INTERFACE(SessionInterface);
 	DESTRUCT_INTERFACE(UserInterface);
 	DESTRUCT_INTERFACE(this->PresenceInterface);
-
+	DESTRUCT_INTERFACE(FriendsInterface);
 #undef DESTRUCT_INTERFACE
 
 	return true;
