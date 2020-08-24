@@ -23,14 +23,15 @@ class FOnlineFriendEpic : public FOnlineFriend
 {
 
 public:
+
+	// Copy constructor
+	FOnlineFriendEpic(const FOnlineFriendEpic&) = default;
+	virtual ~FOnlineFriendEpic() = default;
+	
 	/**
 	 * Init/default constructor that must take in an Epic Account Id
 	 */
 	FOnlineFriendEpic(const EOS_EpicAccountId& InUserId = EOS_EpicAccountId());
-
-	FOnlineFriendEpic(const FUniqueNetId& NetId);
-
-	virtual ~FOnlineFriendEpic() = default;
 
 	// FOnlineUser
 	virtual TSharedRef<const FUniqueNetId> GetUserId() const override;
@@ -90,7 +91,7 @@ public:
 	 */
 	FOnlineFriendsInterfaceEpic(FOnlineSubsystemEpic* InSubsystem);
 
-	virtual ~FOnlineFriendsInterfaceEpic() = default;
+	virtual ~FOnlineFriendsInterfaceEpic() {};
 
 	/** The subsystem that owns the instance */
 	FOnlineSubsystemEpic* Subsystem;
@@ -105,10 +106,10 @@ protected:
 	/** List of friends */
 	struct FEpicFriendsList
 	{
-		TArray<TSharedRef<FOnlineFriendEpic>> Friends;
+		TArray<TSharedRef<FOnlineFriendEpic> > Friends;
 	};
 	
-	/**Map of local user idx to friends */
+	/**Mmap of local user idx to friends */
 	TMap<int32, FEpicFriendsList> FriendsLists;
 
 	/** Delegate to use for querying user info list */

@@ -67,17 +67,11 @@ void FOnlinePresenceEpic::EOS_OnPresenceChanged(EOS_Presence_PresenceChangedCall
 	FOnlinePresenceEpic* THIS = static_cast<FOnlinePresenceEpic*>(data->ClientData);
 
 	// After receiving a valid EAID, we can get the cached presence for it
-	if (THIS->PresenceNotifications.Contains(data->PresenceUserId))
-	{
-		FUniqueNetIdEpic targetEpicNetId = FUniqueNetIdEpic(data->PresenceUserId);
-		TSharedPtr<FOnlineUserPresence> targetPresence;
-		THIS->GetCachedPresence(targetEpicNetId, targetPresence);
+	FUniqueNetIdEpic targetEpicNetId = FUniqueNetIdEpic(data->PresenceUserId);
+	TSharedPtr<FOnlineUserPresence> targetPresence;
+	// Sometimes presence may change before we are finished with our query, so don't do anything until query is confirmed to be valid
+	if (EOnlineCachedResult::NotFound != THIS->GetCachedPresence(targetEpicNetId, targetPresence))
 		THIS->TriggerOnPresenceReceivedDelegates(targetEpicNetId, targetPresence.ToSharedRef());
-	}
-	//else
-	//{
-	//	UE_LOG_ONLINE_PRESENCE(Warning, TEXT("This should never happen."));
-	//}
 }
 
 void FOnlinePresenceEpic::EOS_QueryExternalAccountMappingsForPresenceComplete(EOS_Connect_QueryExternalAccountMappingsCallbackInfo const* data)
@@ -223,32 +217,40 @@ void FOnlinePresenceEpic::QueryPresence(const FUniqueNetId& User, const FOnPrese
 			PresenceNotifications.Add(epicUser.ToEpicAccountId(), PresenceNotificationHandle);
 		}
 
-		TSharedPtr<FUniqueNetId const> localUser = subsystem->GetIdentityInterface()->GetUniquePlayerId(0);
+		// Loop through all local players to get any active local players to query as well
+		TArray<TSharedPtr<FUserOnlineAccount>> UserAccountArray = subsystem->GetIdentityInterface()->GetAllUserAccounts();
 
-		if (epicUser.IsEpicAccountIdValid())
-		{
-			EOS_Presence_QueryPresenceOptions queryPresenceOptions = {
-				EOS_PRESENCE_QUERYPRESENCE_API_LATEST,
-				FUniqueNetIdEpic(*localUser).ToEpicAccountId(),
-				epicUser.ToEpicAccountId()
-			};
-			FPresenceAdditionalData* additionalData = new FPresenceAdditionalData{
-				this,
-				epicUser,
-				MakeShared<const IOnlinePresence::FOnPresenceTaskCompleteDelegate>(Delegate)
-			};
+		for (TSharedPtr<FUserOnlineAccount> UserAccount : UserAccountArray) {
+			TSharedRef<FUniqueNetId const> localUser = UserAccount->GetUserId();
 
-			EOS_Presence_QueryPresence(this->presenceHandle, &queryPresenceOptions, additionalData, &FOnlinePresenceEpic::EOS_QueryPresenceComplete);
-		}
-		else
-		{
-			UE_LOG_ONLINE_PRESENCE(Warning, TEXT("%s: UserId doesn't contain a valid epic account id."), *FString(__FUNCTION__));
+			if (epicUser.IsEpicAccountIdValid())
+			{
+				EOS_Presence_QueryPresenceOptions queryPresenceOptions = {
+					EOS_PRESENCE_QUERYPRESENCE_API_LATEST,
+					FUniqueNetIdEpic(localUser.Get()).ToEpicAccountId(),
+					epicUser.ToEpicAccountId()
+				};
+				FPresenceAdditionalData* additionalData = new FPresenceAdditionalData{
+					this,
+					epicUser,
+					MakeShared<const IOnlinePresence::FOnPresenceTaskCompleteDelegate>(Delegate)
+				};
+
+				EOS_Presence_QueryPresence(this->presenceHandle, &queryPresenceOptions, additionalData, &FOnlinePresenceEpic::EOS_QueryPresenceComplete);
+			}
+			else
+			{
+				UE_LOG_ONLINE_PRESENCE(Warning, TEXT("%s: UserId doesn't contain a valid epic account id."), *FString(__FUNCTION__));
+			}
 		}
 	}
 	else
 	{
-		//Ignore queryPresence call, we already are subscribed to this epic user id
-		UE_LOG_ONLINE_PRESENCE(Warning, TEXT("%s: presence already subscribed to event - call ignored."), *FString(__FUNCTION__));
+		// We should have this user cached, no need to query anymore - broadcast the information from cache
+		Delegate.ExecuteIfBound(User, true);
+		TSharedPtr<FOnlineUserPresence> Presence;
+		GetCachedPresence(User, Presence);
+		TriggerOnPresenceReceivedDelegates(User, Presence.ToSharedRef());
 	}
 }
 
